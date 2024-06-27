@@ -98,25 +98,22 @@ int simple_archiver_parse_args(int argc, const char **argv,
       }
     } else {
       if (out->working_files == NULL) {
-        puts("first addition to working_files");
         out->working_files = malloc(sizeof(char *) * 2);
         int arg_length = strlen(argv[0]) + 1;
         out->working_files[0] = malloc(arg_length);
         strncpy(out->working_files[0], argv[0], arg_length);
         out->working_files[1] = NULL;
       } else {
-        puts("later addition to working_files");
         int working_size = 1;
         char **ptr = out->working_files;
         while (ptr && *ptr) {
           ++working_size;
           ++ptr;
         }
-        printf("working_size is %u\n", working_size);
 
         // TODO verify this is necessary, using different variables.
         ptr = out->working_files;
-        out->working_files = realloc(ptr, sizeof(char*) * (working_size + 1));
+        out->working_files = realloc(ptr, sizeof(char *) * (working_size + 1));
 
         // Set new actual last element to NULL.
         out->working_files[working_size] = NULL;
@@ -151,16 +148,11 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   if (parsed->working_files) {
     char **ptr = parsed->working_files;
     unsigned int idx = 0;
-    puts("freeing working_files strings...");
     while (ptr[idx]) {
-      printf("Freeing at idx %u\n", idx);
       free(ptr[idx]);
       ++idx;
     }
-    puts("freeing string array...");
     free(parsed->working_files);
     parsed->working_files = NULL;
-
-    puts("free_parsed is done.");
   }
 }

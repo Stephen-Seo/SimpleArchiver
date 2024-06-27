@@ -23,13 +23,10 @@
 int main(int argc, const char **argv) {
   simple_archiver_print_usage();
 
-  //__attribute__((cleanup(simple_archiver_free_parsed)))
+  __attribute__((cleanup(simple_archiver_free_parsed)))
   SDArchiverParsed parsed = simple_archiver_create_parsed();
 
   simple_archiver_parse_args(argc, argv, &parsed);
 
-  puts("freeing");
-  simple_archiver_free_parsed(&parsed);
-  puts("end");
   return 0;
 }
