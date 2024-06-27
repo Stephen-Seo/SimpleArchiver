@@ -116,7 +116,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
         // TODO verify this is necessary, using different variables.
         ptr = out->working_files;
-        out->working_files = realloc(ptr, working_size + 1);
+        out->working_files = realloc(ptr, sizeof(char*) * (working_size + 1));
 
         // Set new actual last element to NULL.
         out->working_files[working_size] = NULL;
