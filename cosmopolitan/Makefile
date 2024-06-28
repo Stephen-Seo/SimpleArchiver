@@ -5,10 +5,12 @@ OUTDIR = out
 
 SOURCES = \
 		../src/main.c \
-		../src/parser.c
+		../src/parser.c \
+		../src/data_structures/linked_list.c
 
 HEADERS = \
-		../src/parser.h
+		../src/parser.h \
+		../src/data_structures/linked_list.h
 
 OBJECTS = $(addprefix ${OBJDIR}/,$(subst ..,PREVDIR,$(patsubst %.c,%.c.o,${SOURCES})))
 

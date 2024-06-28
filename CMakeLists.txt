@@ -6,6 +6,7 @@ set(SimpleArchiver_VERSION 1.0)
 set(SimpleArchiver_SOURCES
     src/main.c
     src/parser.c
+    src/data_structures/linked_list.c
 )
 
 add_compile_options(
@@ -21,3 +22,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 add_executable(simplearchiver ${SimpleArchiver_SOURCES})
+
+add_executable(test_datastructures
+  src/data_structures/test.c
+  src/data_structures/linked_list.c
+)
