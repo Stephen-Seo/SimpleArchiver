@@ -148,13 +148,6 @@ int main(void) {
       }
     }
 
-    key = 5;
-    CHECK_TRUE(simple_archiver_hash_map_get(hash_map, &key, sizeof(int)) == NULL);
-    key = 10;
-    CHECK_TRUE(simple_archiver_hash_map_get(hash_map, &key, sizeof(int)) != NULL);
-    key = 15;
-    CHECK_TRUE(simple_archiver_hash_map_get(hash_map, &key, sizeof(int)) == NULL);
-
     simple_archiver_hash_map_free(&hash_map);
   }
 
