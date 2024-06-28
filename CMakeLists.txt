@@ -7,6 +7,8 @@ set(SimpleArchiver_SOURCES
     src/main.c
     src/parser.c
     src/data_structures/linked_list.c
+    src/data_structures/hash_map.c
+    src/algorithms/linear_congruential_gen.c
 )
 
 add_compile_options(
@@ -24,6 +26,8 @@ endif()
 add_executable(simplearchiver ${SimpleArchiver_SOURCES})
 
 add_executable(test_datastructures
-  src/data_structures/test.c
-  src/data_structures/linked_list.c
+    src/data_structures/test.c
+    src/data_structures/linked_list.c
+    src/data_structures/hash_map.c
+    src/algorithms/linear_congruential_gen.c
 )

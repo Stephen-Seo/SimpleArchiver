@@ -84,8 +84,30 @@ int simple_archiver_list_add(SDArchiverLinkedList *list, void *data,
   return 0;
 }
 
+int simple_archiver_list_add_front(SDArchiverLinkedList *list, void *data,
+                                   void (*data_free_fn)(void *)) {
+  if (!list) {
+    return 1;
+  }
+
+  SDArchiverLLNode *new_node = malloc(sizeof(SDArchiverLLNode));
+  new_node->data = data;
+  new_node->data_free_fn = data_free_fn;
+
+  new_node->next = list->head->next;
+  new_node->prev = list->head;
+
+  list->head->next->prev = new_node;
+  list->head->next = new_node;
+
+  ++list->count;
+
+  return 0;
+}
+
 int simple_archiver_list_remove(SDArchiverLinkedList *list,
-                                int (*data_check_fn)(void *)) {
+                                int (*data_check_fn)(void *, void *),
+                                void *user_data) {
   if (!list) {
     return 0;
   }
@@ -100,7 +122,7 @@ int simple_archiver_list_remove(SDArchiverLinkedList *list,
     }
     iter_removed = 0;
     if (node && node != list->tail) {
-      if (data_check_fn(node->data) != 0) {
+      if (data_check_fn(node->data, user_data) != 0) {
         SDArchiverLLNode *temp = node->next;
 
         if (node->data_free_fn) {
@@ -125,7 +147,8 @@ int simple_archiver_list_remove(SDArchiverLinkedList *list,
 }
 
 int simple_archiver_list_remove_once(SDArchiverLinkedList *list,
-                                     int (*data_check_fn)(void *)) {
+                                     int (*data_check_fn)(void *, void *),
+                                     void *user_data) {
   if (!list) {
     return 0;
   }
@@ -134,7 +157,7 @@ int simple_archiver_list_remove_once(SDArchiverLinkedList *list,
   while (node) {
     node = node->next;
     if (node && node != list->tail) {
-      if (data_check_fn(node->data) != 0) {
+      if (data_check_fn(node->data, user_data) != 0) {
         if (node->data_free_fn) {
           node->data_free_fn(node->data);
         } else {
@@ -156,7 +179,8 @@ int simple_archiver_list_remove_once(SDArchiverLinkedList *list,
 }
 
 void *simple_archiver_list_get(SDArchiverLinkedList *list,
-                               int (*data_check_fn)(void *)) {
+                               int (*data_check_fn)(void *, void *),
+                               void *user_data) {
   if (!list) {
     return NULL;
   }
@@ -165,7 +189,7 @@ void *simple_archiver_list_get(SDArchiverLinkedList *list,
   while (node) {
     node = node->next;
     if (node && node != list->tail) {
-      if (data_check_fn(node->data) != 0) {
+      if (data_check_fn(node->data, user_data) != 0) {
         return node->data;
       }
     }

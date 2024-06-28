@@ -35,26 +35,35 @@ typedef struct SDArchiverLinkedList {
 SDArchiverLinkedList *simple_archiver_list_init(void);
 void simple_archiver_list_free(SDArchiverLinkedList **list);
 
-/// Returns 0 on success.
+/// Returns 0 on success. Puts data at the end of the list
+/// If data_free_fn is NULL, then "free" is used instead.
 int simple_archiver_list_add(SDArchiverLinkedList *list, void *data,
                              void (*data_free_fn)(void *));
+
+/// Returns 0 on success. Puts data at the front of the list
+/// If data_free_fn is NULL, then "free" is used instead.
+int simple_archiver_list_add_front(SDArchiverLinkedList *list, void *data,
+                                   void (*data_free_fn)(void *));
 
 /// Returns number of removed items.
 /// data_check_fn must return non-zero if the data passed to it is to be
 /// removed.
 int simple_archiver_list_remove(SDArchiverLinkedList *list,
-                                int (*data_check_fn)(void *));
+                                int (*data_check_fn)(void *, void *),
+                                void *user_data);
 
 /// Returns 1 on removed, 0 if not removed.
 /// data_check_fn must return non-zero if the data passed to it is to be
 /// removed.
 int simple_archiver_list_remove_once(SDArchiverLinkedList *list,
-                                     int (*data_check_fn)(void *));
+                                     int (*data_check_fn)(void *, void *),
+                                     void *user_data);
 
 /// Returns non-null on success.
 /// data_check_fn must return non-zero if the data passed to it is to be
 /// returned.
 void *simple_archiver_list_get(SDArchiverLinkedList *list,
-                               int (*data_check_fn)(void *));
+                               int (*data_check_fn)(void *, void *),
+                               void *user_data);
 
 #endif

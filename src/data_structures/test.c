@@ -17,8 +17,10 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "hash_map.h"
 #include "linked_list.h"
 
 static int checks_checked = 0;
@@ -45,11 +47,17 @@ static int checks_passed = 0;
 
 void no_free_fn(__attribute__((unused)) void *unused) { return; }
 
-int get_one_fn(void *data) { return strcmp(data, "one") == 0 ? 1 : 0; }
+int get_one_fn(void *data, __attribute__((unused)) void *ud) {
+  return strcmp(data, "one") == 0 ? 1 : 0;
+}
 
-int get_two_fn(void *data) { return strcmp(data, "two") == 0 ? 1 : 0; }
+int get_two_fn(void *data, __attribute__((unused)) void *ud) {
+  return strcmp(data, "two") == 0 ? 1 : 0;
+}
 
-int get_three_fn(void *data) { return strcmp(data, "three") == 0 ? 1 : 0; }
+int get_three_fn(void *data, __attribute__((unused)) void *ud) {
+  return strcmp(data, "three") == 0 ? 1 : 0;
+}
 
 int main(void) {
   // Test LinkedList.
@@ -74,26 +82,73 @@ int main(void) {
 
     CHECK_TRUE(list->count == 3);
 
-    void *ptr = simple_archiver_list_get(list, get_one_fn);
+    void *ptr = simple_archiver_list_get(list, get_one_fn, NULL);
     CHECK_TRUE(ptr == one);
 
-    ptr = simple_archiver_list_get(list, get_two_fn);
+    ptr = simple_archiver_list_get(list, get_two_fn, NULL);
     CHECK_TRUE(ptr == two);
 
-    ptr = simple_archiver_list_get(list, get_three_fn);
+    ptr = simple_archiver_list_get(list, get_three_fn, NULL);
     CHECK_TRUE(ptr == three);
 
-    CHECK_TRUE(simple_archiver_list_remove(list, get_two_fn) == 1);
+    CHECK_TRUE(simple_archiver_list_remove(list, get_two_fn, NULL) == 1);
     CHECK_TRUE(list->count == 2);
-    CHECK_TRUE(simple_archiver_list_get(list, get_two_fn) == NULL);
+    CHECK_TRUE(simple_archiver_list_get(list, get_two_fn, NULL) == NULL);
 
-    CHECK_TRUE(simple_archiver_list_remove_once(list, get_one_fn) == 1);
+    CHECK_TRUE(simple_archiver_list_remove_once(list, get_one_fn, NULL) == 1);
     CHECK_TRUE(list->count == 1);
-    CHECK_TRUE(simple_archiver_list_get(list, get_one_fn) == NULL);
+    CHECK_TRUE(simple_archiver_list_get(list, get_one_fn, NULL) == NULL);
 
     simple_archiver_list_free(&list);
 
     CHECK_TRUE(list == NULL);
+  }
+
+  // Test HashMap.
+  {
+    SDArchiverHashMap *hash_map = simple_archiver_hash_map_init();
+    simple_archiver_hash_map_free(&hash_map);
+
+    hash_map = simple_archiver_hash_map_init();
+
+    {
+      int *value, *key;
+
+      for (unsigned int idx = 0; idx < 20; ++idx) {
+        value = malloc(sizeof(int));
+        key = malloc(sizeof(int));
+        *value = idx;
+        *key = idx;
+        simple_archiver_hash_map_insert(&hash_map, value, key, sizeof(int),
+                                        NULL, NULL);
+      }
+    }
+
+    int value, key;
+    void *value_ptr;
+
+    for (value = 0, key = 0; value < 20 && key < 20; ++value, ++key) {
+      value_ptr = simple_archiver_hash_map_get(hash_map, &key, sizeof(int));
+      CHECK_TRUE(value_ptr != NULL);
+      CHECK_TRUE(memcmp(value_ptr, &value, sizeof(int)) == 0);
+    }
+
+    key = 5;
+    simple_archiver_hash_map_remove(hash_map, &key, sizeof(int));
+    key = 15;
+    simple_archiver_hash_map_remove(hash_map, &key, sizeof(int));
+
+    for (value = 0, key = 0; value < 20 && key < 20; ++value, ++key) {
+      value_ptr = simple_archiver_hash_map_get(hash_map, &key, sizeof(int));
+      if (key != 5 && key != 15) {
+        CHECK_TRUE(value_ptr != NULL);
+        CHECK_TRUE(memcmp(value_ptr, &value, sizeof(int)) == 0);
+      } else {
+        CHECK_TRUE(value_ptr == NULL);
+      }
+    }
+
+    simple_archiver_hash_map_free(&hash_map);
   }
 
   printf("Checks checked: %u\n", checks_checked);
