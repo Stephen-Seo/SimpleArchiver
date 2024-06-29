@@ -1,5 +1,8 @@
 # Simple Archiver
 
+This program is not yet finished! You can track progress
+[here](https://git.seodisparate.com/stephenseo/SimpleArchiver/projects/3).
+
 This program exists because I could not get `tar` or `ar` to compile with
 [Cosmopolitan](https://justine.lol/cosmopolitan/index.html). Thus, this
 archiver will be written with support for Cosmopolitan in mind. This means
