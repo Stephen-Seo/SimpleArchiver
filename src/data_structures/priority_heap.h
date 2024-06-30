@@ -38,8 +38,7 @@ typedef struct SDArchiverPHeap {
 SDArchiverPHeap *simple_archiver_priority_heap_init(void);
 void simple_archiver_priority_heap_free(SDArchiverPHeap **priority_heap);
 
-/// If data_cleanup_fn is NULL, then "free()" is used on data when popped or
-/// freed.
+/// If data_cleanup_fn is NULL, then "free()" is used on data when freed.
 void simple_archiver_priority_heap_insert(SDArchiverPHeap **priority_heap,
                                           long long priority, void *data,
                                           void (*data_cleanup_fn)(void *));
