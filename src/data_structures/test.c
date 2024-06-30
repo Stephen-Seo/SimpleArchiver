@@ -61,6 +61,8 @@ int get_three_fn(void *data, __attribute__((unused)) void *ud) {
   return strcmp(data, "three") == 0 ? 1 : 0;
 }
 
+int more_fn(long long a, long long b) { return a > b ? 1 : 0; }
+
 int main(void) {
   // Test LinkedList.
   {
@@ -258,6 +260,65 @@ int main(void) {
       *data = idx;
       simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
     }
+    simple_archiver_priority_heap_free(&priority_heap);
+
+    // Reverse priority.
+    priority_heap = simple_archiver_priority_heap_init_less_fn(more_fn);
+
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      unsigned int *data = malloc(sizeof(unsigned int));
+      *data = idx;
+      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+    }
+
+    for (unsigned int idx = max; idx-- > 0;) {
+      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+      CHECK_TRUE(*data == idx);
+      data = simple_archiver_priority_heap_pop(priority_heap);
+      CHECK_TRUE(*data == idx);
+      free(data);
+    }
+
+    simple_archiver_priority_heap_free(&priority_heap);
+
+    // Insert in random order with reverse-priority-heap.
+    priority_heap = simple_archiver_priority_heap_init_less_fn(more_fn);
+    array = malloc(sizeof(unsigned int) * max);
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      array[idx] = idx;
+    }
+
+    // Deterministic randomization.
+    for (unsigned int idx = max - 1; idx-- > 0;) {
+      unsigned int other_idx = simple_archiver_algo_lcg_defaults(idx) %
+                               (unsigned long long)(idx + 1);
+      if (idx != other_idx) {
+        unsigned int temp = array[max - 1];
+        array[max - 1] = array[other_idx];
+        array[other_idx] = temp;
+      }
+    }
+
+    // Insert the deterministically randomized array.
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      simple_archiver_priority_heap_insert(&priority_heap, array[idx],
+                                           array + idx, no_free_fn);
+    }
+
+    for (unsigned int idx = max; idx-- > 0;) {
+      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+      CHECK_TRUE(*data == idx);
+      if (*data != idx) {
+        printf("idx is %u, data is %u\n", idx, *data);
+      }
+      data = simple_archiver_priority_heap_pop(priority_heap);
+      CHECK_TRUE(*data == idx);
+      if (*data != idx) {
+        printf("idx is %u, data is %u\n", idx, *data);
+      }
+    }
+    free(array);
+
     simple_archiver_priority_heap_free(&priority_heap);
   }
 

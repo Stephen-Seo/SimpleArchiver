@@ -33,9 +33,16 @@ typedef struct SDArchiverPHeap {
   SDArchiverPHNode *nodes;
   unsigned long long capacity;
   unsigned long long size;
+  int (*less_fn)(long long, long long);
 } SDArchiverPHeap;
 
+/// Default "less" function to determine if a has higher priority than b.
+/// Returns non-zero if "less".
+int simple_archiver_priority_heap_default_less(long long a, long long b);
+
 SDArchiverPHeap *simple_archiver_priority_heap_init(void);
+SDArchiverPHeap *simple_archiver_priority_heap_init_less_fn(
+    int (*less_fn)(long long, long long));
 void simple_archiver_priority_heap_free(SDArchiverPHeap **priority_heap);
 
 /// If data_cleanup_fn is NULL, then "free()" is used on data when freed.
