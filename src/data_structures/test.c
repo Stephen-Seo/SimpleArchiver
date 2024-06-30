@@ -20,8 +20,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../algorithms/linear_congruential_gen.h"
 #include "hash_map.h"
 #include "linked_list.h"
+#include "priority_heap.h"
 
 static int checks_checked = 0;
 static int checks_passed = 0;
@@ -149,6 +151,114 @@ int main(void) {
     }
 
     simple_archiver_hash_map_free(&hash_map);
+  }
+
+  // Test PriorityHeap.
+  {
+    SDArchiverPHeap *priority_heap = simple_archiver_priority_heap_init();
+    simple_archiver_priority_heap_free(&priority_heap);
+
+    priority_heap = simple_archiver_priority_heap_init();
+
+    // Just 3 elements.
+    for (unsigned int idx = 0; idx < 3; ++idx) {
+      unsigned int *data = malloc(sizeof(unsigned int));
+      *data = idx;
+      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+    }
+    for (unsigned int idx = 0; idx < 3; ++idx) {
+      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+      CHECK_TRUE(*data == idx);
+      if (*data != idx) {
+        printf("idx is %u, data is %u\n", idx, *data);
+      }
+      data = simple_archiver_priority_heap_pop(priority_heap);
+      CHECK_TRUE(*data == idx);
+      if (*data != idx) {
+        printf("idx is %u, data is %u\n", idx, *data);
+      }
+      free(data);
+    }
+
+    // 100 elements.
+    unsigned int max = 100;
+
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      unsigned int *data = malloc(sizeof(unsigned int));
+      *data = idx;
+      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+    }
+
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+      CHECK_TRUE(*data == idx);
+      data = simple_archiver_priority_heap_pop(priority_heap);
+      CHECK_TRUE(*data == idx);
+      free(data);
+    }
+
+    // Insert in reverse order.
+    for (unsigned int idx = max; idx-- > 0;) {
+      unsigned int *data = malloc(sizeof(unsigned int));
+      *data = idx;
+      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+    }
+
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+      CHECK_TRUE(*data == idx);
+      data = simple_archiver_priority_heap_pop(priority_heap);
+      CHECK_TRUE(*data == idx);
+      free(data);
+    }
+
+    // Insert in random order.
+    unsigned int *array = malloc(sizeof(unsigned int) * max);
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      array[idx] = idx;
+    }
+
+    // Deterministic randomization.
+    for (unsigned int idx = max - 1; idx-- > 0;) {
+      unsigned int other_idx = simple_archiver_algo_lcg_defaults(idx) %
+                               (unsigned long long)(idx + 1);
+      if (idx != other_idx) {
+        unsigned int temp = array[max - 1];
+        array[max - 1] = array[other_idx];
+        array[other_idx] = temp;
+      }
+    }
+
+    // Insert the deterministically randomized array.
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      simple_archiver_priority_heap_insert(&priority_heap, array[idx],
+                                           array + idx, no_free_fn);
+    }
+
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+      CHECK_TRUE(*data == idx);
+      if (*data != idx) {
+        printf("idx is %u, data is %u\n", idx, *data);
+      }
+      data = simple_archiver_priority_heap_pop(priority_heap);
+      CHECK_TRUE(*data == idx);
+      if (*data != idx) {
+        printf("idx is %u, data is %u\n", idx, *data);
+      }
+    }
+    free(array);
+
+    simple_archiver_priority_heap_free(&priority_heap);
+
+    // Insert, don't pop, do free, for memcheck.
+    priority_heap = simple_archiver_priority_heap_init();
+    for (unsigned int idx = 0; idx < max; ++idx) {
+      unsigned int *data = malloc(sizeof(unsigned int));
+      *data = idx;
+      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+    }
+    simple_archiver_priority_heap_free(&priority_heap);
   }
 
   printf("Checks checked: %u\n", checks_checked);

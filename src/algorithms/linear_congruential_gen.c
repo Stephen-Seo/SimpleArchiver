@@ -25,3 +25,8 @@ unsigned long long simple_archiver_algo_lcg(unsigned long long seed,
   // "m" is implicity 2^64.
   return seed * a + c;
 }
+
+unsigned long long simple_archiver_algo_lcg_defaults(unsigned long long seed) {
+  // "m" is implicity 2^64.
+  return seed * SC_ALGO_LCG_DEFAULT_A + SC_ALGO_LCG_DEFAULT_C;
+}

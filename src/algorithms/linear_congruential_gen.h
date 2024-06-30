@@ -27,4 +27,6 @@ unsigned long long simple_archiver_algo_lcg(unsigned long long seed,
                                             unsigned long long a,
                                             unsigned long long c);
 
+unsigned long long simple_archiver_algo_lcg_defaults(unsigned long long seed);
+
 #endif

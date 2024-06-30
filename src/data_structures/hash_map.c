@@ -86,8 +86,7 @@ unsigned long long simple_archiver_hash_map_internal_key_to_hash(
     seed += temp;
   }
 
-  return simple_archiver_algo_lcg(seed, SC_ALGO_LCG_DEFAULT_A,
-                                  SC_ALGO_LCG_DEFAULT_C);
+  return simple_archiver_algo_lcg_defaults(seed);
 }
 
 /// Returns 0 on success.

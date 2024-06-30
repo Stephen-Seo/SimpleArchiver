@@ -8,13 +8,15 @@ SOURCES = \
 		../src/parser.c \
 		../src/algorithms/linear_congruential_gen.c \
 		../src/data_structures/linked_list.c \
-		../src/data_structures/hash_map.c
+		../src/data_structures/hash_map.c \
+		../src/data_structures/priority_heap.c
 
 HEADERS = \
 		../src/parser.h \
 		../src/algorithms/linear_congruential_gen.h \
 		../src/data_structures/linked_list.h \
 		../src/data_structures/hash_map.h \
+		../src/data_structures/priority_heap.h \
 		../src/platforms.h
 
 OBJECTS = $(addprefix ${OBJDIR}/,$(subst ..,PREVDIR,$(patsubst %.c,%.c.o,${SOURCES})))
