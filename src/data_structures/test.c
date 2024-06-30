@@ -224,7 +224,7 @@ int main(void) {
     for (unsigned int idx = max - 1; idx-- > 0;) {
       unsigned int other_idx = simple_archiver_algo_lcg_defaults(idx) %
                                (unsigned long long)(idx + 1);
-      if (idx != other_idx) {
+      if (max - 1 != other_idx) {
         unsigned int temp = array[max - 1];
         array[max - 1] = array[other_idx];
         array[other_idx] = temp;
@@ -292,7 +292,7 @@ int main(void) {
     for (unsigned int idx = max - 1; idx-- > 0;) {
       unsigned int other_idx = simple_archiver_algo_lcg_defaults(idx) %
                                (unsigned long long)(idx + 1);
-      if (idx != other_idx) {
+      if (max - 1 != other_idx) {
         unsigned int temp = array[max - 1];
         array[max - 1] = array[other_idx];
         array[other_idx] = temp;
