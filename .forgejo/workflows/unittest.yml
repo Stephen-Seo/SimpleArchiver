@@ -18,3 +18,5 @@ jobs:
         name: Build
       - run: ./buildDebug/test_datastructures
         name: Run test_datastructures
+      - run: ./buildDebug/test_simplearchiver
+        name: Run test_simplearchiver

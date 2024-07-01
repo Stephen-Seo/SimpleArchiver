@@ -33,3 +33,8 @@ add_executable(test_datastructures
     src/data_structures/priority_heap.c
     src/algorithms/linear_congruential_gen.c
 )
+
+add_executable(test_simplearchiver
+    src/test.c
+    src/parser.c
+)

@@ -13,6 +13,7 @@ SOURCES = \
 
 HEADERS = \
 		../src/parser.h \
+		../src/parser_internal.h \
 		../src/algorithms/linear_congruential_gen.h \
 		../src/data_structures/linked_list.h \
 		../src/data_structures/hash_map.h \

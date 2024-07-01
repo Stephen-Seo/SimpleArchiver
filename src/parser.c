@@ -22,6 +22,59 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "parser_internal.h"
+
+/// Gets the first non "./"-like character in the filename.
+unsigned int simple_archiver_parser_internal_filename_idx(
+    const char *filename) {
+  unsigned int idx = 0;
+  unsigned int known_good_idx = 0;
+  const unsigned int length = strlen(filename);
+
+  // 0b0001 - checked that idx char is '.'
+  // 0b0010 - checked that idx char is '/'
+  unsigned int flags = 0;
+
+  for (; idx < length; ++idx) {
+    if ((flags & 3) == 0) {
+      if (filename[idx] == 0) {
+        return known_good_idx;
+      } else if (filename[idx] == '.') {
+        flags |= 1;
+      } else {
+        return idx;
+      }
+    } else if ((flags & 3) == 1) {
+      if (filename[idx] == 0) {
+        return known_good_idx;
+      } else if (filename[idx] == '/') {
+        flags |= 2;
+      } else {
+        return idx - 1;
+      }
+    } else if ((flags & 3) == 3) {
+      if (filename[idx] == 0) {
+        return known_good_idx;
+      } else if (filename[idx] == '/') {
+        continue;
+      } else if (filename[idx] == '.') {
+        flags &= 0xFFFFFFFC;
+        known_good_idx = idx;
+        --idx;
+        continue;
+      } else {
+        break;
+      }
+    }
+  }
+
+  if (filename[idx] == 0) {
+    return known_good_idx;
+  }
+
+  return idx;
+}
+
 void simple_archiver_print_usage(void) {
   puts("Usage flags:");
   puts("-c : create archive file");
@@ -29,6 +82,7 @@ void simple_archiver_print_usage(void) {
   puts("-f <filename> : filename to work on");
   puts("--compressor <full_compress_cmd> : requires --decompressor");
   puts("--decompressor <full_decompress_cmd> : requires --compressor");
+  puts("-- : specifies remaining arguments are files to archive/extract");
   puts("If creating archive file, remaining args specify files to archive.");
   puts("If extracting archive file, remaining args specify files to extract.");
 }
@@ -92,6 +146,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         strncpy(out->decompressor, argv[1], size);
         --argc;
         ++argv;
+      } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
+        is_remaining_args = 1;
       } else if (argv[0][0] != '-') {
         is_remaining_args = 1;
         continue;
@@ -99,9 +155,11 @@ int simple_archiver_parse_args(int argc, const char **argv,
     } else {
       if (out->working_files == NULL) {
         out->working_files = malloc(sizeof(char *) * 2);
-        int arg_length = strlen(argv[0]) + 1;
+        unsigned int arg_idx =
+            simple_archiver_parser_internal_filename_idx(argv[0]);
+        int arg_length = strlen(argv[0] + arg_idx) + 1;
         out->working_files[0] = malloc(arg_length);
-        strncpy(out->working_files[0], argv[0], arg_length);
+        strncpy(out->working_files[0], argv[0] + arg_idx, arg_length);
         out->working_files[1] = NULL;
       } else {
         int working_size = 1;
@@ -117,10 +175,12 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
         // Set new actual last element to NULL.
         out->working_files[working_size] = NULL;
-        int size = strlen(argv[0]) + 1;
+        unsigned int arg_idx =
+            simple_archiver_parser_internal_filename_idx(argv[0]);
+        int size = strlen(argv[0] + arg_idx) + 1;
         // Set last element to the arg.
         out->working_files[working_size - 1] = malloc(size);
-        strncpy(out->working_files[working_size - 1], argv[0], size);
+        strncpy(out->working_files[working_size - 1], argv[0] + arg_idx, size);
       }
     }
 
