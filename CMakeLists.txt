@@ -6,6 +6,7 @@ set(SimpleArchiver_VERSION 1.0)
 set(SimpleArchiver_SOURCES
     src/main.c
     src/parser.c
+    src/helpers.c
     src/data_structures/linked_list.c
     src/data_structures/hash_map.c
     src/data_structures/priority_heap.c
@@ -37,4 +38,5 @@ add_executable(test_datastructures
 add_executable(test_simplearchiver
     src/test.c
     src/parser.c
+    src/helpers.c
 )
