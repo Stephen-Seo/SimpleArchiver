@@ -153,6 +153,19 @@ int main(void) {
     }
 
     simple_archiver_hash_map_free(&hash_map);
+
+    // Rehash test for Memcheck.
+    hash_map = simple_archiver_hash_map_init();
+    for (unsigned int idx = 0; idx < SC_SA_DS_HASH_MAP_START_BUCKET_SIZE + 1;
+         ++idx) {
+      unsigned int *copy_value = malloc(sizeof(unsigned int));
+      *copy_value = idx;
+      unsigned int *copy_key = malloc(sizeof(unsigned int));
+      *copy_key = idx;
+      simple_archiver_hash_map_insert(&hash_map, copy_value, copy_key,
+                                      sizeof(unsigned int), NULL, NULL);
+    }
+    simple_archiver_hash_map_free(&hash_map);
   }
 
   // Test PriorityHeap.

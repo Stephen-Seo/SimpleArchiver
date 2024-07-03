@@ -22,7 +22,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#endif
+
+#include "data_structures/hash_map.h"
+#include "data_structures/linked_list.h"
 #include "parser_internal.h"
+#include "platforms.h"
 
 /// Gets the first non "./"-like character in the filename.
 unsigned int simple_archiver_parser_internal_filename_idx(
@@ -73,6 +82,22 @@ unsigned int simple_archiver_parser_internal_filename_idx(
   }
 
   return idx;
+}
+
+int list_get_last_fn(void *data, void *ud) {
+  char **last = ud;
+  *last = data;
+  return 0;
+}
+
+void container_no_free_fn(__attribute__((unused)) void *data) { return; }
+
+int list_remove_same_str_fn(void *data, void *ud) {
+  if (strcmp((char *)data, (char *)ud) == 0) {
+    return 1;
+  }
+
+  return 0;
 }
 
 void simple_archiver_print_usage(void) {
@@ -215,4 +240,103 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     free(parsed->working_files);
     parsed->working_files = NULL;
   }
+}
+
+SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
+    const SDArchiverParsed *parsed) {
+  SDArchiverLinkedList *files_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_hash_map_free)))
+  SDArchiverHashMap *hash_map = simple_archiver_hash_map_init();
+  int hash_map_sentinel = 1;
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+  for (char **iter = parsed->working_files; iter && *iter; ++iter) {
+    struct stat st;
+    stat(*iter, &st);
+    if ((st.st_mode & S_IFMT) == S_IFREG) {
+      // Is a regular file.
+      int len = strlen(*iter) + 1;
+      char *filename = malloc(len);
+      strncpy(filename, *iter, len);
+      if (simple_archiver_hash_map_get(hash_map, filename, len - 1) == NULL) {
+        simple_archiver_list_add(files_list, filename, NULL);
+        simple_archiver_hash_map_insert(&hash_map, &hash_map_sentinel, filename,
+                                        len - 1, container_no_free_fn,
+                                        container_no_free_fn);
+      } else {
+        free(filename);
+      }
+    } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
+      // Is a directory. TODO handle this.
+      __attribute__((cleanup(simple_archiver_list_free)))
+      SDArchiverLinkedList *dir_list = simple_archiver_list_init();
+      simple_archiver_list_add(dir_list, *iter, container_no_free_fn);
+      char *next;
+      while (dir_list->count != 0) {
+        simple_archiver_list_get(dir_list, list_get_last_fn, &next);
+        if (!next) {
+          break;
+        }
+        DIR *dir = opendir(next);
+        struct dirent *dir_entry;
+        do {
+          dir_entry = readdir(dir);
+          if (dir_entry) {
+            if (strcmp(dir_entry->d_name, ".") == 0 ||
+                strcmp(dir_entry->d_name, "..") == 0) {
+              continue;
+            }
+            printf("dir entry in %s is %s\n", next, dir_entry->d_name);
+            int combined_size = strlen(next) + strlen(dir_entry->d_name) + 2;
+            char *combined_path = malloc(combined_size);
+            snprintf(combined_path, combined_size, "%s/%s", next,
+                     dir_entry->d_name);
+            stat(combined_path, &st);
+            if ((st.st_mode & S_IFMT) == S_IFREG) {
+              // Is a file.
+              if (simple_archiver_hash_map_get(hash_map, combined_path,
+                                               combined_size - 1) == NULL) {
+                simple_archiver_list_add(files_list, combined_path, NULL);
+                simple_archiver_hash_map_insert(
+                    &hash_map, &hash_map_sentinel, combined_path,
+                    combined_size - 1, container_no_free_fn,
+                    container_no_free_fn);
+              } else {
+                free(combined_path);
+              }
+            } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
+              // Is a directory.
+              simple_archiver_list_add_front(dir_list, combined_path, NULL);
+            } else {
+              // Unhandled type.
+              free(combined_path);
+            }
+          }
+        } while (dir_entry != NULL);
+        closedir(dir);
+        if (simple_archiver_list_remove(dir_list, list_remove_same_str_fn,
+                                        next) == 0) {
+          break;
+        }
+      }
+    } else {
+      // Unhandled type.
+    }
+  }
+#endif
+
+  // Remove leading "./" entries from files_list.
+  for (SDArchiverLLNode *iter = files_list->head->next;
+       iter != files_list->tail; iter = iter->next) {
+    unsigned int idx = simple_archiver_parser_internal_filename_idx(iter->data);
+    if (idx > 0) {
+      int len = strlen((char *)iter->data) + 1 - idx;
+      char *substr = malloc(len);
+      strncpy(substr, (char *)iter->data + idx, len);
+      free(iter->data);
+      iter->data = substr;
+    }
+  }
+
+  return files_list;
 }

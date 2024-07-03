@@ -19,6 +19,8 @@
 #ifndef SEODISPARATE_COM_SIMPLE_ARCHIVER_PARSER_H_
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_PARSER_H_
 
+#include "data_structures/linked_list.h"
+
 typedef struct SDArchiverParsed {
   /// Each bit is a flag.
   /// 0b0 - is creating.
@@ -47,5 +49,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
                                SDArchiverParsed *out);
 
 void simple_archiver_free_parsed(SDArchiverParsed *parsed);
+
+SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
+    const SDArchiverParsed *parsed);
 
 #endif

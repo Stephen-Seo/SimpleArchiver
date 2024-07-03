@@ -20,6 +20,12 @@
 
 #include "parser.h"
 
+int print_list_fn(void *data, __attribute__((unused)) void *ud) {
+  const char *cstr = data;
+  printf("  %s\n", cstr);
+  return 0;
+}
+
 int main(int argc, const char **argv) {
   simple_archiver_print_usage();
 
@@ -27,6 +33,13 @@ int main(int argc, const char **argv) {
   SDArchiverParsed parsed = simple_archiver_create_parsed();
 
   simple_archiver_parse_args(argc, argv, &parsed);
+
+  __attribute__((cleanup(simple_archiver_list_free)))
+  SDArchiverLinkedList *filenames =
+      simple_archiver_parsed_to_filenames(&parsed);
+
+  puts("Filenames:");
+  simple_archiver_list_get(filenames, print_list_fn, NULL);
 
   return 0;
 }

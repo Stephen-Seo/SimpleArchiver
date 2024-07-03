@@ -89,6 +89,11 @@ unsigned long long simple_archiver_hash_map_internal_key_to_hash(
   return simple_archiver_algo_lcg_defaults(seed);
 }
 
+void simple_archiver_hash_map_internal_no_free_fn(
+    __attribute__((unused)) void *unused) {
+  return;
+}
+
 /// Returns 0 on success.
 int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap **hash_map) {
   if (!hash_map || !*hash_map) {
@@ -116,7 +121,8 @@ int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap **hash_map) {
         simple_archiver_hash_map_insert(&new_hash_map, data->value, data->key,
                                         data->key_size, data->value_cleanup_fn,
                                         data->key_cleanup_fn);
-        node->data = NULL;
+        data->key_cleanup_fn = simple_archiver_hash_map_internal_no_free_fn;
+        data->value_cleanup_fn = simple_archiver_hash_map_internal_no_free_fn;
       }
     }
   }
