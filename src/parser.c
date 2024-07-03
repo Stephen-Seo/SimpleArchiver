@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "platforms.h"
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 #include <dirent.h>
 #include <sys/stat.h>
@@ -31,7 +32,6 @@
 #include "data_structures/hash_map.h"
 #include "data_structures/linked_list.h"
 #include "parser_internal.h"
-#include "platforms.h"
 
 /// Gets the first non "./"-like character in the filename.
 unsigned int simple_archiver_parser_internal_filename_idx(
