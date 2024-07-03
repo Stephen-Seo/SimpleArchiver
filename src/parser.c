@@ -23,8 +23,10 @@
 #include <string.h>
 
 #include "platforms.h"
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #endif
@@ -252,8 +254,10 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   for (char **iter = parsed->working_files; iter && *iter; ++iter) {
     struct stat st;
-    stat(*iter, &st);
-    if ((st.st_mode & S_IFMT) == S_IFREG) {
+    fstatat(AT_FDCWD, *iter, &st, AT_SYMLINK_NOFOLLOW);
+    if ((st.st_mode & S_IFMT) == S_IFLNK) {
+      // Is a symbolic link. TODO handle this.
+    } else if ((st.st_mode & S_IFMT) == S_IFREG) {
       // Is a regular file.
       int len = strlen(*iter) + 1;
       char *filename = malloc(len);
@@ -291,8 +295,10 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
             char *combined_path = malloc(combined_size);
             snprintf(combined_path, combined_size, "%s/%s", next,
                      dir_entry->d_name);
-            stat(combined_path, &st);
-            if ((st.st_mode & S_IFMT) == S_IFREG) {
+            fstatat(AT_FDCWD, combined_path, &st, AT_SYMLINK_NOFOLLOW);
+            if ((st.st_mode & S_IFMT) == S_IFLNK) {
+              // Is a symbolic link. TODO handle this.
+            } else if ((st.st_mode & S_IFMT) == S_IFREG) {
               // Is a file.
               if (simple_archiver_hash_map_get(hash_map, combined_path,
                                                combined_size - 1) == NULL) {
@@ -308,7 +314,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
               // Is a directory.
               simple_archiver_list_add_front(dir_list, combined_path, NULL);
             } else {
-              // Unhandled type.
+              // Unhandled type. TODO handle this.
               free(combined_path);
             }
           }
@@ -320,7 +326,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
         }
       }
     } else {
-      // Unhandled type.
+      // Unhandled type. TODO handle this.
     }
   }
 #endif
