@@ -36,16 +36,16 @@ typedef struct SDArchiverParsed {
   char **working_files;
 } SDArchiverParsed;
 
-extern void simple_archiver_print_usage(void);
+void simple_archiver_print_usage(void);
 
-extern SDArchiverParsed simple_archiver_create_parsed(void);
+SDArchiverParsed simple_archiver_create_parsed(void);
 
 /// Expects the user to pass a pointer to an SDArchiverParsed.
 /// This means the user should have a SDArchiverParsed variable
 /// and it should be passed with e.g. "&var".
-extern int simple_archiver_parse_args(int argc, const char **argv,
-                                      SDArchiverParsed *out);
+int simple_archiver_parse_args(int argc, const char **argv,
+                               SDArchiverParsed *out);
 
-extern void simple_archiver_free_parsed(SDArchiverParsed *parsed);
+void simple_archiver_free_parsed(SDArchiverParsed *parsed);
 
 #endif
