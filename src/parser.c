@@ -30,10 +30,12 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 #endif
 
 #include "data_structures/hash_map.h"
 #include "data_structures/linked_list.h"
+#include "helpers.h"
 #include "parser_internal.h"
 
 /// Gets the first non "./"-like character in the filename.
@@ -85,6 +87,34 @@ unsigned int simple_archiver_parser_internal_filename_idx(
   }
 
   return idx;
+}
+
+void simple_archiver_parser_internal_remove_end_slash(char *filename) {
+  int len = strlen(filename);
+  int idx;
+  for (idx = len; idx-- > 0;) {
+    if (filename[idx] != '/') {
+      ++idx;
+      break;
+    }
+  }
+  if (idx < len && idx > 0) {
+    filename[idx] = 0;
+  }
+}
+
+void simple_archiver_internal_free_file_info_fn(void *data) {
+  SDArchiverFileInfo *file_info = data;
+  if (file_info) {
+    if (file_info->filename) {
+      free(file_info->filename);
+    }
+    if (file_info->link_dest) {
+      free(file_info->link_dest);
+    }
+  }
+
+  free(data);
 }
 
 int list_get_last_fn(void *data, void *ud) {
@@ -188,6 +218,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
         int arg_length = strlen(argv[0] + arg_idx) + 1;
         out->working_files[0] = malloc(arg_length);
         strncpy(out->working_files[0], argv[0] + arg_idx, arg_length);
+        simple_archiver_parser_internal_remove_end_slash(out->working_files[0]);
         out->working_files[1] = NULL;
       } else {
         int working_size = 1;
@@ -209,6 +240,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         // Set last element to the arg.
         out->working_files[working_size - 1] = malloc(size);
         strncpy(out->working_files[working_size - 1], argv[0] + arg_idx, size);
+        simple_archiver_parser_internal_remove_end_slash(
+            out->working_files[working_size - 1]);
       }
     }
 
@@ -256,16 +289,36 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   for (char **iter = parsed->working_files; iter && *iter; ++iter) {
     struct stat st;
+    memset(&st, 0, sizeof(struct stat));
     fstatat(AT_FDCWD, *iter, &st, AT_SYMLINK_NOFOLLOW);
-    if ((st.st_mode & S_IFMT) == S_IFLNK) {
-      // Is a symbolic link. TODO handle this.
-    } else if ((st.st_mode & S_IFMT) == S_IFREG) {
-      // Is a regular file.
+    if ((st.st_mode & S_IFMT) == S_IFREG || (st.st_mode & S_IFMT) == S_IFLNK) {
+      // Is a regular file or a symbolic link.
       int len = strlen(*iter) + 1;
       char *filename = malloc(len);
       strncpy(filename, *iter, len);
       if (simple_archiver_hash_map_get(hash_map, filename, len - 1) == NULL) {
-        simple_archiver_list_add(files_list, filename, NULL);
+        SDArchiverFileInfo *file_info = malloc(sizeof(SDArchiverFileInfo));
+        file_info->filename = filename;
+        if ((st.st_mode & S_IFMT) == S_IFLNK) {
+          file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
+          ssize_t count = readlinkat(AT_FDCWD, filename, file_info->link_dest,
+                                     MAX_SYMBOLIC_LINK_SIZE - 1);
+          if (count >= MAX_SYMBOLIC_LINK_SIZE - 1) {
+            file_info->link_dest[MAX_SYMBOLIC_LINK_SIZE - 1] = 0;
+          } else if (count > 0) {
+            file_info->link_dest[count] = 0;
+          } else {
+            // Failure.
+            free(file_info->link_dest);
+            free(file_info);
+            free(filename);
+            continue;
+          }
+        } else {
+          file_info->link_dest = NULL;
+        }
+        simple_archiver_list_add(files_list, file_info,
+                                 simple_archiver_internal_free_file_info_fn);
         simple_archiver_hash_map_insert(&hash_map, &hash_map_sentinel, filename,
                                         len - 1, container_no_free_fn,
                                         container_no_free_fn);
@@ -297,14 +350,48 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
             char *combined_path = malloc(combined_size);
             snprintf(combined_path, combined_size, "%s/%s", next,
                      dir_entry->d_name);
+            unsigned int valid_idx =
+                simple_archiver_parser_internal_filename_idx(combined_path);
+            if (valid_idx > 0) {
+              char *new_path = malloc(combined_size - valid_idx);
+              strncpy(new_path, combined_path + valid_idx,
+                      combined_size - valid_idx);
+              free(combined_path);
+              combined_path = new_path;
+              combined_size -= valid_idx;
+            }
+            memset(&st, 0, sizeof(struct stat));
             fstatat(AT_FDCWD, combined_path, &st, AT_SYMLINK_NOFOLLOW);
-            if ((st.st_mode & S_IFMT) == S_IFLNK) {
-              // Is a symbolic link. TODO handle this.
-            } else if ((st.st_mode & S_IFMT) == S_IFREG) {
-              // Is a file.
+            if ((st.st_mode & S_IFMT) == S_IFREG ||
+                (st.st_mode & S_IFMT) == S_IFLNK) {
+              // Is a file or a symbolic link.
               if (simple_archiver_hash_map_get(hash_map, combined_path,
                                                combined_size - 1) == NULL) {
-                simple_archiver_list_add(files_list, combined_path, NULL);
+                SDArchiverFileInfo *file_info =
+                    malloc(sizeof(SDArchiverFileInfo));
+                file_info->filename = combined_path;
+                if ((st.st_mode & S_IFMT) == S_IFLNK) {
+                  file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
+                  ssize_t count =
+                      readlinkat(AT_FDCWD, combined_path, file_info->link_dest,
+                                 MAX_SYMBOLIC_LINK_SIZE - 1);
+                  if (count >= MAX_SYMBOLIC_LINK_SIZE - 1) {
+                    file_info->link_dest[MAX_SYMBOLIC_LINK_SIZE - 1] = 0;
+                  } else if (count > 0) {
+                    file_info->link_dest[count] = 0;
+                  } else {
+                    // Failure.
+                    free(file_info->link_dest);
+                    free(file_info);
+                    free(combined_path);
+                    continue;
+                  }
+                } else {
+                  file_info->link_dest = NULL;
+                }
+                simple_archiver_list_add(
+                    files_list, file_info,
+                    simple_archiver_internal_free_file_info_fn);
                 simple_archiver_hash_map_insert(
                     &hash_map, &hash_map_sentinel, combined_path,
                     combined_size - 1, container_no_free_fn,
@@ -336,13 +423,15 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
   // Remove leading "./" entries from files_list.
   for (SDArchiverLLNode *iter = files_list->head->next;
        iter != files_list->tail; iter = iter->next) {
-    unsigned int idx = simple_archiver_parser_internal_filename_idx(iter->data);
+    SDArchiverFileInfo *file_info = iter->data;
+    unsigned int idx =
+        simple_archiver_parser_internal_filename_idx(file_info->filename);
     if (idx > 0) {
-      int len = strlen((char *)iter->data) + 1 - idx;
+      int len = strlen(file_info->filename) + 1 - idx;
       char *substr = malloc(len);
-      strncpy(substr, (char *)iter->data + idx, len);
-      free(iter->data);
-      iter->data = substr;
+      strncpy(substr, file_info->filename + idx, len);
+      free(file_info->filename);
+      file_info->filename = substr;
     }
   }
 

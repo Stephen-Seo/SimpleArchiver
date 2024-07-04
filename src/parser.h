@@ -38,6 +38,12 @@ typedef struct SDArchiverParsed {
   char **working_files;
 } SDArchiverParsed;
 
+typedef struct SDArchiverFileInfo {
+  char *filename;
+  /// Is NULL if not a symbolic link.
+  char *link_dest;
+} SDArchiverFileInfo;
+
 void simple_archiver_print_usage(void);
 
 SDArchiverParsed simple_archiver_create_parsed(void);
@@ -50,6 +56,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
 void simple_archiver_free_parsed(SDArchiverParsed *parsed);
 
+/// Each entry in the linked list is an SDArchiverFileInfo object.
 SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     const SDArchiverParsed *parsed);
 

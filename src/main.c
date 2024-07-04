@@ -21,8 +21,13 @@
 #include "parser.h"
 
 int print_list_fn(void *data, __attribute__((unused)) void *ud) {
-  const char *cstr = data;
-  printf("  %s\n", cstr);
+  const SDArchiverFileInfo *file_info = data;
+  if (file_info->link_dest == NULL) {
+    printf("  REGULAR FILE:  %s\n", file_info->filename);
+  } else {
+    printf("  SYMBOLIC LINK: %s -> %s\n", file_info->filename,
+           file_info->link_dest);
+  }
   return 0;
 }
 

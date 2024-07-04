@@ -19,6 +19,8 @@
 #ifndef SEODISPARATE_COM_SIMPLE_ARCHIVER_HELPERS_H_
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_HELPERS_H_
 
+static const unsigned int MAX_SYMBOLIC_LINK_SIZE = 512;
+
 /// Returns non-zero if this system is big-endian.
 int simple_archiver_helper_is_big_endian(void);
 
