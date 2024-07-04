@@ -273,7 +273,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
         free(filename);
       }
     } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
-      // Is a directory. TODO handle this.
+      // Is a directory.
       __attribute__((cleanup(simple_archiver_list_free)))
       SDArchiverLinkedList *dir_list = simple_archiver_list_init();
       simple_archiver_list_add(dir_list, *iter, container_no_free_fn);
