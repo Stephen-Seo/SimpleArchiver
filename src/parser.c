@@ -24,6 +24,7 @@
 
 #include "platforms.h"
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||   \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
 #include <dirent.h>
 #include <fcntl.h>
@@ -251,6 +252,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
   SDArchiverHashMap *hash_map = simple_archiver_hash_map_init();
   int hash_map_sentinel = 1;
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   for (char **iter = parsed->working_files; iter && *iter; ++iter) {
     struct stat st;
