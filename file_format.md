@@ -46,5 +46,6 @@ Following the file-count bytes, the following bytes are added for each file:
 4. If this file is a symbolic link:
     1. 2 bytes is 16-bit unsigned integer "link target path" in big-endian.
     2. X bytes of link-target-path (length defined by previous value).
-5. 8 bytes 64-bit unsigned integer "size of filename in this archive file".
-6. X bytes file data (length defined by previous value).
+5. If this file is NOT a symbolic link:
+    1. 8 bytes 64-bit unsigned integer "size of filename in this archive file".
+    2. X bytes file data (length defined by previous value).
