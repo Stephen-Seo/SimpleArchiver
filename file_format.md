@@ -50,10 +50,16 @@ Following the file-count bytes, the following bytes are added for each file:
     4. The fourth byte.
         1. Currently unused.
 4. If this file is a symbolic link:
-    1. 2 bytes is 16-bit unsigned integer "link target path" in big-endian. This
-       does not include the NULL at the end of the string.
-    2. X bytes of link-target-path (length defined by previous value). Is a
-       NULL-terminated string.
+    1. 2 bytes is 16-bit unsigned integer "link target absolute path" in
+       big-endian. This does not include the NULL at the end of the string.
+    2. X bytes of link-target-absolute-path (length defined by previous value).
+       Is a NULL-terminated string. If the previous "size" value is 0, then
+       this entry does not exist and should be skipped.
+    3. 2 bytes is 16-bit unsigned integer "link target relative path" in
+       big-endian. This does not include the NULL at the end of the string.
+    4. X bytes of link-target-relative-path (length defined by previous value).
+       Is a NULL-terminated string. If the previous "size" value is 0, then
+       this entry does not exist and should be skipped.
 5. If this file is NOT a symbolic link:
     1. 8 bytes 64-bit unsigned integer "size of filename in this archive file".
     2. X bytes file data (length defined by previous value).
