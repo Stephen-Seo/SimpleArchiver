@@ -32,12 +32,23 @@ int print_list_fn(void *data, __attribute__((unused)) void *ud) {
 }
 
 int main(int argc, const char **argv) {
-  simple_archiver_print_usage();
-
-  __attribute__((cleanup(simple_archiver_free_parsed)))
-  SDArchiverParsed parsed = simple_archiver_create_parsed();
+  __attribute__((
+      cleanup(simple_archiver_free_parsed))) SDArchiverParsed parsed =
+      simple_archiver_create_parsed();
 
   simple_archiver_parse_args(argc, argv, &parsed);
+
+  if ((parsed.flags & 0x2) == 0) {
+    FILE *file = fopen(parsed.filename, "r");
+    if (file != NULL) {
+      fclose(file);
+      fprintf(
+          stderr,
+          "ERROR: Archive file exists but --overwrite-create not specified!\n");
+      simple_archiver_print_usage();
+      return 1;
+    }
+  }
 
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *filenames =

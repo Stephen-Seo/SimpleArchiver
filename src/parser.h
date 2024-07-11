@@ -23,8 +23,10 @@
 
 typedef struct SDArchiverParsed {
   /// Each bit is a flag.
-  /// 0b0 - is creating.
-  /// 0b1 - is extracting.
+  ///  0b0 - is creating.
+  ///  0b1 - is extracting.
+  /// 0b0x - Do NOT allow create archive overwrite.
+  /// 0b1x - Allow create archive overwrite.
   unsigned int flags;
   /// Null-terminated string.
   char *filename;

@@ -140,6 +140,7 @@ void simple_archiver_print_usage(void) {
   puts("-f <filename> : filename to work on");
   puts("--compressor <full_compress_cmd> : requires --decompressor");
   puts("--decompressor <full_decompress_cmd> : requires --compressor");
+  puts("--overwrite-create : allows overwriting an archive file");
   puts("-- : specifies remaining arguments are files to archive/extract");
   puts("If creating archive file, remaining args specify files to archive.");
   puts("If extracting archive file, remaining args specify files to extract.");
@@ -204,6 +205,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         strncpy(out->decompressor, argv[1], size);
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--overwrite-create") == 0) {
+        out->flags |= 0x2;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;
       } else if (argv[0][0] != '-') {
