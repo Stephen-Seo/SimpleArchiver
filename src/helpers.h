@@ -19,18 +19,20 @@
 #ifndef SEODISPARATE_COM_SIMPLE_ARCHIVER_HELPERS_H_
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_HELPERS_H_
 
+#include <stdint.h>
+
 static const unsigned int MAX_SYMBOLIC_LINK_SIZE = 512;
 
 /// Returns non-zero if this system is big-endian.
 int simple_archiver_helper_is_big_endian(void);
 
 /// Swaps value from/to big-endian. Nop on big-endian systems.
-void simple_archiver_helper_16_bit_be(unsigned short *value);
+void simple_archiver_helper_16_bit_be(uint16_t *value);
 
 /// Swaps value from/to big-endian. Nop on big-endian systems.
-void simple_archiver_helper_32_bit_be(unsigned int *value);
+void simple_archiver_helper_32_bit_be(uint32_t *value);
 
 /// Swaps value from/to big-endian. Nop on big-endian systems.
-void simple_archiver_helper_64_bit_be(unsigned long long *value);
+void simple_archiver_helper_64_bit_be(uint64_t *value);
 
 #endif

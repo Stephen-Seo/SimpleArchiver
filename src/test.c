@@ -114,7 +114,7 @@ int main(void) {
   {
     // Only if system is little-endian.
     if (simple_archiver_helper_is_big_endian() == 0) {
-      unsigned short u16 = 0x0102;
+      uint16_t u16 = 0x0102;
       CHECK_TRUE(((unsigned char *)&u16)[0] == 2);
       CHECK_TRUE(((unsigned char *)&u16)[1] == 1);
       simple_archiver_helper_16_bit_be(&u16);
@@ -124,7 +124,7 @@ int main(void) {
       CHECK_TRUE(((unsigned char *)&u16)[0] == 2);
       CHECK_TRUE(((unsigned char *)&u16)[1] == 1);
 
-      unsigned int u32 = 0x01020304;
+      uint32_t u32 = 0x01020304;
       CHECK_TRUE(((unsigned char *)&u32)[0] == 4);
       CHECK_TRUE(((unsigned char *)&u32)[1] == 3);
       CHECK_TRUE(((unsigned char *)&u32)[2] == 2);
@@ -140,7 +140,7 @@ int main(void) {
       CHECK_TRUE(((unsigned char *)&u32)[2] == 2);
       CHECK_TRUE(((unsigned char *)&u32)[3] == 1);
 
-      unsigned long long u64 = 0x010203040a0b0c0d;
+      uint64_t u64 = 0x010203040a0b0c0d;
       CHECK_TRUE(((unsigned char *)&u64)[0] == 0xd);
       CHECK_TRUE(((unsigned char *)&u64)[1] == 0xc);
       CHECK_TRUE(((unsigned char *)&u64)[2] == 0xb);

@@ -20,14 +20,14 @@
 
 int simple_archiver_helper_is_big_endian(void) {
   union {
-    unsigned int i;
+    uint32_t i;
     char c[4];
   } bint = {0x01020304};
 
   return bint.c[0] == 1 ? 1 : 0;
 }
 
-void simple_archiver_helper_16_bit_be(unsigned short *value) {
+void simple_archiver_helper_16_bit_be(uint16_t *value) {
   if (simple_archiver_helper_is_big_endian() == 0) {
     unsigned char c = ((unsigned char *)value)[0];
     ((unsigned char *)value)[0] = ((unsigned char *)value)[1];
@@ -35,7 +35,7 @@ void simple_archiver_helper_16_bit_be(unsigned short *value) {
   }
 }
 
-void simple_archiver_helper_32_bit_be(unsigned int *value) {
+void simple_archiver_helper_32_bit_be(uint32_t *value) {
   if (simple_archiver_helper_is_big_endian() == 0) {
     for (unsigned int i = 0; i < 2; ++i) {
       unsigned char c = ((unsigned char *)value)[i];
@@ -45,7 +45,7 @@ void simple_archiver_helper_32_bit_be(unsigned int *value) {
   }
 }
 
-void simple_archiver_helper_64_bit_be(unsigned long long *value) {
+void simple_archiver_helper_64_bit_be(uint64_t *value) {
   if (simple_archiver_helper_is_big_endian() == 0) {
     for (unsigned int i = 0; i < 4; ++i) {
       unsigned char c = ((unsigned char *)value)[i];
