@@ -1,5 +1,7 @@
 # File Format
 
+Note that any unused bytes/bits should be zeroed-out before being written.
+
 ## Format Version 0
 
 File extension is "*.simplearchive"
@@ -61,5 +63,6 @@ Following the file-count bytes, the following bytes are added for each file:
        Is a NULL-terminated string. If the previous "size" value is 0, then
        this entry does not exist and should be skipped.
 5. If this file is NOT a symbolic link:
-    1. 8 bytes 64-bit unsigned integer "size of filename in this archive file".
+    1. 8 bytes 64-bit unsigned integer "size of filename in this archive file"
+       in big-endian.
     2. X bytes file data (length defined by previous value).
