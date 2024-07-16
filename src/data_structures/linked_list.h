@@ -62,7 +62,7 @@ int simple_archiver_list_remove_once(SDArchiverLinkedList *list,
 /// Returns non-null on success.
 /// data_check_fn must return non-zero if the data passed to it is to be
 /// returned.
-void *simple_archiver_list_get(SDArchiverLinkedList *list,
+void *simple_archiver_list_get(const SDArchiverLinkedList *list,
                                int (*data_check_fn)(void *, void *),
                                void *user_data);
 

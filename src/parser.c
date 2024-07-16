@@ -134,16 +134,23 @@ int list_remove_same_str_fn(void *data, void *ud) {
 }
 
 void simple_archiver_print_usage(void) {
-  puts("Usage flags:");
-  puts("-c : create archive file");
-  puts("-x : extract archive file");
-  puts("-f <filename> : filename to work on");
-  puts("--compressor <full_compress_cmd> : requires --decompressor");
-  puts("--decompressor <full_decompress_cmd> : requires --compressor");
-  puts("--overwrite-create : allows overwriting an archive file");
-  puts("-- : specifies remaining arguments are files to archive/extract");
-  puts("If creating archive file, remaining args specify files to archive.");
-  puts("If extracting archive file, remaining args specify files to extract.");
+  fprintf(stderr, "Usage flags:\n");
+  fprintf(stderr, "-c : create archive file\n");
+  fprintf(stderr, "-x : extract archive file\n");
+  fprintf(stderr, "-f <filename> : filename to work on\n");
+  fprintf(stderr,
+          "--compressor <full_compress_cmd> : requires --decompressor\n");
+  fprintf(stderr,
+          "--decompressor <full_decompress_cmd> : requires --compressor\n");
+  fprintf(stderr, "--overwrite-create : allows overwriting an archive file\n");
+  fprintf(stderr,
+          "-- : specifies remaining arguments are files to archive/extract\n");
+  fprintf(
+      stderr,
+      "If creating archive file, remaining args specify files to archive.\n");
+  fprintf(
+      stderr,
+      "If extracting archive file, remaining args specify files to extract.\n");
 }
 
 SDArchiverParsed simple_archiver_create_parsed(void) {
@@ -181,7 +188,10 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
   while (argc > 0) {
     if (!is_remaining_args) {
-      if (strcmp(argv[0], "-c") == 0) {
+      if (strcmp(argv[0], "-h") == 0 || strcmp(argv[0], "--help") == 0) {
+        simple_archiver_print_usage();
+        exit(0);
+      } else if (strcmp(argv[0], "-c") == 0) {
         // unset first bit.
         out->flags &= 0xFFFFFFFE;
       } else if (strcmp(argv[0], "-x") == 0) {
@@ -348,7 +358,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
                 strcmp(dir_entry->d_name, "..") == 0) {
               continue;
             }
-            printf("dir entry in %s is %s\n", next, dir_entry->d_name);
+            fprintf(stderr, "dir entry in %s is %s\n", next, dir_entry->d_name);
             int combined_size = strlen(next) + strlen(dir_entry->d_name) + 2;
             char *combined_path = malloc(combined_size);
             snprintf(combined_path, combined_size, "%s/%s", next,

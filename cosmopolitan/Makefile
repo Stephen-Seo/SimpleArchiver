@@ -7,6 +7,7 @@ SOURCES = \
 		../src/main.c \
 		../src/parser.c \
 		../src/helpers.c \
+		../src/archiver.c \
 		../src/algorithms/linear_congruential_gen.c \
 		../src/data_structures/linked_list.c \
 		../src/data_structures/hash_map.c \
@@ -16,6 +17,7 @@ HEADERS = \
 		../src/parser.h \
 		../src/parser_internal.h \
 		../src/helpers.h \
+		../src/archiver.h \
 		../src/algorithms/linear_congruential_gen.h \
 		../src/data_structures/linked_list.h \
 		../src/data_structures/hash_map.h \

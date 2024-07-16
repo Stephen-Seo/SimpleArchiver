@@ -18,15 +18,16 @@
 
 #include <stdio.h>
 
+#include "archiver.h"
 #include "parser.h"
 
 int print_list_fn(void *data, __attribute__((unused)) void *ud) {
   const SDArchiverFileInfo *file_info = data;
   if (file_info->link_dest == NULL) {
-    printf("  REGULAR FILE:  %s\n", file_info->filename);
+    fprintf(stderr, "  REGULAR FILE:  %s\n", file_info->filename);
   } else {
-    printf("  SYMBOLIC LINK: %s -> %s\n", file_info->filename,
-           file_info->link_dest);
+    fprintf(stderr, "  SYMBOLIC LINK: %s -> %s\n", file_info->filename,
+            file_info->link_dest);
   }
   return 0;
 }
@@ -54,8 +55,25 @@ int main(int argc, const char **argv) {
   SDArchiverLinkedList *filenames =
       simple_archiver_parsed_to_filenames(&parsed);
 
-  puts("Filenames:");
+  fprintf(stderr, "Filenames:\n");
   simple_archiver_list_get(filenames, print_list_fn, NULL);
+
+  if ((parsed.flags & 1) == 0) {
+    FILE *file = fopen(parsed.filename, "wb");
+    if (!file) {
+      fprintf(stderr, "ERROR: Failed to open \"%s\" for writing!\n",
+              parsed.filename);
+      return 2;
+    }
+
+    __attribute__((cleanup(simple_archiver_free_state)))
+    SDArchiverState *state = simple_archiver_init_state(&parsed);
+
+    if (simple_archiver_write_all(file, state, filenames) != SDAS_SUCCESS) {
+      fprintf(stderr, "Error during writing.");
+    }
+    fclose(file);
+  }
 
   return 0;
 }

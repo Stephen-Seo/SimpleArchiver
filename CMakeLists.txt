@@ -7,6 +7,7 @@ set(SimpleArchiver_SOURCES
     src/main.c
     src/parser.c
     src/helpers.c
+    src/archiver.c
     src/data_structures/linked_list.c
     src/data_structures/hash_map.c
     src/data_structures/priority_heap.c

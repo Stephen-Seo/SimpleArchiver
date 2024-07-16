@@ -178,7 +178,7 @@ int simple_archiver_list_remove_once(SDArchiverLinkedList *list,
   return 0;
 }
 
-void *simple_archiver_list_get(SDArchiverLinkedList *list,
+void *simple_archiver_list_get(const SDArchiverLinkedList *list,
                                int (*data_check_fn)(void *, void *),
                                void *user_data) {
   if (!list) {
