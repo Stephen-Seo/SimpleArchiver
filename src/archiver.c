@@ -52,7 +52,7 @@ int write_list_datas_fn(void *data, void *ud) {
 
 int write_files_fn(void *data, void *ud) {
   const SDArchiverFileInfo *file_info = data;
-  const SDArchiverState *state = ud;
+  SDArchiverState *state = ud;
 
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *to_write = simple_archiver_list_init();
@@ -156,6 +156,7 @@ int write_files_fn(void *data, void *ud) {
     // TODO
   }
 
+  fprintf(stderr, "[%10u/%10u]\n", ++(state->count), state->max);
   return 0;
 }
 
@@ -261,11 +262,16 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   }
 
   // Iterate over files in list to write.
+  state->count = 0;
+  state->max = filenames->count;
   state->out_f = out_f;
+  fprintf(stderr, "Begin archiving...\n");
+  fprintf(stderr, "[%10u/%10u]\n", state->count, state->max);
   if (simple_archiver_list_get(filenames, write_files_fn, state)) {
     // Error occurred.
   }
   state->out_f = NULL;
 
+  fprintf(stderr, "End archiving.\n");
   return SDAS_SUCCESS;
 }

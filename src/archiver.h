@@ -30,6 +30,8 @@ typedef struct SDArchiverState {
   unsigned int flags;
   const SDArchiverParsed *parsed;
   FILE *out_f;
+  unsigned int count;
+  unsigned int max;
 } SDArchiverState;
 
 enum SDArchiverStateReturns {
