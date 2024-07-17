@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "platforms.h"
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -476,20 +477,23 @@ int simple_archiver_print_archive_info(FILE *in_f) {
 
 int simple_archiver_de_compress(int pipe_fd_in, int pipe_fd_out,
                                 const char *cmd) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   posix_spawn_file_actions_t file_actions;
   memset(&file_actions, 0, sizeof(file_actions));
   if (posix_spawn_file_actions_init(&file_actions) != 0) {
     close(pipe_fd_in);
     close(pipe_fd_out);
     return 1;
-  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_in, 0) !=
-             0) {
+  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_in,
+                                              STDIN_FILENO) != 0) {
     posix_spawn_file_actions_destroy(&file_actions);
     close(pipe_fd_in);
     close(pipe_fd_out);
     return 2;
-  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_out, 1) !=
-             0) {
+  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_out,
+                                              STDOUT_FILENO) != 0) {
     posix_spawn_file_actions_destroy(&file_actions);
     close(pipe_fd_in);
     close(pipe_fd_out);
@@ -510,4 +514,7 @@ int simple_archiver_de_compress(int pipe_fd_in, int pipe_fd_out,
   posix_spawn_file_actions_destroy(&file_actions);
 
   return 0;
+#else
+  return 1;
+#endif
 }
