@@ -293,6 +293,7 @@ int write_files_fn(void *data, void *ud) {
       simple_archiver_list_free(&to_write);
 
       // Write file.
+      fprintf(stderr, "Writing compressed file: %s\n", file_info->filename);
       do {
         write_count = fread(write_buf, 1, 1024, tmp_fd);
         if (write_count == 1024) {
@@ -377,6 +378,7 @@ int write_files_fn(void *data, void *ud) {
       simple_archiver_list_free(&to_write);
 
       // Write file.
+      fprintf(stderr, "Writing file: %s\n", file_info->filename);
       char buf[1024];
       size_t ret;
       do {
