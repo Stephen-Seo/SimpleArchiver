@@ -36,6 +36,13 @@ void free_FILE_helper(FILE **fd) {
   }
 }
 
+void free_malloced_memory(void **data) {
+  if (data && *data) {
+    free(*data);
+    *data = NULL;
+  }
+}
+
 void free_internal_to_write(void *data) {
   SDArchiverInternalToWrite *to_write = data;
   free(to_write->buf);
@@ -274,4 +281,181 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
 
   fprintf(stderr, "End archiving.\n");
   return SDAS_SUCCESS;
+}
+
+int simple_archiver_print_archive_info(FILE *in_f) {
+  unsigned char buf[1024];
+  memset(buf, 0, 1024);
+  uint16_t u16;
+  uint32_t u32;
+  uint64_t u64;
+
+  if (fread(buf, 1, 18, in_f) != 18) {
+    return SDAS_INVALID_FILE;
+  } else if (memcmp(buf, "SIMPLE_ARCHIVE_VER", 18) != 0) {
+    return SDAS_INVALID_FILE;
+  } else if (fread(buf, 1, 2, in_f) != 2) {
+    return SDAS_INVALID_FILE;
+  } else if (buf[0] != 0 || buf[1] != 0) {
+    // Version is not zero.
+    return SDAS_INVALID_FILE;
+  } else if (fread(buf, 1, 4, in_f) != 4) {
+    return SDAS_INVALID_FILE;
+  }
+
+  if ((buf[0] & 1) != 0) {
+    fprintf(stderr, "De/compressor flag is set.\n");
+
+    // Read compressor data.
+    if (fread(&u16, 2, 1, in_f) != 1) {
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+    fprintf(stderr, "Compressor size is %u\n", u16);
+    if (u16 < 1024) {
+      if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        return SDAS_INVALID_FILE;
+      }
+      buf[1023] = 0;
+      fprintf(stderr, "Compressor cmd: %s\n", buf);
+    } else {
+      __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
+          malloc(u16 + 1);
+      unsigned char *uc_heap_buf = heap_buf;
+      if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        return SDAS_INVALID_FILE;
+      }
+      uc_heap_buf[u16 - 1] = 0;
+      fprintf(stderr, "Compressor cmd: %s\n", uc_heap_buf);
+    }
+
+    // Read decompressor data.
+    if (fread(&u16, 2, 1, in_f) != 1) {
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+    fprintf(stderr, "Decompressor size is %u\n", u16);
+    if (u16 < 1024) {
+      if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        return SDAS_INVALID_FILE;
+      }
+      buf[1023] = 0;
+      fprintf(stderr, "Decompressor cmd: %s\n", buf);
+    } else {
+      __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
+          malloc(u16 + 1);
+      unsigned char *uc_heap_buf = heap_buf;
+      if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        return SDAS_INVALID_FILE;
+      }
+      uc_heap_buf[u16 - 1] = 0;
+      fprintf(stderr, "Decompressor cmd: %s\n", uc_heap_buf);
+    }
+  } else {
+    fprintf(stderr, "De/compressor flag is NOT set.\n");
+  }
+
+  if (fread(&u32, 1, 4, in_f) != 4) {
+    return SDAS_INVALID_FILE;
+  }
+  simple_archiver_helper_32_bit_be(&u32);
+  fprintf(stderr, "File count is %u\n", u32);
+
+  uint32_t size = u32;
+  for (uint32_t idx = 0; idx < size; ++idx) {
+    fprintf(stderr, "File %10u of %10u.\n", idx + 1, size);
+    if (feof(in_f) || ferror(in_f)) {
+      return SDAS_INVALID_FILE;
+    } else if (fread(&u16, 2, 1, in_f) != 1) {
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+    if (u16 < 1024) {
+      if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        return SDAS_INVALID_FILE;
+      }
+      buf[1023] = 0;
+      fprintf(stderr, "  Filename: %s\n", buf);
+    } else {
+      __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
+          malloc(u16 + 1);
+      unsigned char *uc_heap_buf = heap_buf;
+      if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        return SDAS_INVALID_FILE;
+      }
+      uc_heap_buf[u16 - 1] = 0;
+      fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
+    }
+
+    if (fread(buf, 1, 4, in_f) != 4) {
+      return SDAS_INVALID_FILE;
+    }
+
+    if ((buf[0] & 1) == 0) {
+      // Not a sybolic link.
+      if (fread(&u64, 8, 1, in_f) != 1) {
+        return SDAS_INVALID_FILE;
+      }
+      simple_archiver_helper_64_bit_be(&u64);
+      fprintf(stderr, "  File size: %lu\n", u64);
+      while (u64 > 0) {
+        if (u64 > 1024) {
+          if (fread(buf, 1, 1024, in_f) != 1024) {
+            return SDAS_INVALID_FILE;
+          }
+          u64 -= 1024;
+        } else {
+          if (fread(buf, 1, u64, in_f) != u64) {
+            return SDAS_INVALID_FILE;
+          }
+          u64 = 0;
+        }
+      }
+    } else {
+      // Is a symbolic link.
+      if (fread(&u16, 2, 1, in_f) != 1) {
+        return SDAS_INVALID_FILE;
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+      if (u16 < 1024) {
+        if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDAS_INVALID_FILE;
+        }
+        buf[1023] = 0;
+        fprintf(stderr, "  Link absolute path: %s\n", buf);
+      } else {
+        __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
+            malloc(u16 + 1);
+        unsigned char *uc_heap_buf = heap_buf;
+        if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDAS_INVALID_FILE;
+        }
+        uc_heap_buf[u16 - 1] = 0;
+        fprintf(stderr, "  Link absolute path: %s\n", uc_heap_buf);
+      }
+
+      if (fread(&u16, 2, 1, in_f) != 1) {
+        return SDAS_INVALID_FILE;
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+      if (u16 < 1024) {
+        if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDAS_INVALID_FILE;
+        }
+        buf[1023] = 0;
+        fprintf(stderr, "  Link relative path: %s\n", buf);
+      } else {
+        __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
+            malloc(u16 + 1);
+        unsigned char *uc_heap_buf = heap_buf;
+        if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDAS_INVALID_FILE;
+        }
+        uc_heap_buf[u16 - 1] = 0;
+        fprintf(stderr, "  Link relative path: %s\n", uc_heap_buf);
+      }
+    }
+  }
+
+  return 0;
 }

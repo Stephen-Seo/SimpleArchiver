@@ -40,7 +40,8 @@ enum SDArchiverStateReturns {
   SDAS_FAILED_TO_WRITE,
   SDAS_NO_COMPRESSOR,
   SDAS_NO_DECOMPRESSOR,
-  SDAS_INVALID_PARSED_STATE
+  SDAS_INVALID_PARSED_STATE,
+  SDAS_INVALID_FILE
 };
 
 SDArchiverState *simple_archiver_init_state(const SDArchiverParsed *parsed);
@@ -50,5 +51,8 @@ void simple_archiver_free_state(SDArchiverState **state);
 /// enum.
 int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
                               const SDArchiverLinkedList *filenames);
+
+/// Returns zero on success.
+int simple_archiver_print_archive_info(FILE *in_f);
 
 #endif

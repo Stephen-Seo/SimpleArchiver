@@ -39,7 +39,7 @@ int main(int argc, const char **argv) {
 
   simple_archiver_parse_args(argc, argv, &parsed);
 
-  if ((parsed.flags & 0x4) == 0) {
+  if ((parsed.flags & 0x3) == 0 && (parsed.flags & 0x4) == 0) {
     FILE *file = fopen(parsed.filename, "r");
     if (file != NULL) {
       fclose(file);
@@ -55,10 +55,12 @@ int main(int argc, const char **argv) {
   SDArchiverLinkedList *filenames =
       simple_archiver_parsed_to_filenames(&parsed);
 
-  fprintf(stderr, "Filenames:\n");
-  simple_archiver_list_get(filenames, print_list_fn, NULL);
+  if (filenames->count > 0) {
+    fprintf(stderr, "Filenames:\n");
+    simple_archiver_list_get(filenames, print_list_fn, NULL);
+  }
 
-  if ((parsed.flags & 1) == 0) {
+  if ((parsed.flags & 3) == 0) {
     FILE *file = fopen(parsed.filename, "wb");
     if (!file) {
       fprintf(stderr, "ERROR: Failed to open \"%s\" for writing!\n",
@@ -70,7 +72,19 @@ int main(int argc, const char **argv) {
     SDArchiverState *state = simple_archiver_init_state(&parsed);
 
     if (simple_archiver_write_all(file, state, filenames) != SDAS_SUCCESS) {
-      fprintf(stderr, "Error during writing.");
+      fprintf(stderr, "Error during writing.\n");
+    }
+    fclose(file);
+  } else if ((parsed.flags & 3) == 2) {
+    FILE *file = fopen(parsed.filename, "rb");
+    if (!file) {
+      fprintf(stderr, "ERROR: Failed to open \"%s\" for reading!\n",
+              parsed.filename);
+      return 3;
+    }
+
+    if (simple_archiver_print_archive_info(file) != 0) {
+      fprintf(stderr, "Error during archive checking/examining.\n");
     }
     fclose(file);
   }
