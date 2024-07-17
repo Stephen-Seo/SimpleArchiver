@@ -35,4 +35,12 @@ void simple_archiver_helper_32_bit_be(uint32_t *value);
 /// Swaps value from/to big-endian. Nop on big-endian systems.
 void simple_archiver_helper_64_bit_be(uint64_t *value);
 
+/// Returns a array of c-strings on success, NULL on error.
+/// The returned array must be free'd with
+/// simple_archiver_helper_cmd_string_argv_free(...).
+char **simple_archiver_helper_cmd_string_to_argv(const char *cmd);
+
+void simple_archiver_helper_cmd_string_argv_free(char **argv_strs);
+void simple_archiver_helper_cmd_string_argv_free_ptr(char ***argv_strs);
+
 #endif

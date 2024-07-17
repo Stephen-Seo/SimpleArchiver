@@ -55,4 +55,8 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
 /// Returns zero on success.
 int simple_archiver_print_archive_info(FILE *in_f);
 
+/// Returns zero on success.
+int simple_archiver_de_compress(int pipe_fd_in, int pipe_fd_out,
+                                const char *cmd);
+
 #endif

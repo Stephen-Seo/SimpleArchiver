@@ -44,6 +44,15 @@ static int checks_passed = 0;
       ++checks_passed;                                             \
     }                                                              \
   } while (0);
+#define CHECK_STREQ(a, b)                                                    \
+  do {                                                                       \
+    ++checks_checked;                                                        \
+    if (strcmp((a), (b)) == 0) {                                             \
+      ++checks_passed;                                                       \
+    } else {                                                                 \
+      printf("CHECK_STREQ at line %u failed: %s != %s\n", __LINE__, #a, #b); \
+    }                                                                        \
+  } while (0);
 
 int main(void) {
   // Test parser.
@@ -169,6 +178,24 @@ int main(void) {
       CHECK_TRUE(((unsigned char *)&u64)[7] == 0x1);
     }
   }
+
+  // Test helpers cmd string to argv.
+  do {
+    const char *cmd = "zstd  --compress --ultra\n -20  derp_file";
+    char **result_argv = simple_archiver_helper_cmd_string_to_argv(cmd);
+    CHECK_TRUE(result_argv);
+    if (!result_argv) {
+      break;
+    }
+    CHECK_STREQ("zstd", result_argv[0]);
+    CHECK_STREQ("--compress", result_argv[1]);
+    CHECK_STREQ("--ultra", result_argv[2]);
+    CHECK_STREQ("-20", result_argv[3]);
+    CHECK_STREQ("derp_file", result_argv[4]);
+    CHECK_TRUE(result_argv[5] == NULL);
+
+    simple_archiver_helper_cmd_string_argv_free(result_argv);
+  } while (0);
 
   printf("Checks checked: %u\n", checks_checked);
   printf("Checks passed:  %u\n", checks_passed);

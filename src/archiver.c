@@ -22,6 +22,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+#include <fcntl.h>
+#include <spawn.h>
+#include <unistd.h>
+#endif
+
 #include "helpers.h"
 
 typedef struct SDArchiverInternalToWrite {
@@ -462,6 +470,44 @@ int simple_archiver_print_archive_info(FILE *in_f) {
       }
     }
   }
+
+  return 0;
+}
+
+int simple_archiver_de_compress(int pipe_fd_in, int pipe_fd_out,
+                                const char *cmd) {
+  posix_spawn_file_actions_t file_actions;
+  memset(&file_actions, 0, sizeof(file_actions));
+  if (posix_spawn_file_actions_init(&file_actions) != 0) {
+    close(pipe_fd_in);
+    close(pipe_fd_out);
+    return 1;
+  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_in, 0) !=
+             0) {
+    posix_spawn_file_actions_destroy(&file_actions);
+    close(pipe_fd_in);
+    close(pipe_fd_out);
+    return 2;
+  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_out, 1) !=
+             0) {
+    posix_spawn_file_actions_destroy(&file_actions);
+    close(pipe_fd_in);
+    close(pipe_fd_out);
+    return 3;
+  }
+
+  __attribute__((cleanup(
+      simple_archiver_helper_cmd_string_argv_free_ptr))) char **cmd_argv =
+      simple_archiver_helper_cmd_string_to_argv(cmd);
+
+  pid_t spawned_pid;
+  if (posix_spawnp(&spawned_pid, cmd_argv[0], &file_actions, NULL, cmd_argv,
+                   NULL) != 0) {
+    posix_spawn_file_actions_destroy(&file_actions);
+    return 4;
+  }
+
+  posix_spawn_file_actions_destroy(&file_actions);
 
   return 0;
 }
