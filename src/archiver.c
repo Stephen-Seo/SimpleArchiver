@@ -26,12 +26,15 @@
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+#include <errno.h>
 #include <fcntl.h>
 #include <spawn.h>
 #include <unistd.h>
 #endif
 
 #include "helpers.h"
+
+#define TEMP_FILENAME_CMP "simple_archiver_compressed_%u.tmp"
 
 typedef struct SDArchiverInternalToWrite {
   void *buf;
@@ -84,7 +87,231 @@ int write_files_fn(void *data, void *ud) {
     // Regular file, not a symbolic link.
     if (state->parsed->compressor && state->parsed->decompressor) {
       // De/compressor specified.
-      // TODO
+
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      // Use temp file to store compressed data.
+      char temp_filename[128];
+      unsigned int idx = 0;
+      snprintf(temp_filename, 128, TEMP_FILENAME_CMP, idx);
+      do {
+        FILE *test_fd = fopen(temp_filename, "rb");
+        if (test_fd) {
+          // File exists.
+          fclose(test_fd);
+          snprintf(temp_filename, 128, TEMP_FILENAME_CMP, ++idx);
+        } else if (idx > 0xFFFF) {
+          // Sanity check.
+          return 1;
+        } else {
+          break;
+        }
+      } while (1);
+      __attribute__((cleanup(free_FILE_helper))) FILE *file_fd =
+          fopen(file_info->filename, "rb");
+      if (!file_fd) {
+        // Unable to open file for compressing and archiving.
+        return 1;
+      }
+      __attribute__((cleanup(free_FILE_helper))) FILE *tmp_fd =
+          fopen(temp_filename, "wb");
+      if (!tmp_fd) {
+        // Unable to create temp file.
+        return 1;
+      }
+
+      int pipe_into_cmd[2];
+      int pipe_outof_cmd[2];
+
+      if (pipe(pipe_into_cmd) != 0) {
+        // Unable to create pipes.
+        return 1;
+      } else if (pipe(pipe_outof_cmd) != 0) {
+        // Unable to create second set of pipes.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        return 1;
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+        // Unable to set non-blocking on into-write-pipe.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        close(pipe_outof_cmd[0]);
+        close(pipe_outof_cmd[1]);
+        return 1;
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+        // Unable to set non-blocking on outof-read-pipe.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        close(pipe_outof_cmd[0]);
+        close(pipe_outof_cmd[1]);
+        return 1;
+      } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                             state->parsed->compressor) != 0) {
+        // Failed to spawn compressor.
+        close(pipe_into_cmd[1]);
+        close(pipe_outof_cmd[0]);
+        return 1;
+      }
+
+      // Close unnecessary pipe fds on this end of the transfer.
+      close(pipe_into_cmd[0]);
+      close(pipe_outof_cmd[1]);
+
+      // Write file to pipe, and read from other pipe.
+      char write_buf[1024];
+      char read_buf[1024];
+      int write_again = 0;
+      int write_done = 0;
+      int read_done = 0;
+      size_t write_count;
+      size_t read_count;
+      ssize_t ret;
+      while (!write_done || !read_done) {
+        // Read from file.
+        if (!write_done) {
+          if (!write_again) {
+            write_count = fread(write_buf, 1, 1024, file_fd);
+          }
+          if (write_count > 0) {
+            ret = write(pipe_into_cmd[1], write_buf, write_count);
+            if (ret == -1) {
+              if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                write_again = 1;
+              } else {
+                // Error during write.
+                return 1;
+              }
+            } else if ((size_t)ret != write_count) {
+              // Error during write.
+              return 1;
+            } else {
+              write_again = 0;
+              // fprintf(stderr, "Written %zd bytes to comp.\n", ret);
+            }
+          } else {
+            if (feof(file_fd)) {
+              free_FILE_helper(&file_fd);
+              write_done = 1;
+              close(pipe_into_cmd[1]);
+              // fprintf(stderr, "write_done\n");
+            } else if (ferror(file_fd)) {
+              // Error during read file.
+              return 1;
+            }
+          }
+        }
+
+        // Read from compressor.
+        if (!read_done) {
+          ret = read(pipe_outof_cmd[0], read_buf, 1024);
+          if (ret > 0) {
+            read_count = fwrite(read_buf, 1, ret, tmp_fd);
+            if (read_count != (size_t)ret) {
+              // Write to tmp_fd error.
+              return 1;
+            } else {
+              // fprintf(stderr, "Written %zd bytes to tmp_fd.\n", read_count);
+            }
+          } else if (ret == 0) {
+            read_done = 1;
+            free_FILE_helper(&tmp_fd);
+            close(pipe_outof_cmd[0]);
+            // fprintf(stderr, "read_done\n");
+          } else if (ret == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+              // Nop.
+            } else {
+              // Read error.
+              return 1;
+            }
+          } else {
+            // Nop. Technically this branch should be unreachable.
+          }
+        }
+      }
+
+      uint16_t u16;
+      uint64_t u64;
+
+      u16 = strlen(file_info->filename);
+
+      // Write filename length.
+      simple_archiver_helper_16_bit_be(&u16);
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(2);
+      temp_to_write->size = 2;
+      memcpy(temp_to_write->buf, &u16, 2);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+      // Write filename.
+      simple_archiver_helper_16_bit_be(&u16);
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(u16 + 1);
+      temp_to_write->size = u16 + 1;
+      memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+      // Write flags.
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(4);
+      temp_to_write->size = 4;
+      for (unsigned int idx = 0; idx < temp_to_write->size; ++idx) {
+        ((unsigned char *)temp_to_write->buf)[idx] = 0;
+      }
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+      // Get compressed file length.
+      // Compressed file should be at "temp_filename".
+      tmp_fd = fopen(temp_filename, "rb");
+      long end;
+      if (fseek(tmp_fd, 0, SEEK_END) != 0) {
+        // Error seeking.
+        return 1;
+      }
+      end = ftell(tmp_fd);
+      if (end == -1L) {
+        // Error getting end position.
+        return 1;
+      } else if (fseek(tmp_fd, 0, SEEK_SET) != 0) {
+        // Error seeking.
+        return 1;
+      }
+
+      // Write file length.
+      u64 = end;
+      simple_archiver_helper_64_bit_be(&u64);
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(8);
+      temp_to_write->size = 8;
+      memcpy(temp_to_write->buf, &u64, 8);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+      // Write all previuosly set data before writing file.
+      simple_archiver_list_get(to_write, write_list_datas_fn, state->out_f);
+
+      simple_archiver_list_free(&to_write);
+
+      // Write file.
+      do {
+        write_count = fread(write_buf, 1, 1024, tmp_fd);
+        if (write_count == 1024) {
+          fwrite(write_buf, 1, 1024, state->out_f);
+        } else if (write_count > 0) {
+          fwrite(write_buf, 1, write_count, state->out_f);
+        }
+        if (feof(tmp_fd)) {
+          break;
+        } else if (ferror(tmp_fd)) {
+          // Error.
+          break;
+        }
+      } while (1);
+
+      // Cleanup.
+      free_FILE_helper(&tmp_fd);
+      unlink(temp_filename);
+#endif
     } else {
       uint16_t u16;
       uint64_t u64;
@@ -374,7 +601,7 @@ int simple_archiver_print_archive_info(FILE *in_f) {
 
   uint32_t size = u32;
   for (uint32_t idx = 0; idx < size; ++idx) {
-    fprintf(stderr, "File %10u of %10u.\n", idx + 1, size);
+    fprintf(stderr, "\nFile %10u of %10u.\n", idx + 1, size);
     if (feof(in_f) || ferror(in_f)) {
       return SDAS_INVALID_FILE;
     } else if (fread(&u16, 2, 1, in_f) != 1) {
@@ -475,7 +702,7 @@ int simple_archiver_print_archive_info(FILE *in_f) {
   return 0;
 }
 
-int simple_archiver_de_compress(int pipe_fd_in, int pipe_fd_out,
+int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
                                 const char *cmd) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -483,20 +710,32 @@ int simple_archiver_de_compress(int pipe_fd_in, int pipe_fd_out,
   posix_spawn_file_actions_t file_actions;
   memset(&file_actions, 0, sizeof(file_actions));
   if (posix_spawn_file_actions_init(&file_actions) != 0) {
-    close(pipe_fd_in);
-    close(pipe_fd_out);
+    close(pipe_fd_in[0]);
+    close(pipe_fd_out[1]);
     return 1;
-  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_in,
+  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_in[0],
                                               STDIN_FILENO) != 0) {
     posix_spawn_file_actions_destroy(&file_actions);
-    close(pipe_fd_in);
-    close(pipe_fd_out);
+    close(pipe_fd_in[0]);
+    close(pipe_fd_out[1]);
     return 2;
-  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_out,
+  } else if (posix_spawn_file_actions_adddup2(&file_actions, pipe_fd_out[1],
                                               STDOUT_FILENO) != 0) {
     posix_spawn_file_actions_destroy(&file_actions);
-    close(pipe_fd_in);
-    close(pipe_fd_out);
+    close(pipe_fd_in[0]);
+    close(pipe_fd_out[1]);
+    return 3;
+  } else if (posix_spawn_file_actions_addclose(&file_actions, pipe_fd_in[1]) !=
+             0) {
+    posix_spawn_file_actions_destroy(&file_actions);
+    close(pipe_fd_in[0]);
+    close(pipe_fd_out[1]);
+    return 3;
+  } else if (posix_spawn_file_actions_addclose(&file_actions, pipe_fd_out[0]) !=
+             0) {
+    posix_spawn_file_actions_destroy(&file_actions);
+    close(pipe_fd_in[0]);
+    close(pipe_fd_out[1]);
     return 3;
   }
 
@@ -507,6 +746,8 @@ int simple_archiver_de_compress(int pipe_fd_in, int pipe_fd_out,
   pid_t spawned_pid;
   if (posix_spawnp(&spawned_pid, cmd_argv[0], &file_actions, NULL, cmd_argv,
                    NULL) != 0) {
+    close(pipe_fd_in[0]);
+    close(pipe_fd_out[1]);
     posix_spawn_file_actions_destroy(&file_actions);
     return 4;
   }
