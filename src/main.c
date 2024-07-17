@@ -39,7 +39,7 @@ int main(int argc, const char **argv) {
 
   simple_archiver_parse_args(argc, argv, &parsed);
 
-  if ((parsed.flags & 0x2) == 0) {
+  if ((parsed.flags & 0x4) == 0) {
     FILE *file = fopen(parsed.filename, "r");
     if (file != NULL) {
       fclose(file);

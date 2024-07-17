@@ -137,6 +137,7 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr, "Usage flags:\n");
   fprintf(stderr, "-c : create archive file\n");
   fprintf(stderr, "-x : extract archive file\n");
+  fprintf(stderr, "-t : examine archive file\n");
   fprintf(stderr, "-f <filename> : filename to work on\n");
   fprintf(stderr,
           "--compressor <full_compress_cmd> : requires --decompressor\n");
@@ -192,11 +193,18 @@ int simple_archiver_parse_args(int argc, const char **argv,
         simple_archiver_print_usage();
         exit(0);
       } else if (strcmp(argv[0], "-c") == 0) {
-        // unset first bit.
-        out->flags &= 0xFFFFFFFE;
+        // unset first two bits.
+        out->flags &= 0xFFFFFFFC;
       } else if (strcmp(argv[0], "-x") == 0) {
+        // unset first two bits.
+        out->flags &= 0xFFFFFFFC;
         // set first bit.
         out->flags |= 0x1;
+      } else if (strcmp(argv[0], "-t") == 0) {
+        // unset first two bits.
+        out->flags &= 0xFFFFFFFC;
+        // set second bit.
+        out->flags |= 0x2;
       } else if (strcmp(argv[0], "-f") == 0 && argc > 1) {
         int size = strlen(argv[1]) + 1;
         out->filename = malloc(size);
@@ -216,7 +224,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
         --argc;
         ++argv;
       } else if (strcmp(argv[0], "--overwrite-create") == 0) {
-        out->flags |= 0x2;
+        out->flags |= 0x4;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;
       } else if (argv[0][0] != '-') {
