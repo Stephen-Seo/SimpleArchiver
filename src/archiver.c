@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <spawn.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #endif
 
@@ -123,6 +124,7 @@ int write_files_fn(void *data, void *ud) {
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
+      pid_t compressor_pid;
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
@@ -147,7 +149,8 @@ int write_files_fn(void *data, void *ud) {
         close(pipe_outof_cmd[1]);
         return 1;
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
-                                             state->parsed->compressor) != 0) {
+                                             state->parsed->compressor,
+                                             &compressor_pid) != 0) {
         // Failed to spawn compressor.
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
@@ -230,6 +233,8 @@ int write_files_fn(void *data, void *ud) {
           }
         }
       }
+
+      waitpid(compressor_pid, NULL, 0);
 
       uint16_t u16;
       uint64_t u64;
@@ -705,7 +710,7 @@ int simple_archiver_print_archive_info(FILE *in_f) {
 }
 
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
-                                const char *cmd) {
+                                const char *cmd, void *pid_out) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -745,8 +750,8 @@ int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
       simple_archiver_helper_cmd_string_argv_free_ptr))) char **cmd_argv =
       simple_archiver_helper_cmd_string_to_argv(cmd);
 
-  pid_t spawned_pid;
-  if (posix_spawnp(&spawned_pid, cmd_argv[0], &file_actions, NULL, cmd_argv,
+  pid_t *pid_t_out = pid_out;
+  if (posix_spawnp(pid_t_out, cmd_argv[0], &file_actions, NULL, cmd_argv,
                    NULL) != 0) {
     close(pipe_fd_in[0]);
     close(pipe_fd_out[1]);
