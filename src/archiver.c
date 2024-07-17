@@ -289,6 +289,7 @@ int simple_archiver_print_archive_info(FILE *in_f) {
   uint16_t u16;
   uint32_t u32;
   uint64_t u64;
+  int is_compressed = 0;
 
   if (fread(buf, 1, 18, in_f) != 18) {
     return SDAS_INVALID_FILE;
@@ -305,6 +306,7 @@ int simple_archiver_print_archive_info(FILE *in_f) {
 
   if ((buf[0] & 1) != 0) {
     fprintf(stderr, "De/compressor flag is set.\n");
+    is_compressed = 1;
 
     // Read compressor data.
     if (fread(&u16, 2, 1, in_f) != 1) {
@@ -397,7 +399,11 @@ int simple_archiver_print_archive_info(FILE *in_f) {
         return SDAS_INVALID_FILE;
       }
       simple_archiver_helper_64_bit_be(&u64);
-      fprintf(stderr, "  File size: %lu\n", u64);
+      if (is_compressed) {
+        fprintf(stderr, "  File size (compressed): %lu\n", u64);
+      } else {
+        fprintf(stderr, "  File size: %lu\n", u64);
+      }
       while (u64 > 0) {
         if (u64 > 1024) {
           if (fread(buf, 1, 1024, in_f) != 1024) {
