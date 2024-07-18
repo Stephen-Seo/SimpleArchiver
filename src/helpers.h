@@ -43,4 +43,7 @@ char **simple_archiver_helper_cmd_string_to_argv(const char *cmd);
 void simple_archiver_helper_cmd_string_argv_free(char **argv_strs);
 void simple_archiver_helper_cmd_string_argv_free_ptr(char ***argv_strs);
 
+/// Returns zero on success.
+int simple_archiver_helper_make_dirs(const char *file_path);
+
 #endif

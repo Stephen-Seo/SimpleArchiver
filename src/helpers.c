@@ -22,6 +22,24 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "platforms.h"
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+#include <errno.h>
+#include <fcntl.h>
+#include <libgen.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
+void simple_archiver_internal_free_c_string(char **str) {
+  if (str && *str) {
+    free(*str);
+    *str = NULL;
+  }
+}
+
 int simple_archiver_helper_is_big_endian(void) {
   union {
     uint32_t i;
@@ -127,4 +145,49 @@ void simple_archiver_helper_cmd_string_argv_free_ptr(char ***argv_strs) {
     simple_archiver_helper_cmd_string_argv_free(*argv_strs);
     *argv_strs = NULL;
   }
+}
+
+int simple_archiver_helper_make_dirs(const char *file_path) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+  __attribute__((
+      cleanup(simple_archiver_internal_free_c_string))) char *path_dup =
+      strdup(file_path);
+  if (!path_dup) {
+    return 3;
+  }
+  const char *dir = dirname(path_dup);
+  if (strcmp(dir, "/") == 0 || strcmp(dir, ".") == 0) {
+    // At root.
+    return 0;
+  }
+
+  int dir_fd = open(dir, O_RDONLY | O_DIRECTORY);
+  if (dir_fd == -1) {
+    if (errno == ENOTDIR) {
+      // Error, somehow got non-dir in path.
+      return 1;
+    } else {
+      // Directory does not exist. Check parent dir first.
+      int ret = simple_archiver_helper_make_dirs(dir);
+      if (ret != 0) {
+        return ret;
+      }
+      // Now make dir.
+      ret = mkdir(dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+      if (ret != 0) {
+        // Error.
+        return 2;
+      }
+    }
+  } else {
+    // Exists.
+    close(dir_fd);
+  }
+
+  return 0;
+#else
+  return 1;
+#endif
 }
