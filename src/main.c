@@ -83,8 +83,11 @@ int main(int argc, const char **argv) {
       return 3;
     }
 
-    if (simple_archiver_parse_archive_info(file, 0, NULL) != 0) {
+    int ret = simple_archiver_parse_archive_info(file, 0, NULL);
+    if (ret != 0) {
       fprintf(stderr, "Error during archive checking/examining.\n");
+      char *error_str = simple_archiver_error_to_string(ret);
+      fprintf(stderr, "  %s\n", error_str);
     }
     fclose(file);
   } else if ((parsed.flags & 3) == 1) {
