@@ -72,13 +72,19 @@ int write_list_datas_fn(void *data, void *ud) {
   return 0;
 }
 
-void cleanup_temp_filename_delete(char **tmpfilename) {
+void cleanup_temp_filename_delete(void ***ptrs_array) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-  if (tmpfilename && *tmpfilename) {
-    unlink(*tmpfilename);
-    *tmpfilename = NULL;
+  if (ptrs_array && *ptrs_array) {
+    if ((*ptrs_array)[1]) {
+      free_FILE_helper((FILE **)(*ptrs_array)[1]);
+    }
+    if ((*ptrs_array)[0]) {
+      unlink((char *)((*ptrs_array)[0]));
+    }
+    free(*ptrs_array);
+    *ptrs_array = NULL;
   }
 #endif
 }
@@ -130,6 +136,10 @@ int write_files_fn(void *data, void *ud) {
       }
       __attribute__((cleanup(free_FILE_helper))) FILE *tmp_fd =
           fopen(temp_filename, "wb");
+      __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
+          malloc(sizeof(void *) * 2);
+      ptrs_array[0] = temp_filename;
+      ptrs_array[1] = &tmp_fd;
       if (!tmp_fd) {
         // Unable to create temp file.
         return 1;
@@ -361,8 +371,7 @@ int write_files_fn(void *data, void *ud) {
       // Get compressed file length.
       // Compressed file should be at "temp_filename".
       tmp_fd = fopen(temp_filename, "rb");
-      __attribute__((cleanup(cleanup_temp_filename_delete))) char
-          *temp_filename_cleanup_reference = temp_filename;
+
       long end;
       if (fseek(tmp_fd, 0, SEEK_END) != 0) {
         // Error seeking.
