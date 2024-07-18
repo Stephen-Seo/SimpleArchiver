@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <spawn.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -264,6 +265,50 @@ int write_files_fn(void *data, void *ud) {
       for (unsigned int idx = 0; idx < temp_to_write->size; ++idx) {
         ((unsigned char *)temp_to_write->buf)[idx] = 0;
       }
+
+      // Get file stats.
+      struct stat stat_buf;
+      memset(&stat_buf, 0, sizeof(struct stat));
+      int stat_fd = open(file_info->filename, O_RDONLY);
+      if (stat_fd == -1) {
+        // Error.
+        return 1;
+      }
+      int stat_status = fstat(stat_fd, &stat_buf);
+      close(stat_fd);
+      if (stat_status != 0) {
+        // Error.
+        return 1;
+      }
+
+      if ((stat_buf.st_mode & S_IRUSR) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x2;
+      }
+      if ((stat_buf.st_mode & S_IWUSR) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x4;
+      }
+      if ((stat_buf.st_mode & S_IXUSR) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x8;
+      }
+      if ((stat_buf.st_mode & S_IRGRP) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x10;
+      }
+      if ((stat_buf.st_mode & S_IWGRP) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x20;
+      }
+      if ((stat_buf.st_mode & S_IXGRP) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x40;
+      }
+      if ((stat_buf.st_mode & S_IROTH) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x80;
+      }
+      if ((stat_buf.st_mode & S_IWOTH) != 0) {
+        ((unsigned char *)temp_to_write->buf)[1] |= 0x1;
+      }
+      if ((stat_buf.st_mode & S_IXOTH) != 0) {
+        ((unsigned char *)temp_to_write->buf)[1] |= 0x2;
+      }
+
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
       // Get compressed file length.
@@ -347,6 +392,54 @@ int write_files_fn(void *data, void *ud) {
       for (unsigned int idx = 0; idx < temp_to_write->size; ++idx) {
         ((unsigned char *)temp_to_write->buf)[idx] = 0;
       }
+
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      // Get file stats.
+      struct stat stat_buf;
+      memset(&stat_buf, 0, sizeof(struct stat));
+      int stat_fd = open(file_info->filename, O_RDONLY);
+      if (stat_fd == -1) {
+        // Error.
+        return 1;
+      }
+      int stat_status = fstat(stat_fd, &stat_buf);
+      close(stat_fd);
+      if (stat_status != 0) {
+        // Error.
+        return 1;
+      }
+
+      if ((stat_buf.st_mode & S_IRUSR) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x2;
+      }
+      if ((stat_buf.st_mode & S_IWUSR) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x4;
+      }
+      if ((stat_buf.st_mode & S_IXUSR) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x8;
+      }
+      if ((stat_buf.st_mode & S_IRGRP) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x10;
+      }
+      if ((stat_buf.st_mode & S_IWGRP) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x20;
+      }
+      if ((stat_buf.st_mode & S_IXGRP) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x40;
+      }
+      if ((stat_buf.st_mode & S_IROTH) != 0) {
+        ((unsigned char *)temp_to_write->buf)[0] |= 0x80;
+      }
+      if ((stat_buf.st_mode & S_IWOTH) != 0) {
+        ((unsigned char *)temp_to_write->buf)[1] |= 0x1;
+      }
+      if ((stat_buf.st_mode & S_IXOTH) != 0) {
+        ((unsigned char *)temp_to_write->buf)[1] |= 0x2;
+      }
+#endif
+
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
       // Write file length.
@@ -622,6 +715,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       return SDAS_INVALID_FILE;
     }
     simple_archiver_helper_16_bit_be(&u16);
+    __attribute__((cleanup(free_malloced_memory))) void *out_f_name = NULL;
     __attribute__((cleanup(free_FILE_helper))) FILE *out_f = NULL;
     if (u16 < 1024) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
@@ -647,6 +741,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         if (!skip) {
           simple_archiver_helper_make_dirs((const char *)buf);
           out_f = fopen((const char *)buf, "wb");
+          out_f_name = malloc(strlen((const char *)buf) + 1);
+          memcpy(out_f_name, buf, strlen((const char *)buf) + 1);
         }
       }
     } else {
@@ -676,6 +772,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         if (!skip) {
           simple_archiver_helper_make_dirs((const char *)uc_heap_buf);
           out_f = fopen((const char *)buf, "wb");
+          out_f_name = malloc(strlen((const char *)buf) + 1);
+          memcpy(out_f_name, buf, strlen((const char *)buf) + 1);
         }
       }
     }
@@ -683,6 +781,41 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
     if (fread(buf, 1, 4, in_f) != 4) {
       return SDAS_INVALID_FILE;
     }
+
+    unsigned int permissions = 0;
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+
+    if ((buf[0] & 0x2) != 0) {
+      permissions |= S_IRUSR;
+    }
+    if ((buf[0] & 0x4) != 0) {
+      permissions |= S_IWUSR;
+    }
+    if ((buf[0] & 0x8) != 0) {
+      permissions |= S_IXUSR;
+    }
+    if ((buf[0] & 0x10) != 0) {
+      permissions |= S_IRGRP;
+    }
+    if ((buf[0] & 0x20) != 0) {
+      permissions |= S_IWGRP;
+    }
+    if ((buf[0] & 0x40) != 0) {
+      permissions |= S_IXGRP;
+    }
+    if ((buf[0] & 0x80) != 0) {
+      permissions |= S_IROTH;
+    }
+    if ((buf[1] & 0x1) != 0) {
+      permissions |= S_IWOTH;
+    }
+    if ((buf[1] & 0x2) != 0) {
+      permissions |= S_IXOTH;
+    }
+
+#endif
 
     if ((buf[0] & 1) == 0) {
       // Not a sybolic link.
@@ -832,6 +965,11 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         }
 
         waitpid(decompressor_pid, NULL, 0);
+
+        if (chmod((const char *)out_f_name, permissions) == -1) {
+          // Error.
+          return 1;
+        }
 
         fprintf(stderr, "  Extracted.\n");
 #endif

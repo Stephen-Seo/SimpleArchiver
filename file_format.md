@@ -45,8 +45,16 @@ Following the file-count bytes, the following bytes are added for each file:
 3. 4 bytes bit-flags
     1. The first byte
         1. The first bit is set if the file is a symbolic link.
+        2. The second bit is "user read permission".
+        3. The third bit is "user write permission".
+        4. The fourth bit is "user execute permission".
+        5. The fifth bit is "group read permission".
+        6. The sixth bit is "group write permission".
+        7. The seventh bit is "group execute permission".
+        8. The eighth bit is "other read permission".
     2. The second byte.
-        1. Currently unused.
+        1. The first bit is "other write permission".
+        2. The second bit is "other execute permission".
     3. The third byte.
         1. Currently unused.
     4. The fourth byte.
