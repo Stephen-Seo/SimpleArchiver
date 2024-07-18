@@ -18,6 +18,13 @@
 
 #include <stdio.h>
 
+#include "platforms.h"
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+#include <unistd.h>
+#endif
+
 #include "archiver.h"
 #include "parser.h"
 
@@ -78,6 +85,13 @@ int main(int argc, const char **argv) {
       fprintf(stderr, "  %s\n", error_str);
     }
     fclose(file);
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+    if (ret != SDAS_SUCCESS) {
+      unlink(parsed.filename);
+    }
+#endif
   } else if ((parsed.flags & 3) == 2) {
     FILE *file = fopen(parsed.filename, "rb");
     if (!file) {
