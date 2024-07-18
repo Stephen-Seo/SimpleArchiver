@@ -831,140 +831,173 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
 
       if (do_extract && !skip) {
         fprintf(stderr, "  Extracting...\n");
+
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-        int pipe_into_cmd[2];
-        int pipe_outof_cmd[2];
-        pid_t decompressor_pid;
-        if (pipe(pipe_into_cmd) != 0) {
-          // Unable to create pipes.
-          break;
-        } else if (pipe(pipe_outof_cmd) != 0) {
-          // Unable to create second set of pipes.
-          close(pipe_into_cmd[0]);
-          close(pipe_into_cmd[1]);
-          return 1;
-        } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
-          // Unable to set non-blocking on into-write-pipe.
-          close(pipe_into_cmd[0]);
-          close(pipe_into_cmd[1]);
-          close(pipe_outof_cmd[0]);
-          close(pipe_outof_cmd[1]);
-          return 1;
-        } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
-          // Unable to set non-blocking on outof-read-pipe.
-          close(pipe_into_cmd[0]);
-          close(pipe_into_cmd[1]);
-          close(pipe_outof_cmd[0]);
-          close(pipe_outof_cmd[1]);
-          return 1;
-        }
-
-        if (state && state->parsed && state->parsed->decompressor) {
-          if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
-                                          state->parsed->decompressor,
-                                          &decompressor_pid) != 0) {
-            // Failed to spawn compressor.
+        if (is_compressed) {
+          int pipe_into_cmd[2];
+          int pipe_outof_cmd[2];
+          pid_t decompressor_pid;
+          if (pipe(pipe_into_cmd) != 0) {
+            // Unable to create pipes.
+            break;
+          } else if (pipe(pipe_outof_cmd) != 0) {
+            // Unable to create second set of pipes.
+            close(pipe_into_cmd[0]);
+            close(pipe_into_cmd[1]);
+            return 1;
+          } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+            // Unable to set non-blocking on into-write-pipe.
+            close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
+            close(pipe_outof_cmd[1]);
             return 1;
-          }
-        } else {
-          if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
-                                          decompressor_cmd,
-                                          &decompressor_pid) != 0) {
-            // Failed to spawn compressor.
+          } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+            // Unable to set non-blocking on outof-read-pipe.
+            close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
+            close(pipe_outof_cmd[1]);
             return 1;
           }
-        }
 
-        // Close unnecessary pipe fds on this end of the transfer.
-        close(pipe_into_cmd[0]);
-        close(pipe_outof_cmd[1]);
+          if (state && state->parsed && state->parsed->decompressor) {
+            if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                            state->parsed->decompressor,
+                                            &decompressor_pid) != 0) {
+              // Failed to spawn compressor.
+              close(pipe_into_cmd[1]);
+              close(pipe_outof_cmd[0]);
+              return 1;
+            }
+          } else {
+            if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                            decompressor_cmd,
+                                            &decompressor_pid) != 0) {
+              // Failed to spawn compressor.
+              close(pipe_into_cmd[1]);
+              close(pipe_outof_cmd[0]);
+              return 1;
+            }
+          }
 
-        uint64_t compressed_file_size = u64;
-        int write_again = 0;
-        int write_pipe_done = 0;
-        int read_pipe_done = 0;
-        ssize_t fread_ret;
-        char recv_buf[1024];
-        size_t amount_to_read;
-        while (!write_pipe_done || !read_pipe_done) {
-          // Read from file.
-          if (!write_pipe_done) {
-            if (!write_again && compressed_file_size != 0) {
-              if (compressed_file_size > 1024) {
-                amount_to_read = 1024;
-              } else {
-                amount_to_read = compressed_file_size;
+          // Close unnecessary pipe fds on this end of the transfer.
+          close(pipe_into_cmd[0]);
+          close(pipe_outof_cmd[1]);
+
+          uint64_t compressed_file_size = u64;
+          int write_again = 0;
+          int write_pipe_done = 0;
+          int read_pipe_done = 0;
+          ssize_t fread_ret;
+          char recv_buf[1024];
+          size_t amount_to_read;
+          while (!write_pipe_done || !read_pipe_done) {
+            // Read from file.
+            if (!write_pipe_done) {
+              if (!write_again && compressed_file_size != 0) {
+                if (compressed_file_size > 1024) {
+                  amount_to_read = 1024;
+                } else {
+                  amount_to_read = compressed_file_size;
+                }
+                fread_ret = fread(buf, 1, amount_to_read, in_f);
+                if (fread_ret > 0) {
+                  compressed_file_size -= fread_ret;
+                }
               }
-              fread_ret = fread(buf, 1, amount_to_read, in_f);
+
+              // Send over pipe to decompressor.
               if (fread_ret > 0) {
-                compressed_file_size -= fread_ret;
+                ssize_t write_ret = write(pipe_into_cmd[1], buf, fread_ret);
+                if (write_ret == fread_ret) {
+                  // Successful write.
+                  write_again = 0;
+                  if (compressed_file_size == 0) {
+                    close(pipe_into_cmd[1]);
+                    write_pipe_done = 1;
+                  }
+                } else if (write_ret == -1) {
+                  if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    write_again = 1;
+                  } else {
+                    // Error.
+                    return 1;
+                  }
+                } else {
+                  // Should be unreachable, error.
+                  return 1;
+                }
               }
             }
 
-            // Send over pipe to decompressor.
-            if (fread_ret > 0) {
-              ssize_t write_ret = write(pipe_into_cmd[1], buf, fread_ret);
-              if (write_ret == fread_ret) {
-                // Successful write.
-                write_again = 0;
-                if (compressed_file_size == 0) {
-                  close(pipe_into_cmd[1]);
-                  write_pipe_done = 1;
+            // Read output from decompressor and write to file.
+            if (!read_pipe_done) {
+              ssize_t read_ret = read(pipe_outof_cmd[0], recv_buf, 1024);
+              if (read_ret > 0) {
+                size_t fwrite_ret = fwrite(recv_buf, 1, read_ret, out_f);
+                if (fwrite_ret == (size_t)read_ret) {
+                  // Success.
+                } else if (ferror(out_f)) {
+                  // Error.
+                  return 1;
+                } else {
+                  // Invalid state, error.
+                  return 1;
                 }
-              } else if (write_ret == -1) {
+              } else if (read_ret == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                  write_again = 1;
+                  // No bytes to read yet.
                 } else {
                   // Error.
                   return 1;
                 }
+              } else if (read_ret == 0) {
+                // EOF.
+                read_pipe_done = 1;
+                close(pipe_outof_cmd[0]);
+                free_FILE_helper(&out_f);
               } else {
-                // Should be unreachable, error.
+                // Invalid state (unreachable?), error.
                 return 1;
               }
             }
           }
 
-          // Read output from decompressor and write to file.
-          if (!read_pipe_done) {
-            ssize_t read_ret = read(pipe_outof_cmd[0], recv_buf, 1024);
-            if (read_ret > 0) {
-              size_t fwrite_ret = fwrite(recv_buf, 1, read_ret, out_f);
-              if (fwrite_ret == (size_t)read_ret) {
-                // Success.
-              } else if (ferror(out_f)) {
-                // Error.
-                return 1;
-              } else {
-                // Invalid state, error.
-                return 1;
-              }
-            } else if (read_ret == -1) {
-              if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                // No bytes to read yet.
-              } else {
+          waitpid(decompressor_pid, NULL, 0);
+        } else {
+          uint64_t compressed_file_size = u64;
+          ssize_t fread_ret;
+          while (compressed_file_size != 0) {
+            if (compressed_file_size > 1024) {
+              fread_ret = fread(buf, 1, 1024, in_f);
+              if (ferror(in_f)) {
                 // Error.
                 return 1;
               }
-            } else if (read_ret == 0) {
-              // EOF.
-              read_pipe_done = 1;
-              close(pipe_outof_cmd[0]);
-              free_FILE_helper(&out_f);
+              fwrite(buf, 1, fread_ret, out_f);
+              if (ferror(out_f)) {
+                // Error.
+                return 1;
+              }
+              compressed_file_size -= fread_ret;
             } else {
-              // Invalid state (unreachable?), error.
-              return 1;
+              fread_ret = fread(buf, 1, compressed_file_size, in_f);
+              if (ferror(in_f)) {
+                // Error.
+                return 1;
+              }
+              fwrite(buf, 1, fread_ret, out_f);
+              if (ferror(out_f)) {
+                // Error.
+                return 1;
+              }
+              compressed_file_size -= fread_ret;
             }
           }
         }
-
-        waitpid(decompressor_pid, NULL, 0);
 
         if (chmod((const char *)out_f_name, permissions) == -1) {
           // Error.
