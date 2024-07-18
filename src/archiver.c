@@ -747,7 +747,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       key[len - 1] = 0;
       simple_archiver_hash_map_insert(&hash_map, key, key, len, cleanup_nop_fn,
                                       cleanup_free_fn);
-      fprintf(stderr, "\"%s\" put in map\n", key);
+      // fprintf(stderr, "\"%s\" put in map\n", key);
     }
   }
   for (uint32_t idx = 0; idx < size; ++idx) {
