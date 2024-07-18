@@ -736,7 +736,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
   int skip = 0;
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *hash_map = NULL;
-  if (state->parsed->working_files && state->parsed->working_files[0] != NULL) {
+  if (state && state->parsed->working_files &&
+      state->parsed->working_files[0] != NULL) {
     hash_map = simple_archiver_hash_map_init();
     for (char **iter = state->parsed->working_files; *iter != NULL; ++iter) {
       int len = strlen(*iter) + 1;
