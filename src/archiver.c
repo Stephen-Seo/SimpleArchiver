@@ -526,7 +526,8 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   return SDAS_SUCCESS;
 }
 
-int simple_archiver_print_archive_info(FILE *in_f) {
+int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
+                                       const SDArchiverState *state) {
   unsigned char buf[1024];
   memset(buf, 0, 1024);
   uint16_t u16;
@@ -546,6 +547,8 @@ int simple_archiver_print_archive_info(FILE *in_f) {
   } else if (fread(buf, 1, 4, in_f) != 4) {
     return SDAS_INVALID_FILE;
   }
+
+  __attribute__((cleanup(free_malloced_memory))) void *decompressor_cmd = NULL;
 
   if ((buf[0] & 1) != 0) {
     fprintf(stderr, "De/compressor flag is set.\n");
@@ -586,6 +589,9 @@ int simple_archiver_print_archive_info(FILE *in_f) {
       }
       buf[1023] = 0;
       fprintf(stderr, "Decompressor cmd: %s\n", buf);
+      decompressor_cmd = malloc(u16 + 1);
+      memcpy((char *)decompressor_cmd, buf, u16 + 1);
+      ((char *)decompressor_cmd)[u16] = 0;
     } else {
       __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
           malloc(u16 + 1);
@@ -607,6 +613,7 @@ int simple_archiver_print_archive_info(FILE *in_f) {
   fprintf(stderr, "File count is %u\n", u32);
 
   uint32_t size = u32;
+  int skip = 0;
   for (uint32_t idx = 0; idx < size; ++idx) {
     fprintf(stderr, "\nFile %10u of %10u.\n", idx + 1, size);
     if (feof(in_f) || ferror(in_f)) {
@@ -615,12 +622,33 @@ int simple_archiver_print_archive_info(FILE *in_f) {
       return SDAS_INVALID_FILE;
     }
     simple_archiver_helper_16_bit_be(&u16);
+    __attribute__((cleanup(free_FILE_helper))) FILE *out_f = NULL;
     if (u16 < 1024) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
       }
       buf[1023] = 0;
       fprintf(stderr, "  Filename: %s\n", buf);
+      if (do_extract) {
+        if ((state->parsed->flags & 0x8) == 0) {
+          __attribute__((cleanup(free_FILE_helper))) FILE *test_fd =
+              fopen((const char *)buf, "rb");
+          if (test_fd) {
+            skip = 1;
+            fprintf(stderr,
+                    "  WARNING: File already exists and "
+                    "\"--overwrite-extract\" is not specified, skipping!\n");
+          } else {
+            skip = 0;
+          }
+        } else {
+          skip = 0;
+        }
+        if (!skip) {
+          simple_archiver_helper_make_dirs((const char *)buf);
+          out_f = fopen((const char *)buf, "wb");
+        }
+      }
     } else {
       __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
           malloc(u16 + 1);
@@ -630,6 +658,26 @@ int simple_archiver_print_archive_info(FILE *in_f) {
       }
       uc_heap_buf[u16 - 1] = 0;
       fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
+      if (do_extract) {
+        if ((state->parsed->flags & 0x8) == 0) {
+          __attribute__((cleanup(free_FILE_helper))) FILE *test_fd =
+              fopen((const char *)buf, "rb");
+          if (test_fd) {
+            skip = 1;
+            fprintf(stderr,
+                    "WARNING: File already exists and \"--overwrite-extract\" "
+                    "is not specified, skipping!\n");
+          } else {
+            skip = 0;
+          }
+        } else {
+          skip = 0;
+        }
+        if (!skip) {
+          simple_archiver_helper_make_dirs((const char *)uc_heap_buf);
+          out_f = fopen((const char *)buf, "wb");
+        }
+      }
     }
 
     if (fread(buf, 1, 4, in_f) != 4) {
@@ -647,17 +695,159 @@ int simple_archiver_print_archive_info(FILE *in_f) {
       } else {
         fprintf(stderr, "  File size: %lu\n", u64);
       }
-      while (u64 > 0) {
-        if (u64 > 1024) {
-          if (fread(buf, 1, 1024, in_f) != 1024) {
-            return SDAS_INVALID_FILE;
+
+      if (do_extract && !skip) {
+        fprintf(stderr, "  Extracting...\n");
+        int pipe_into_cmd[2];
+        int pipe_outof_cmd[2];
+        pid_t decompressor_pid;
+        if (pipe(pipe_into_cmd) != 0) {
+          // Unable to create pipes.
+          break;
+        } else if (pipe(pipe_outof_cmd) != 0) {
+          // Unable to create second set of pipes.
+          close(pipe_into_cmd[0]);
+          close(pipe_into_cmd[1]);
+          return 1;
+        } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+          // Unable to set non-blocking on into-write-pipe.
+          close(pipe_into_cmd[0]);
+          close(pipe_into_cmd[1]);
+          close(pipe_outof_cmd[0]);
+          close(pipe_outof_cmd[1]);
+          return 1;
+        } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+          // Unable to set non-blocking on outof-read-pipe.
+          close(pipe_into_cmd[0]);
+          close(pipe_into_cmd[1]);
+          close(pipe_outof_cmd[0]);
+          close(pipe_outof_cmd[1]);
+          return 1;
+        }
+
+        if (state && state->parsed && state->parsed->decompressor) {
+          if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                          state->parsed->decompressor,
+                                          &decompressor_pid) != 0) {
+            // Failed to spawn compressor.
+            close(pipe_into_cmd[1]);
+            close(pipe_outof_cmd[0]);
+            return 1;
           }
-          u64 -= 1024;
         } else {
-          if (fread(buf, 1, u64, in_f) != u64) {
-            return SDAS_INVALID_FILE;
+          if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                          decompressor_cmd,
+                                          &decompressor_pid) != 0) {
+            // Failed to spawn compressor.
+            close(pipe_into_cmd[1]);
+            close(pipe_outof_cmd[0]);
+            return 1;
           }
-          u64 = 0;
+        }
+
+        // Close unnecessary pipe fds on this end of the transfer.
+        close(pipe_into_cmd[0]);
+        close(pipe_outof_cmd[1]);
+
+        uint64_t compressed_file_size = u64;
+        int write_again = 0;
+        int write_pipe_done = 0;
+        int read_pipe_done = 0;
+        ssize_t fread_ret;
+        char recv_buf[1024];
+        size_t amount_to_read;
+        while (!write_pipe_done || !read_pipe_done) {
+          // Read from file.
+          if (!write_pipe_done) {
+            if (!write_again && compressed_file_size != 0) {
+              if (compressed_file_size > 1024) {
+                amount_to_read = 1024;
+              } else {
+                amount_to_read = compressed_file_size;
+              }
+              fread_ret = fread(buf, 1, amount_to_read, in_f);
+              if (fread_ret > 0) {
+                compressed_file_size -= fread_ret;
+              }
+            }
+
+            // Send over pipe to decompressor.
+            if (fread_ret > 0) {
+              ssize_t write_ret = write(pipe_into_cmd[1], buf, fread_ret);
+              if (write_ret == fread_ret) {
+                // Successful write.
+                write_again = 0;
+                if (compressed_file_size == 0) {
+                  close(pipe_into_cmd[1]);
+                  write_pipe_done = 1;
+                }
+              } else if (write_ret == -1) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                  write_again = 1;
+                } else {
+                  // Error.
+                  return 1;
+                }
+              } else {
+                // Should be unreachable, error.
+                return 1;
+              }
+            }
+          }
+
+          // Read output from decompressor and write to file.
+          if (!read_pipe_done) {
+            ssize_t read_ret = read(pipe_outof_cmd[0], recv_buf, 1024);
+            if (read_ret > 0) {
+              size_t fwrite_ret = fwrite(recv_buf, 1, read_ret, out_f);
+              if (fwrite_ret == (size_t)read_ret) {
+                // Success.
+              } else if (ferror(out_f)) {
+                // Error.
+                return 1;
+              } else {
+                // Invalid state, error.
+                return 1;
+              }
+            } else if (read_ret == -1) {
+              if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // No bytes to read yet.
+              } else {
+                // Error.
+                return 1;
+              }
+            } else if (read_ret == 0) {
+              // EOF.
+              read_pipe_done = 1;
+              close(pipe_outof_cmd[0]);
+              free_FILE_helper(&out_f);
+            } else {
+              // Invalid state (unreachable?), error.
+              return 1;
+            }
+          }
+        }
+
+        waitpid(decompressor_pid, NULL, 0);
+
+        fprintf(stderr, "  Extracted.\n");
+      } else {
+        while (u64 != 0) {
+          if (u64 > 1024) {
+            ssize_t read_ret = fread(buf, 1, 1024, in_f);
+            if (read_ret > 0) {
+              u64 -= read_ret;
+            } else if (ferror(in_f)) {
+              return 1;
+            }
+          } else {
+            ssize_t read_ret = fread(buf, 1, u64, in_f);
+            if (read_ret > 0) {
+              u64 -= read_ret;
+            } else if (ferror(in_f)) {
+              return 1;
+            }
+          }
         }
       }
     } else {

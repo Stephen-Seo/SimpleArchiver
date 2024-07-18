@@ -28,6 +28,7 @@ typedef struct SDArchiverParsed {
   /// 0b xxxx xx10 - is checking/examining.
   /// 0b xxxx x0xx - Do NOT allow create archive overwrite.
   /// 0b xxxx x1xx - Allow create archive overwrite.
+  /// 0b xxxx 1xxx - Allow extract overwrite.
   unsigned int flags;
   /// Null-terminated string.
   char *filename;

@@ -83,8 +83,23 @@ int main(int argc, const char **argv) {
       return 3;
     }
 
-    if (simple_archiver_print_archive_info(file) != 0) {
+    if (simple_archiver_parse_archive_info(file, 0, NULL) != 0) {
       fprintf(stderr, "Error during archive checking/examining.\n");
+    }
+    fclose(file);
+  } else if ((parsed.flags & 3) == 1) {
+    FILE *file = fopen(parsed.filename, "rb");
+    if (!file) {
+      fprintf(stderr, "ERROR: Failed to open \"%s\" for reading!\n",
+              parsed.filename);
+      return 3;
+    }
+
+    __attribute__((cleanup(simple_archiver_free_state)))
+    SDArchiverState *state = simple_archiver_init_state(&parsed);
+
+    if (simple_archiver_parse_archive_info(file, 1, state) != 0) {
+      fprintf(stderr, "Error during archive extracting.\n");
     }
     fclose(file);
   }
