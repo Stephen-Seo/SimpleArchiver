@@ -825,32 +825,85 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 
+    if (do_extract == 0) {
+      fprintf(stderr, "  Permissions: ");
+    }
+
     if ((buf[0] & 0x2) != 0) {
       permissions |= S_IRUSR;
+      if (do_extract == 0) {
+        fprintf(stderr, "r");
+      }
+    } else if (do_extract == 0) {
+      fprintf(stderr, "-");
     }
     if ((buf[0] & 0x4) != 0) {
       permissions |= S_IWUSR;
+      if (do_extract == 0) {
+        fprintf(stderr, "w");
+      }
+    } else if (do_extract == 0) {
+      fprintf(stderr, "-");
     }
     if ((buf[0] & 0x8) != 0) {
       permissions |= S_IXUSR;
+      if (do_extract == 0) {
+        fprintf(stderr, "x");
+      }
+    } else if (do_extract == 0) {
+      fprintf(stderr, "-");
     }
     if ((buf[0] & 0x10) != 0) {
       permissions |= S_IRGRP;
+      if (do_extract == 0) {
+        fprintf(stderr, "r");
+      }
+    } else if (do_extract == 0) {
+      fprintf(stderr, "-");
     }
     if ((buf[0] & 0x20) != 0) {
       permissions |= S_IWGRP;
+      if (do_extract == 0) {
+        fprintf(stderr, "w");
+      }
+    } else if (do_extract == 0) {
+      fprintf(stderr, "-");
     }
     if ((buf[0] & 0x40) != 0) {
       permissions |= S_IXGRP;
+      if (do_extract == 0) {
+        fprintf(stderr, "x");
+      }
+    } else if (do_extract == 0) {
+      fprintf(stderr, "-");
     }
     if ((buf[0] & 0x80) != 0) {
       permissions |= S_IROTH;
+      if (do_extract == 0) {
+        fprintf(stderr, "r");
+      }
+    } else if (do_extract == 0) {
+      fprintf(stderr, "-");
     }
     if ((buf[1] & 0x1) != 0) {
       permissions |= S_IWOTH;
+      if (do_extract == 0) {
+        fprintf(stderr, "w");
+      }
+    } else if (do_extract == 0) {
+      fprintf(stderr, "-");
     }
     if ((buf[1] & 0x2) != 0) {
       permissions |= S_IXOTH;
+      if (do_extract == 0) {
+        fprintf(stderr, "x");
+      }
+    } else if (do_extract == 0) {
+      fprintf(stderr, "-");
+    }
+
+    if (do_extract == 0) {
+      fprintf(stderr, "\n");
     }
 
 #endif
