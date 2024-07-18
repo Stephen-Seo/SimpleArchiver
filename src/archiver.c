@@ -22,6 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "data_structures/linked_list.h"
+#include "parser.h"
 #include "platforms.h"
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -34,6 +36,7 @@
 #include <unistd.h>
 #endif
 
+#include "data_structures/hash_map.h"
 #include "helpers.h"
 
 #define TEMP_FILENAME_CMP "simple_archiver_compressed_%u.tmp"
@@ -503,6 +506,9 @@ int write_files_fn(void *data, void *ud) {
   return 0;
 }
 
+void cleanup_nop_fn(__attribute__((unused)) void *unused) {}
+void cleanup_free_fn(void *data) { free(data); }
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -730,6 +736,20 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
 
   uint32_t size = u32;
   int skip = 0;
+  __attribute__((cleanup(simple_archiver_hash_map_free)))
+  SDArchiverHashMap *hash_map = NULL;
+  if (state->parsed->working_files && state->parsed->working_files[0] != NULL) {
+    hash_map = simple_archiver_hash_map_init();
+    for (char **iter = state->parsed->working_files; *iter != NULL; ++iter) {
+      int len = strlen(*iter) + 1;
+      char *key = malloc(len);
+      memcpy(key, *iter, len);
+      key[len - 1] = 0;
+      simple_archiver_hash_map_insert(&hash_map, key, key, len, cleanup_nop_fn,
+                                      cleanup_free_fn);
+      fprintf(stderr, "\"%s\" put in map\n", key);
+    }
+  }
   for (uint32_t idx = 0; idx < size; ++idx) {
     fprintf(stderr, "\nFile %10u of %10u.\n", idx + 1, size);
     if (feof(in_f) || ferror(in_f)) {
@@ -762,8 +782,6 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
           skip = 0;
         }
         if (!skip) {
-          simple_archiver_helper_make_dirs((const char *)buf);
-          out_f = fopen((const char *)buf, "wb");
           out_f_name = malloc(strlen((const char *)buf) + 1);
           memcpy(out_f_name, buf, strlen((const char *)buf) + 1);
         }
@@ -793,8 +811,6 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
           skip = 0;
         }
         if (!skip) {
-          simple_archiver_helper_make_dirs((const char *)uc_heap_buf);
-          out_f = fopen((const char *)buf, "wb");
           out_f_name = malloc(strlen((const char *)buf) + 1);
           memcpy(out_f_name, buf, strlen((const char *)buf) + 1);
         }
@@ -852,9 +868,20 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         fprintf(stderr, "  File size: %lu\n", u64);
       }
 
-      if (do_extract && !skip) {
+      int skip_due_to_map = 0;
+      if (hash_map != NULL && out_f_name) {
+        if (simple_archiver_hash_map_get(hash_map, out_f_name,
+                                         strlen(out_f_name) + 1) == NULL) {
+          skip_due_to_map = 1;
+          fprintf(stderr, "Skipping not specified in args...\n");
+        }
+      }
+
+      if (do_extract && !skip && !skip_due_to_map) {
         fprintf(stderr, "  Extracting...\n");
 
+        simple_archiver_helper_make_dirs((const char *)out_f_name);
+        out_f = fopen(out_f_name, "wb");
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX

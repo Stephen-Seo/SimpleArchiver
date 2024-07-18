@@ -38,7 +38,7 @@ typedef struct SDArchiverParsed {
   char *decompressor;
   /// Null-terminated strings in array of strings.
   /// Last entry should be NULL.
-  /// Not used when extracting.
+  /// Determines a "white-list" of files to extract when extracting.
   char **working_files;
 } SDArchiverParsed;
 

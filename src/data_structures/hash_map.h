@@ -37,6 +37,8 @@ void simple_archiver_hash_map_free(SDArchiverHashMap **hash_map);
 /// key must remain valid for the lifetime of its entry in the hash map.
 /// If value_cleanup_fn is NULL, then "free" is used instead.
 /// If key_cleanup_fn is NULL, then "free" is used instead.
+/// NOTICE: You must not pass NULL to value, otherwise all "get" checks will
+/// fail for the inserted key.
 int simple_archiver_hash_map_insert(SDArchiverHashMap **hash_map, void *value,
                                     void *key, unsigned int key_size,
                                     void (*value_cleanup_fn)(void *),
