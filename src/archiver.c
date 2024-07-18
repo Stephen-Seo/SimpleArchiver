@@ -503,6 +503,29 @@ int write_files_fn(void *data, void *ud) {
   return 0;
 }
 
+char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
+  switch (error) {
+    case SDAS_SUCCESS:
+      return "SUCCESS";
+    case SDAS_HEADER_ALREADY_WRITTEN:
+      return "Header already written";
+    case SDAS_FAILED_TO_WRITE:
+      return "Failed to write";
+    case SDAS_NO_COMPRESSOR:
+      return "Compressor cmd is missing";
+    case SDAS_NO_DECOMPRESSOR:
+      return "Decompressor cmd is missing";
+    case SDAS_INVALID_PARSED_STATE:
+      return "Invalid parsed struct";
+    case SDAS_INVALID_FILE:
+      return "Invalid file";
+    case SDAS_INTERNAL_ERROR:
+      return "Internal error";
+    default:
+      return "Unknown error";
+  }
+}
+
 SDArchiverState *simple_archiver_init_state(const SDArchiverParsed *parsed) {
   if (!parsed) {
     return NULL;
@@ -846,21 +869,21 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
             // Unable to create second set of pipes.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
-            return 1;
+            return SDAS_INTERNAL_ERROR;
           } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
             // Unable to set non-blocking on into-write-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
             close(pipe_outof_cmd[1]);
-            return 1;
+            return SDAS_INTERNAL_ERROR;
           } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
             // Unable to set non-blocking on outof-read-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
             close(pipe_outof_cmd[1]);
-            return 1;
+            return SDAS_INTERNAL_ERROR;
           }
 
           if (state && state->parsed && state->parsed->decompressor) {
@@ -870,7 +893,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
               // Failed to spawn compressor.
               close(pipe_into_cmd[1]);
               close(pipe_outof_cmd[0]);
-              return 1;
+              return SDAS_INTERNAL_ERROR;
             }
           } else {
             if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -879,7 +902,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
               // Failed to spawn compressor.
               close(pipe_into_cmd[1]);
               close(pipe_outof_cmd[0]);
-              return 1;
+              return SDAS_INTERNAL_ERROR;
             }
           }
 
@@ -924,11 +947,11 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
                     write_again = 1;
                   } else {
                     // Error.
-                    return 1;
+                    return SDAS_INTERNAL_ERROR;
                   }
                 } else {
                   // Should be unreachable, error.
-                  return 1;
+                  return SDAS_INTERNAL_ERROR;
                 }
               }
             }
@@ -942,17 +965,17 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
                   // Success.
                 } else if (ferror(out_f)) {
                   // Error.
-                  return 1;
+                  return SDAS_INTERNAL_ERROR;
                 } else {
                   // Invalid state, error.
-                  return 1;
+                  return SDAS_INTERNAL_ERROR;
                 }
               } else if (read_ret == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                   // No bytes to read yet.
                 } else {
                   // Error.
-                  return 1;
+                  return SDAS_INTERNAL_ERROR;
                 }
               } else if (read_ret == 0) {
                 // EOF.
@@ -961,7 +984,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
                 free_FILE_helper(&out_f);
               } else {
                 // Invalid state (unreachable?), error.
-                return 1;
+                return SDAS_INTERNAL_ERROR;
               }
             }
           }
@@ -975,24 +998,24 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
               fread_ret = fread(buf, 1, 1024, in_f);
               if (ferror(in_f)) {
                 // Error.
-                return 1;
+                return SDAS_INTERNAL_ERROR;
               }
               fwrite(buf, 1, fread_ret, out_f);
               if (ferror(out_f)) {
                 // Error.
-                return 1;
+                return SDAS_INTERNAL_ERROR;
               }
               compressed_file_size -= fread_ret;
             } else {
               fread_ret = fread(buf, 1, compressed_file_size, in_f);
               if (ferror(in_f)) {
                 // Error.
-                return 1;
+                return SDAS_INTERNAL_ERROR;
               }
               fwrite(buf, 1, fread_ret, out_f);
               if (ferror(out_f)) {
                 // Error.
-                return 1;
+                return SDAS_INTERNAL_ERROR;
               }
               compressed_file_size -= fread_ret;
             }
@@ -1001,7 +1024,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
 
         if (chmod((const char *)out_f_name, permissions) == -1) {
           // Error.
-          return 1;
+          return SDAS_INTERNAL_ERROR;
         }
 
         fprintf(stderr, "  Extracted.\n");
@@ -1013,14 +1036,14 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
             if (read_ret > 0) {
               u64 -= read_ret;
             } else if (ferror(in_f)) {
-              return 1;
+              return SDAS_INTERNAL_ERROR;
             }
           } else {
             ssize_t read_ret = fread(buf, 1, u64, in_f);
             if (read_ret > 0) {
               u64 -= read_ret;
             } else if (ferror(in_f)) {
-              return 1;
+              return SDAS_INTERNAL_ERROR;
             }
           }
         }
@@ -1071,7 +1094,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
     }
   }
 
-  return 0;
+  return SDAS_SUCCESS;
 }
 
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],

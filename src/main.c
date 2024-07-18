@@ -98,8 +98,11 @@ int main(int argc, const char **argv) {
     __attribute__((cleanup(simple_archiver_free_state)))
     SDArchiverState *state = simple_archiver_init_state(&parsed);
 
-    if (simple_archiver_parse_archive_info(file, 1, state) != 0) {
+    int ret = simple_archiver_parse_archive_info(file, 1, state);
+    if (ret != SDAS_SUCCESS) {
       fprintf(stderr, "Error during archive extracting.\n");
+      char *error_str = simple_archiver_error_to_string(ret);
+      fprintf(stderr, "  %s\n", error_str);
     }
     fclose(file);
   }

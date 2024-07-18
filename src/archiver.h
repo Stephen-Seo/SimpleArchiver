@@ -41,8 +41,12 @@ enum SDArchiverStateReturns {
   SDAS_NO_COMPRESSOR,
   SDAS_NO_DECOMPRESSOR,
   SDAS_INVALID_PARSED_STATE,
-  SDAS_INVALID_FILE
+  SDAS_INVALID_FILE,
+  SDAS_INTERNAL_ERROR
 };
+
+/// Returned pointer must not be freed.
+char *simple_archiver_error_to_string(enum SDArchiverStateReturns error);
 
 SDArchiverState *simple_archiver_init_state(const SDArchiverParsed *parsed);
 void simple_archiver_free_state(SDArchiverState **state);
