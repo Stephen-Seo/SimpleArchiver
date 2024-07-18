@@ -22,8 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "data_structures/linked_list.h"
-#include "parser.h"
 #include "platforms.h"
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
