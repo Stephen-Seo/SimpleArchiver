@@ -71,8 +71,11 @@ int main(int argc, const char **argv) {
     __attribute__((cleanup(simple_archiver_free_state)))
     SDArchiverState *state = simple_archiver_init_state(&parsed);
 
-    if (simple_archiver_write_all(file, state, filenames) != SDAS_SUCCESS) {
+    int ret = simple_archiver_write_all(file, state, filenames);
+    if (ret != SDAS_SUCCESS) {
       fprintf(stderr, "Error during writing.\n");
+      char *error_str = simple_archiver_error_to_string(ret);
+      fprintf(stderr, "  %s\n", error_str);
     }
     fclose(file);
   } else if ((parsed.flags & 3) == 2) {
