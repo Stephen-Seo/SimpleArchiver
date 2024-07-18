@@ -174,6 +174,41 @@ int write_files_fn(void *data, void *ud) {
       close(pipe_into_cmd[0]);
       close(pipe_outof_cmd[1]);
 
+      int compressor_status;
+      int compressor_return_val;
+      int compressor_ret = waitpid(compressor_pid, &compressor_status, WNOHANG);
+      if (compressor_ret == compressor_pid) {
+        // Status is available.
+        if (WIFEXITED(compressor_status)) {
+          compressor_return_val = WEXITSTATUS(compressor_status);
+          if (compressor_return_val == 127) {
+            // Exec failed.
+            fprintf(stderr,
+                    "WARNING: Exec failed (exec exit code 127)! Invalid "
+                    "compressor cmd?\n");
+            return 1;
+          } else if (compressor_return_val == 0) {
+            // Immediately halted.
+            fprintf(stderr,
+                    "WARNING: Exec failed (exec exit code 0)! Invalid "
+                    "compressor cmd?\n");
+            return 1;
+          } else {
+            // Other status returned.
+            fprintf(stderr,
+                    "WARNING: Exec failed (exec exit code %d)! Invalid "
+                    "compressor cmd?\n",
+                    compressor_return_val);
+            return 1;
+          }
+        }
+      } else if (compressor_ret == 0) {
+        // Probably still running, continue on.
+      } else {
+        // Error.
+        return 1;
+      }
+
       // Write file to pipe, and read from other pipe.
       char write_buf[1024];
       char read_buf[1024];
@@ -1216,13 +1251,13 @@ int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
     posix_spawn_file_actions_destroy(&file_actions);
     close(pipe_fd_in[0]);
     close(pipe_fd_out[1]);
-    return 3;
+    return 4;
   } else if (posix_spawn_file_actions_addclose(&file_actions, pipe_fd_out[0]) !=
              0) {
     posix_spawn_file_actions_destroy(&file_actions);
     close(pipe_fd_in[0]);
     close(pipe_fd_out[1]);
-    return 3;
+    return 5;
   }
 
   __attribute__((cleanup(
@@ -1235,7 +1270,7 @@ int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
     close(pipe_fd_in[0]);
     close(pipe_fd_out[1]);
     posix_spawn_file_actions_destroy(&file_actions);
-    return 4;
+    return 6;
   }
 
   posix_spawn_file_actions_destroy(&file_actions);
