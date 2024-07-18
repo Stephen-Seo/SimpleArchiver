@@ -72,6 +72,17 @@ int write_list_datas_fn(void *data, void *ud) {
   return 0;
 }
 
+void cleanup_temp_filename_delete(char **tmpfilename) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+  if (tmpfilename && *tmpfilename) {
+    unlink(*tmpfilename);
+    *tmpfilename = NULL;
+  }
+#endif
+}
+
 int write_files_fn(void *data, void *ud) {
   const SDArchiverFileInfo *file_info = data;
   SDArchiverState *state = ud;
@@ -315,6 +326,8 @@ int write_files_fn(void *data, void *ud) {
       // Get compressed file length.
       // Compressed file should be at "temp_filename".
       tmp_fd = fopen(temp_filename, "rb");
+      __attribute__((cleanup(cleanup_temp_filename_delete))) char
+          *temp_filename_cleanup_reference = temp_filename;
       long end;
       if (fseek(tmp_fd, 0, SEEK_END) != 0) {
         // Error seeking.
@@ -362,7 +375,6 @@ int write_files_fn(void *data, void *ud) {
 
       // Cleanup.
       free_FILE_helper(&tmp_fd);
-      unlink(temp_filename);
 #endif
     } else {
       uint16_t u16;
