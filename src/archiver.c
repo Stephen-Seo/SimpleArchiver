@@ -698,6 +698,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
 
       if (do_extract && !skip) {
         fprintf(stderr, "  Extracting...\n");
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
         int pipe_into_cmd[2];
         int pipe_outof_cmd[2];
         pid_t decompressor_pid;
@@ -831,6 +834,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         waitpid(decompressor_pid, NULL, 0);
 
         fprintf(stderr, "  Extracted.\n");
+#endif
       } else {
         while (u64 != 0) {
           if (u64 > 1024) {
