@@ -40,6 +40,9 @@
 
 #define TEMP_FILENAME_CMP "simple_archiver_compressed_%u.tmp"
 
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 int is_sig_pipe_occurred = 0;
 
 void handle_sig_pipe(int sig) {
@@ -47,6 +50,7 @@ void handle_sig_pipe(int sig) {
     is_sig_pipe_occurred = 1;
   }
 }
+#endif
 
 typedef struct SDArchiverInternalToWrite {
   void *buf;
