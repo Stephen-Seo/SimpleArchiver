@@ -46,6 +46,12 @@ int main(int argc, const char **argv) {
 
   simple_archiver_parse_args(argc, argv, &parsed);
 
+  if (!parsed.filename && (parsed.flags & 0x10) == 0) {
+    fprintf(stderr, "ERROR: Filename not specified!\n");
+    simple_archiver_print_usage();
+    return 6;
+  }
+
   if ((parsed.flags & 0x3) == 0 && (parsed.flags & 0x4) == 0) {
     FILE *file = fopen(parsed.filename, "r");
     if (file != NULL) {
@@ -68,64 +74,92 @@ int main(int argc, const char **argv) {
   }
 
   if ((parsed.flags & 3) == 0) {
-    FILE *file = fopen(parsed.filename, "wb");
-    if (!file) {
-      fprintf(stderr, "ERROR: Failed to open \"%s\" for writing!\n",
-              parsed.filename);
-      return 2;
-    }
-
+    // Is creating archive.
     __attribute__((cleanup(simple_archiver_free_state)))
     SDArchiverState *state = simple_archiver_init_state(&parsed);
+    if ((parsed.flags & 0x10) == 0) {
+      FILE *file = fopen(parsed.filename, "wb");
+      if (!file) {
+        fprintf(stderr, "ERROR: Failed to open \"%s\" for writing!\n",
+                parsed.filename);
+        return 2;
+      }
 
-    int ret = simple_archiver_write_all(file, state, filenames);
-    if (ret != SDAS_SUCCESS) {
-      fprintf(stderr, "Error during writing.\n");
-      char *error_str = simple_archiver_error_to_string(ret);
-      fprintf(stderr, "  %s\n", error_str);
-    }
-    fclose(file);
+      int ret = simple_archiver_write_all(file, state, filenames);
+      if (ret != SDAS_SUCCESS) {
+        fprintf(stderr, "Error during writing.\n");
+        char *error_str = simple_archiver_error_to_string(ret);
+        fprintf(stderr, "  %s\n", error_str);
+      }
+      fclose(file);
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-    if (ret != SDAS_SUCCESS) {
-      unlink(parsed.filename);
-      return 3;
-    }
+      if (ret != SDAS_SUCCESS) {
+        unlink(parsed.filename);
+        return 3;
+      }
 #endif
+    } else {
+      int ret = simple_archiver_write_all(stdout, state, filenames);
+      if (ret != SDAS_SUCCESS) {
+        fprintf(stderr, "Error during writing.\n");
+        char *error_str = simple_archiver_error_to_string(ret);
+        fprintf(stderr, "  %s\n", error_str);
+      }
+    }
   } else if ((parsed.flags & 3) == 2) {
-    FILE *file = fopen(parsed.filename, "rb");
-    if (!file) {
-      fprintf(stderr, "ERROR: Failed to open \"%s\" for reading!\n",
-              parsed.filename);
-      return 4;
-    }
+    // Is checking archive.
+    if ((parsed.flags & 0x10) == 0) {
+      FILE *file = fopen(parsed.filename, "rb");
+      if (!file) {
+        fprintf(stderr, "ERROR: Failed to open \"%s\" for reading!\n",
+                parsed.filename);
+        return 4;
+      }
 
-    int ret = simple_archiver_parse_archive_info(file, 0, NULL);
-    if (ret != 0) {
-      fprintf(stderr, "Error during archive checking/examining.\n");
-      char *error_str = simple_archiver_error_to_string(ret);
-      fprintf(stderr, "  %s\n", error_str);
+      int ret = simple_archiver_parse_archive_info(file, 0, NULL);
+      if (ret != 0) {
+        fprintf(stderr, "Error during archive checking/examining.\n");
+        char *error_str = simple_archiver_error_to_string(ret);
+        fprintf(stderr, "  %s\n", error_str);
+      }
+      fclose(file);
+    } else {
+      int ret = simple_archiver_parse_archive_info(stdin, 0, NULL);
+      if (ret != 0) {
+        fprintf(stderr, "Error during archive checking/examining.\n");
+        char *error_str = simple_archiver_error_to_string(ret);
+        fprintf(stderr, "  %s\n", error_str);
+      }
     }
-    fclose(file);
   } else if ((parsed.flags & 3) == 1) {
-    FILE *file = fopen(parsed.filename, "rb");
-    if (!file) {
-      fprintf(stderr, "ERROR: Failed to open \"%s\" for reading!\n",
-              parsed.filename);
-      return 5;
-    }
-
+    // Is extracting archive.
     __attribute__((cleanup(simple_archiver_free_state)))
     SDArchiverState *state = simple_archiver_init_state(&parsed);
+    if ((parsed.flags & 0x10) == 0) {
+      FILE *file = fopen(parsed.filename, "rb");
+      if (!file) {
+        fprintf(stderr, "ERROR: Failed to open \"%s\" for reading!\n",
+                parsed.filename);
+        return 5;
+      }
 
-    int ret = simple_archiver_parse_archive_info(file, 1, state);
-    if (ret != SDAS_SUCCESS) {
-      fprintf(stderr, "Error during archive extracting.\n");
-      char *error_str = simple_archiver_error_to_string(ret);
-      fprintf(stderr, "  %s\n", error_str);
+      int ret = simple_archiver_parse_archive_info(file, 1, state);
+      if (ret != SDAS_SUCCESS) {
+        fprintf(stderr, "Error during archive extracting.\n");
+        char *error_str = simple_archiver_error_to_string(ret);
+        fprintf(stderr, "  %s\n", error_str);
+      }
+      fclose(file);
+    } else {
+      int ret = simple_archiver_parse_archive_info(stdin, 1, state);
+      if (ret != SDAS_SUCCESS) {
+        fprintf(stderr, "Error during archive extracting.\n");
+        char *error_str = simple_archiver_error_to_string(ret);
+        fprintf(stderr, "  %s\n", error_str);
+      }
     }
-    fclose(file);
   }
 
   return 0;

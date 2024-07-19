@@ -140,6 +140,9 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr, "-t : examine archive file\n");
   fprintf(stderr, "-f <filename> : filename to work on\n");
   fprintf(stderr,
+          "  Use \"-f -\" to work on stdout when creating archive or stdin "
+          "when reading archive\n");
+  fprintf(stderr,
           "--compressor <full_compress_cmd> : requires --decompressor\n");
   fprintf(stderr,
           "--decompressor <full_decompress_cmd> : requires --compressor\n");
@@ -210,9 +213,18 @@ int simple_archiver_parse_args(int argc, const char **argv,
         // set second bit.
         out->flags |= 0x2;
       } else if (strcmp(argv[0], "-f") == 0 && argc > 1) {
-        int size = strlen(argv[1]) + 1;
-        out->filename = malloc(size);
-        strncpy(out->filename, argv[1], size);
+        if (strcmp(argv[1], "-") == 0) {
+          out->flags |= 0x10;
+          if (out->filename) {
+            free(out->filename);
+          }
+          out->filename = NULL;
+        } else {
+          out->flags &= 0xFFFFFFEF;
+          int size = strlen(argv[1]) + 1;
+          out->filename = malloc(size);
+          strncpy(out->filename, argv[1], size);
+        }
         --argc;
         ++argv;
       } else if (strcmp(argv[0], "--compressor") == 0 && argc > 1) {
