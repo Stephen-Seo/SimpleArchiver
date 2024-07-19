@@ -177,6 +177,8 @@ int write_files_fn(void *data, void *ud) {
         // Failed to spawn compressor.
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
+        fprintf(stderr,
+                "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
         return 1;
       }
 
@@ -191,31 +193,19 @@ int write_files_fn(void *data, void *ud) {
         // Status is available.
         if (WIFEXITED(compressor_status)) {
           compressor_return_val = WEXITSTATUS(compressor_status);
-          if (compressor_return_val == 127) {
-            // Exec failed.
-            fprintf(stderr,
-                    "WARNING: Exec failed (exec exit code 127)! Invalid "
-                    "compressor cmd?\n");
-            return 1;
-          } else if (compressor_return_val == 0) {
-            // Immediately halted.
-            fprintf(stderr,
-                    "WARNING: Exec failed (exec exit code 0)! Invalid "
-                    "compressor cmd?\n");
-            return 1;
-          } else {
-            // Other status returned.
-            fprintf(stderr,
-                    "WARNING: Exec failed (exec exit code %d)! Invalid "
-                    "compressor cmd?\n",
-                    compressor_return_val);
-            return 1;
-          }
+          fprintf(stderr,
+                  "WARNING: Exec failed (exec exit code %d)! Invalid "
+                  "compressor cmd?\n",
+                  compressor_return_val);
+          return 1;
         }
       } else if (compressor_ret == 0) {
         // Probably still running, continue on.
       } else {
         // Error.
+        fprintf(stderr,
+                "WARNING: Exec failed (exec exit code unknown)! Invalid "
+                "compressor cmd?\n");
         return 1;
       }
 
@@ -695,6 +685,8 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   fprintf(stderr, "[%10u/%10u]\n", state->count, state->max);
   if (simple_archiver_list_get(filenames, write_files_fn, state)) {
     // Error occurred.
+    fprintf(stderr, "Error ocurred writing file(s) to archive.\n");
+    return SDAS_FAILED_TO_WRITE;
   }
   state->out_f = NULL;
 
@@ -990,6 +982,11 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
 
         simple_archiver_helper_make_dirs((const char *)out_f_name);
         out_f = fopen(out_f_name, "wb");
+        __attribute__((
+            cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
+            malloc(sizeof(void *) * 2);
+        ptrs_array[0] = out_f_name;
+        ptrs_array[1] = &out_f;
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -1037,6 +1034,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
               // Failed to spawn compressor.
               close(pipe_into_cmd[1]);
               close(pipe_outof_cmd[0]);
+              fprintf(
+                  stderr,
+                  "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
               return SDAS_INTERNAL_ERROR;
             }
           }
@@ -1044,6 +1044,30 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
           // Close unnecessary pipe fds on this end of the transfer.
           close(pipe_into_cmd[0]);
           close(pipe_outof_cmd[1]);
+
+          int decompressor_status;
+          int decompressor_return_val;
+          int decompressor_ret =
+              waitpid(decompressor_pid, &decompressor_status, WNOHANG);
+          if (decompressor_ret == decompressor_pid) {
+            // Status is available.
+            if (WIFEXITED(decompressor_status)) {
+              decompressor_return_val = WEXITSTATUS(decompressor_status);
+              fprintf(stderr,
+                      "WARNING: Exec failed (exec exit code %d)! Invalid "
+                      "decompressor cmd?\n",
+                      decompressor_return_val);
+              return SDAS_INTERNAL_ERROR;
+            }
+          } else if (decompressor_ret == 0) {
+            // Probably still running, continue on.
+          } else {
+            // Error.
+            fprintf(stderr,
+                    "WARNING: Exec failed (exec exit code unknown)! Invalid "
+                    "decompressor cmd?\n");
+            return SDAS_INTERNAL_ERROR;
+          }
 
           uint64_t compressed_file_size = u64;
           int write_again = 0;
@@ -1162,6 +1186,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
           return SDAS_INTERNAL_ERROR;
         }
 
+        ptrs_array[0] = NULL;
         fprintf(stderr, "  Extracted.\n");
 #endif
       } else {
