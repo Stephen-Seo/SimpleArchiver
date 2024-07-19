@@ -90,6 +90,7 @@ int main(int argc, const char **argv) {
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     if (ret != SDAS_SUCCESS) {
       unlink(parsed.filename);
+      return 3;
     }
 #endif
   } else if ((parsed.flags & 3) == 2) {
@@ -97,7 +98,7 @@ int main(int argc, const char **argv) {
     if (!file) {
       fprintf(stderr, "ERROR: Failed to open \"%s\" for reading!\n",
               parsed.filename);
-      return 3;
+      return 4;
     }
 
     int ret = simple_archiver_parse_archive_info(file, 0, NULL);
@@ -112,7 +113,7 @@ int main(int argc, const char **argv) {
     if (!file) {
       fprintf(stderr, "ERROR: Failed to open \"%s\" for reading!\n",
               parsed.filename);
-      return 3;
+      return 5;
     }
 
     __attribute__((cleanup(simple_archiver_free_state)))

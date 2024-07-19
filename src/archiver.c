@@ -28,6 +28,7 @@
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <spawn.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -38,6 +39,14 @@
 #include "helpers.h"
 
 #define TEMP_FILENAME_CMP "simple_archiver_compressed_%u.tmp"
+
+int is_sig_pipe_occurred = 0;
+
+void handle_sig_pipe(int sig) {
+  if (sig == SIGPIPE) {
+    is_sig_pipe_occurred = 1;
+  }
+}
 
 typedef struct SDArchiverInternalToWrite {
   void *buf;
@@ -145,6 +154,9 @@ int write_files_fn(void *data, void *ud) {
         return 1;
       }
 
+      // Handle SIGPIPE.
+      signal(SIGPIPE, handle_sig_pipe);
+
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
       pid_t compressor_pid;
@@ -219,6 +231,13 @@ int write_files_fn(void *data, void *ud) {
       size_t read_count;
       ssize_t ret;
       while (!write_done || !read_done) {
+        if (is_sig_pipe_occurred) {
+          fprintf(stderr,
+                  "WARNING: Failed to write to compressor (SIGPIPE)! Invalid "
+                  "compressor cmd?\n");
+          return 1;
+        }
+
         // Read from file.
         if (!write_done) {
           if (!write_again) {
@@ -231,10 +250,16 @@ int write_files_fn(void *data, void *ud) {
                 write_again = 1;
               } else {
                 // Error during write.
+                fprintf(stderr,
+                        "WARNING: Failed to write to compressor! Invalid "
+                        "compressor cmd?\n");
                 return 1;
               }
             } else if ((size_t)ret != write_count) {
               // Error during write.
+              fprintf(stderr,
+                      "WARNING: Failed to write to compressor! Invalid "
+                      "compressor cmd?\n");
               return 1;
             } else {
               write_again = 0;
@@ -248,6 +273,9 @@ int write_files_fn(void *data, void *ud) {
               // fprintf(stderr, "write_done\n");
             } else if (ferror(file_fd)) {
               // Error during read file.
+              fprintf(
+                  stderr,
+                  "WARNING: Failed to write to compressor (failed to read)!\n");
               return 1;
             }
           }
@@ -260,6 +288,9 @@ int write_files_fn(void *data, void *ud) {
             read_count = fwrite(read_buf, 1, ret, tmp_fd);
             if (read_count != (size_t)ret) {
               // Write to tmp_fd error.
+              fprintf(stderr,
+                      "WARNING: Failed to read from compressor! Invalid "
+                      "compressor cmd?\n");
               return 1;
             } else {
               // fprintf(stderr, "Written %zd bytes to tmp_fd.\n", read_count);
@@ -274,12 +305,22 @@ int write_files_fn(void *data, void *ud) {
               // Nop.
             } else {
               // Read error.
+              fprintf(stderr,
+                      "WARNING: Failed to read from compressor! Invalid "
+                      "compressor cmd?\n");
               return 1;
             }
           } else {
             // Nop. Technically this branch should be unreachable.
           }
         }
+      }
+
+      if (is_sig_pipe_occurred) {
+        fprintf(stderr,
+                "WARNING: Failed to write to compressor (SIGPIPE)! Invalid "
+                "compressor cmd?\n");
+        return 1;
       }
 
       waitpid(compressor_pid, NULL, 0);
@@ -991,6 +1032,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
         if (is_compressed) {
+          // Handle SIGPIPE.
+          signal(SIGPIPE, handle_sig_pipe);
+
           int pipe_into_cmd[2];
           int pipe_outof_cmd[2];
           pid_t decompressor_pid;
@@ -1025,6 +1069,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
               // Failed to spawn compressor.
               close(pipe_into_cmd[1]);
               close(pipe_outof_cmd[0]);
+              fprintf(
+                  stderr,
+                  "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
               return SDAS_INTERNAL_ERROR;
             }
           } else {
@@ -1077,6 +1124,13 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
           char recv_buf[1024];
           size_t amount_to_read;
           while (!write_pipe_done || !read_pipe_done) {
+            if (is_sig_pipe_occurred) {
+              fprintf(stderr,
+                      "WARNING: Failed to write to decompressor (SIGPIPE)! "
+                      "Invalid decompressor cmd?\n");
+              return 1;
+            }
+
             // Read from file.
             if (!write_pipe_done) {
               if (!write_again && compressed_file_size != 0) {
@@ -1106,10 +1160,16 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
                     write_again = 1;
                   } else {
                     // Error.
+                    fprintf(stderr,
+                            "WARNING: Failed to write to decompressor! Invalid "
+                            "decompressor cmd?\n");
                     return SDAS_INTERNAL_ERROR;
                   }
                 } else {
                   // Should be unreachable, error.
+                  fprintf(stderr,
+                          "WARNING: Failed to write to decompressor! Invalid "
+                          "decompressor cmd?\n");
                   return SDAS_INTERNAL_ERROR;
                 }
               }
@@ -1124,9 +1184,15 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
                   // Success.
                 } else if (ferror(out_f)) {
                   // Error.
+                  fprintf(stderr,
+                          "WARNING: Failed to read from decompressor! Invalid "
+                          "decompressor cmd?\n");
                   return SDAS_INTERNAL_ERROR;
                 } else {
                   // Invalid state, error.
+                  fprintf(stderr,
+                          "WARNING: Failed to read from decompressor! Invalid "
+                          "decompressor cmd?\n");
                   return SDAS_INTERNAL_ERROR;
                 }
               } else if (read_ret == -1) {
@@ -1134,6 +1200,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
                   // No bytes to read yet.
                 } else {
                   // Error.
+                  fprintf(stderr,
+                          "WARNING: Failed to read from decompressor! Invalid "
+                          "decompressor cmd?\n");
                   return SDAS_INTERNAL_ERROR;
                 }
               } else if (read_ret == 0) {
@@ -1143,9 +1212,19 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
                 free_FILE_helper(&out_f);
               } else {
                 // Invalid state (unreachable?), error.
+                fprintf(stderr,
+                        "WARNING: Failed to read from decompressor! Invalid "
+                        "decompressor cmd?\n");
                 return SDAS_INTERNAL_ERROR;
               }
             }
+          }
+
+          if (is_sig_pipe_occurred) {
+            fprintf(stderr,
+                    "WARNING: Failed to write to decompressor (SIGPIPE)! "
+                    "Invalid decompressor cmd?\n");
+            return 1;
           }
 
           waitpid(decompressor_pid, NULL, 0);
