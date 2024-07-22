@@ -588,7 +588,107 @@ int write_files_fn(void *data, void *ud) {
     }
   } else {
     // A symblic link.
-    // TODO
+    uint16_t u16;
+
+    u16 = strlen(file_info->filename);
+
+    // Write filename length.
+    simple_archiver_helper_16_bit_be(&u16);
+    temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+    temp_to_write->buf = malloc(2);
+    temp_to_write->size = 2;
+    memcpy(temp_to_write->buf, &u16, 2);
+    simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+    // Write filename.
+    simple_archiver_helper_16_bit_be(&u16);
+    temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+    temp_to_write->buf = malloc(u16 + 1);
+    temp_to_write->size = u16 + 1;
+    memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+    simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+    // Write flags.
+    temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+    temp_to_write->buf = malloc(4);
+    temp_to_write->size = 4;
+    for (unsigned int idx = 0; idx < temp_to_write->size; ++idx) {
+      ((unsigned char *)temp_to_write->buf)[idx] = 0;
+    }
+
+    // Set "is symbolic link" flag.
+    ((unsigned char *)temp_to_write->buf)[0] = 1;
+
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+    // Get file stats.
+    struct stat stat_buf;
+    memset(&stat_buf, 0, sizeof(struct stat));
+    int stat_status =
+        fstatat(AT_FDCWD, file_info->filename, &stat_buf, AT_SYMLINK_NOFOLLOW);
+    if (stat_status != 0) {
+      // Error.
+      return 1;
+    }
+
+    if ((stat_buf.st_mode & S_IRUSR) != 0) {
+      ((unsigned char *)temp_to_write->buf)[0] |= 0x2;
+    }
+    if ((stat_buf.st_mode & S_IWUSR) != 0) {
+      ((unsigned char *)temp_to_write->buf)[0] |= 0x4;
+    }
+    if ((stat_buf.st_mode & S_IXUSR) != 0) {
+      ((unsigned char *)temp_to_write->buf)[0] |= 0x8;
+    }
+    if ((stat_buf.st_mode & S_IRGRP) != 0) {
+      ((unsigned char *)temp_to_write->buf)[0] |= 0x10;
+    }
+    if ((stat_buf.st_mode & S_IWGRP) != 0) {
+      ((unsigned char *)temp_to_write->buf)[0] |= 0x20;
+    }
+    if ((stat_buf.st_mode & S_IXGRP) != 0) {
+      ((unsigned char *)temp_to_write->buf)[0] |= 0x40;
+    }
+    if ((stat_buf.st_mode & S_IROTH) != 0) {
+      ((unsigned char *)temp_to_write->buf)[0] |= 0x80;
+    }
+    if ((stat_buf.st_mode & S_IWOTH) != 0) {
+      ((unsigned char *)temp_to_write->buf)[1] |= 0x1;
+    }
+    if ((stat_buf.st_mode & S_IXOTH) != 0) {
+      ((unsigned char *)temp_to_write->buf)[1] |= 0x2;
+    }
+#endif
+    simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+    // Write absolute path length.
+    // TODO actually store absolute path.
+    // u16 = 0;
+    // No need to convert to big-endian since 0 is 0.
+    // simple_archiver_helper_16_bit_be(&u16);
+
+    temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+    temp_to_write->buf = malloc(2);
+    temp_to_write->size = 2;
+    ((unsigned char *)temp_to_write->buf)[0] = 0;
+    ((unsigned char *)temp_to_write->buf)[1] = 0;
+    simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+    // Write relative path length.
+    // TODO actually store relative path.
+
+    temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+    temp_to_write->buf = malloc(2);
+    temp_to_write->size = 2;
+    ((unsigned char *)temp_to_write->buf)[0] = 0;
+    ((unsigned char *)temp_to_write->buf)[1] = 0;
+    simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+    // Write all previously set data.
+    fprintf(stderr, "Writing symlink info: %s\n", file_info->filename);
+    simple_archiver_list_get(to_write, write_list_datas_fn, state->out_f);
+    simple_archiver_list_free(&to_write);
   }
 
   fprintf(stderr, "[%10u/%10u]\n", ++(state->count), state->max);
@@ -1297,7 +1397,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         return SDAS_INVALID_FILE;
       }
       simple_archiver_helper_16_bit_be(&u16);
-      if (u16 < 1024) {
+      if (u16 == 0) {
+        fprintf(stderr, "  Link does not have absolute path.\n");
+      } else if (u16 < 1024) {
         if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
           return SDAS_INVALID_FILE;
         }
@@ -1318,7 +1420,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         return SDAS_INVALID_FILE;
       }
       simple_archiver_helper_16_bit_be(&u16);
-      if (u16 < 1024) {
+      if (u16 == 0) {
+        fprintf(stderr, "  Link does not have relative path.\n");
+      } else if (u16 < 1024) {
         if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
           return SDAS_INVALID_FILE;
         }
