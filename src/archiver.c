@@ -530,6 +530,9 @@ int write_files_fn(void *data, void *ud) {
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
         ((unsigned char *)temp_to_write->buf)[1] |= 0x2;
       }
+#else
+      // Unsupported platform. Just set the permission bits for user.
+      ((unsigned char *)temp_to_write->buf)[0] |= 0xE;
 #endif
 
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
@@ -659,6 +662,9 @@ int write_files_fn(void *data, void *ud) {
     if ((stat_buf.st_mode & S_IXOTH) != 0) {
       ((unsigned char *)temp_to_write->buf)[1] |= 0x2;
     }
+#else
+    // Unsupported platform. Just set the permission bits for user.
+    ((unsigned char *)temp_to_write->buf)[0] |= 0xE;
 #endif
     simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
