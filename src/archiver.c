@@ -28,6 +28,8 @@
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 #include <errno.h>
 #include <fcntl.h>
+#include <libgen.h>
+#include <limits.h>
 #include <signal.h>
 #include <spawn.h>
 #include <sys/stat.h>
@@ -668,31 +670,141 @@ int write_files_fn(void *data, void *ud) {
 #endif
     simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
-    // Write absolute path length.
-    // TODO actually store absolute path.
-    // u16 = 0;
-    // No need to convert to big-endian since 0 is 0.
-    // simple_archiver_helper_16_bit_be(&u16);
+    // Get absolute path.
+    __attribute__((cleanup(free_malloced_memory))) void *abs_path =
+        realpath(file_info->filename, NULL);
+    if (!abs_path) {
+      fprintf(stderr,
+              "WARNING: Failed to get absolute path of link destination!\n");
+    }
 
-    temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
-    temp_to_write->buf = malloc(2);
-    temp_to_write->size = 2;
-    ((unsigned char *)temp_to_write->buf)[0] = 0;
-    ((unsigned char *)temp_to_write->buf)[1] = 0;
-    simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+    // Get relative path.
+    __attribute__((cleanup(free_malloced_memory))) void *rel_path = NULL;
+    // First get absolute path of link.
+    // Get abs path to dirname of link.
+    unsigned int link_dir_path_len = strlen(file_info->filename) + 1;
+    __attribute__((cleanup(free_malloced_memory))) void *link_dir_path =
+        malloc(link_dir_path_len);
+    strncpy(link_dir_path, file_info->filename, link_dir_path_len);
+    char *link_dirname = dirname(link_dir_path);
+    __attribute__((cleanup(free_malloced_memory))) void *link_dir_abs_path =
+        realpath(link_dirname, NULL);
+    if (!link_dir_abs_path) {
+      fprintf(stderr,
+              "WARNING: Failed to get absolute path of link directory!\n");
+    } else {
+      // Get basename of link to append.
+      __attribute__((cleanup(free_malloced_memory))) void *link_filename =
+          malloc(strlen(file_info->filename) + 1);
+      strncpy(link_filename, file_info->filename,
+              strlen(file_info->filename) + 1);
+      char *link_basename = basename(link_filename);
+      // Set up full path to link.
+      unsigned int link_path_len = strlen(link_dir_abs_path);
+      __attribute__((cleanup(free_malloced_memory))) void *combined_path =
+          malloc(link_path_len + 1 + strlen(link_basename) + 1);
+      strncpy(combined_path, link_dir_abs_path, link_path_len + 1);
+      ((char *)combined_path)[link_path_len] = '/';
+      strncpy((char *)combined_path + link_path_len + 1, link_basename,
+              strlen(link_basename) + 1);
+      // fprintf(stderr, "DEBUG: abs_path: %s\nDEBUG: combined_path: %s\n",
+      //                 (char*)abs_path, (char*)combined_path);
+      // Compare paths to get relative path.
+      // Get first non-common char.
+      unsigned int idx;
+      unsigned int last_slash;
+      for (idx = 0, last_slash = 0;
+           idx < strlen(abs_path) && idx < strlen(combined_path); ++idx) {
+        if (((const char *)abs_path)[idx] !=
+            ((const char *)combined_path)[idx]) {
+          break;
+        } else if (((const char *)abs_path)[idx] == '/') {
+          last_slash = idx + 1;
+        }
+      }
+      // Get substrings of both paths.
+      char *link_substr = (char *)combined_path + last_slash;
+      char *dest_substr = (char *)abs_path + last_slash;
+      rel_path = malloc(strlen(dest_substr) + 1);
+      strncpy(rel_path, dest_substr, strlen(dest_substr) + 1);
+      // fprintf(stderr, "DEBUG: link_substr: %s\nDEBUG: dest_substr: %s\n",
+      //         link_substr, dest_substr);
+      // Generate the relative path.
+      int has_slash = 0;
+      idx = 0;
+      do {
+        for (; link_substr[idx] != '/' && link_substr[idx] != 0; ++idx);
+        if (link_substr[idx] == 0) {
+          has_slash = 0;
+        } else {
+          has_slash = 1;
+          char *new_rel_path = malloc(strlen(rel_path) + 1 + 3);
+          new_rel_path[0] = '.';
+          new_rel_path[1] = '.';
+          new_rel_path[2] = '/';
+          strncpy(new_rel_path + 3, rel_path, strlen(rel_path) + 1);
+          free(rel_path);
+          rel_path = new_rel_path;
+          ++idx;
+        }
+      } while (has_slash);
+    }
 
-    // Write relative path length.
-    // TODO actually store relative path.
+    if (abs_path) {
+      // Write absolute path length.
+      u16 = strlen(abs_path);
+      simple_archiver_helper_16_bit_be(&u16);
 
-    temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
-    temp_to_write->buf = malloc(2);
-    temp_to_write->size = 2;
-    ((unsigned char *)temp_to_write->buf)[0] = 0;
-    ((unsigned char *)temp_to_write->buf)[1] = 0;
-    simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(2);
+      temp_to_write->size = 2;
+      memcpy(temp_to_write->buf, &u16, 2);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+      // Write absolute path.
+      simple_archiver_helper_16_bit_be(&u16);
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(u16 + 1);
+      temp_to_write->size = u16 + 1;
+      strncpy(temp_to_write->buf, abs_path, u16 + 1);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+    } else {
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(2);
+      temp_to_write->size = 2;
+      memset(temp_to_write->buf, 0, 2);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+    }
+
+    if (rel_path) {
+      // Write relative path length.
+      u16 = strlen(rel_path);
+      simple_archiver_helper_16_bit_be(&u16);
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(2);
+      temp_to_write->size = 2;
+      memcpy(temp_to_write->buf, &u16, 2);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+      // Write relative path.
+      simple_archiver_helper_16_bit_be(&u16);
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(u16 + 1);
+      temp_to_write->size = u16 + 1;
+      strncpy(temp_to_write->buf, rel_path, u16 + 1);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+    } else {
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(2);
+      temp_to_write->size = 2;
+      memset(temp_to_write->buf, 0, 2);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+    }
 
     // Write all previously set data.
     fprintf(stderr, "Writing symlink info: %s\n", file_info->filename);
+    fprintf(stderr, "  abs path: %s\n", (char *)abs_path);
+    fprintf(stderr, "  rel path: %s\n", (char *)rel_path);
     simple_archiver_list_get(to_write, write_list_datas_fn, state->out_f);
     simple_archiver_list_free(&to_write);
   }
