@@ -846,6 +846,19 @@ int write_files_fn(void *data, void *ud) {
 void cleanup_nop_fn(__attribute__((unused)) void *unused) {}
 void cleanup_free_fn(void *data) { free(data); }
 
+int filenames_to_abs_map_fn(void *data, void *ud) {
+  SDArchiverFileInfo *file_info = data;
+  SDArchiverHashMap **abs_filenames = ud;
+
+  // Get combined full path to file.
+  char *fullpath = filename_to_absolute_path(file_info->filename);
+
+  simple_archiver_hash_map_insert(abs_filenames, fullpath, fullpath,
+                                  strlen(fullpath) + 1, cleanup_nop_fn, NULL);
+
+  return 0;
+}
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -864,6 +877,8 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
       return "Invalid file";
     case SDAS_INTERNAL_ERROR:
       return "Internal error";
+    case SDAS_FAILED_TO_CREATE_MAP:
+      return "Failed to create set of filenames (internal error)";
     default:
       return "Unknown error";
   }
@@ -878,6 +893,7 @@ SDArchiverState *simple_archiver_init_state(const SDArchiverParsed *parsed) {
   state->flags = 0;
   state->parsed = parsed;
   state->out_f = NULL;
+  state->map = NULL;
 
   return state;
 }
@@ -891,6 +907,14 @@ void simple_archiver_free_state(SDArchiverState **state) {
 
 int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
                               const SDArchiverLinkedList *filenames) {
+  // First create a "set" of absolute paths to given filenames.
+  __attribute__((cleanup(simple_archiver_hash_map_free)))
+  SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
+  if (simple_archiver_list_get(filenames, filenames_to_abs_map_fn,
+                               &abs_filenames)) {
+    return SDAS_FAILED_TO_CREATE_MAP;
+  }
+
   if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
     return SDAS_FAILED_TO_WRITE;
   }
@@ -974,6 +998,7 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   state->count = 0;
   state->max = filenames->count;
   state->out_f = out_f;
+  state->map = abs_filenames;
   fprintf(stderr, "Begin archiving...\n");
   fprintf(stderr, "[%10u/%10u]\n", state->count, state->max);
   if (simple_archiver_list_get(filenames, write_files_fn, state)) {

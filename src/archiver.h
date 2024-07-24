@@ -31,6 +31,7 @@ typedef struct SDArchiverState {
   unsigned int flags;
   const SDArchiverParsed *parsed;
   FILE *out_f;
+  SDArchiverHashMap *map;
   unsigned int count;
   unsigned int max;
 } SDArchiverState;
@@ -43,7 +44,8 @@ enum SDArchiverStateReturns {
   SDAS_NO_DECOMPRESSOR,
   SDAS_INVALID_PARSED_STATE,
   SDAS_INVALID_FILE,
-  SDAS_INTERNAL_ERROR
+  SDAS_INTERNAL_ERROR,
+  SDAS_FAILED_TO_CREATE_MAP
 };
 
 /// Returned pointer must not be freed.
