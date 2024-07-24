@@ -28,6 +28,9 @@ API calls.
     If creating archive file, remaining args specify files to archive.
     If extracting archive file, remaining args specify files to extract.
 
+Note that `--compressor` and `--decompressor` cmds must accept data from stdin
+and return processed data to stdout.
+
 ## LICENSE Information
 
 Uses the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0).
