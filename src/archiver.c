@@ -103,6 +103,43 @@ void cleanup_temp_filename_delete(void ***ptrs_array) {
 #endif
 }
 
+char *filename_to_absolute_path(const char *filename) {
+  __attribute__((cleanup(free_malloced_memory))) void *path =
+      malloc(strlen(filename) + 1);
+  strncpy(path, filename, strlen(filename) + 1);
+
+  char *path_dir = dirname(path);
+  if (!path_dir) {
+    return NULL;
+  }
+
+  __attribute__((cleanup(free_malloced_memory))) void *dir_realpath =
+      realpath(path_dir, NULL);
+  if (!dir_realpath) {
+    return NULL;
+  }
+
+  // Recreate "path" since it may have been modified by dirname().
+  free_malloced_memory(&path);
+  path = malloc(strlen(filename) + 1);
+  strncpy(path, filename, strlen(filename) + 1);
+
+  char *filename_basename = basename(path);
+  if (!filename_basename) {
+    return NULL;
+  }
+
+  // Get combined full path to file.
+  char *fullpath =
+      malloc(strlen(dir_realpath) + 1 + strlen(filename_basename) + 1);
+  strncpy(fullpath, dir_realpath, strlen(dir_realpath) + 1);
+  fullpath[strlen(dir_realpath)] = '/';
+  strncpy(fullpath + strlen(dir_realpath) + 1, filename_basename,
+          strlen(filename_basename) + 1);
+
+  return fullpath;
+}
+
 int write_files_fn(void *data, void *ud) {
   const SDArchiverFileInfo *file_info = data;
   SDArchiverState *state = ud;
@@ -684,54 +721,35 @@ int write_files_fn(void *data, void *ud) {
     } else {
       // Get relative path.
       // First get absolute path of link.
-      // Get abs path to dirname of link.
-      unsigned int link_dir_path_len = strlen(file_info->filename) + 1;
-      __attribute__((cleanup(free_malloced_memory))) void *link_dir_path =
-          malloc(link_dir_path_len);
-      strncpy(link_dir_path, file_info->filename, link_dir_path_len);
-      char *link_dirname = dirname(link_dir_path);
-      __attribute__((cleanup(free_malloced_memory))) void *link_dir_abs_path =
-          realpath(link_dirname, NULL);
-      if (!link_dir_abs_path) {
-        fprintf(stderr,
-                "WARNING: Failed to get absolute path of link directory!\n");
+      __attribute__((cleanup(free_malloced_memory))) void *link_abs_path =
+          filename_to_absolute_path(file_info->filename);
+      if (!link_abs_path) {
+        fprintf(stderr, "WARNING: Failed to get absolute path of link!\n");
       } else {
-        // Get basename of link to append.
-        __attribute__((cleanup(free_malloced_memory))) void *link_filename =
-            malloc(strlen(file_info->filename) + 1);
-        strncpy(link_filename, file_info->filename,
-                strlen(file_info->filename) + 1);
-        char *link_basename = basename(link_filename);
-        // Set up full path to link.
-        unsigned int link_path_len = strlen(link_dir_abs_path);
-        __attribute__((cleanup(free_malloced_memory))) void *combined_path =
-            malloc(link_path_len + 1 + strlen(link_basename) + 1);
-        strncpy(combined_path, link_dir_abs_path, link_path_len + 1);
-        ((char *)combined_path)[link_path_len] = '/';
-        strncpy((char *)combined_path + link_path_len + 1, link_basename,
-                strlen(link_basename) + 1);
-        // fprintf(stderr, "DEBUG: abs_path: %s\nDEBUG: combined_path: %s\n",
-        //                 (char*)abs_path, (char*)combined_path);
+        // fprintf(stderr, "DEBUG: abs_path: %s\nDEBUG: link_abs_path: %s\n",
+        //                 (char*)abs_path, (char*)link_abs_path);
+
         // Compare paths to get relative path.
         // Get first non-common char.
         unsigned int idx;
         unsigned int last_slash;
         for (idx = 0, last_slash = 0;
-             idx < strlen(abs_path) && idx < strlen(combined_path); ++idx) {
+             idx < strlen(abs_path) && idx < strlen(link_abs_path); ++idx) {
           if (((const char *)abs_path)[idx] !=
-              ((const char *)combined_path)[idx]) {
+              ((const char *)link_abs_path)[idx]) {
             break;
           } else if (((const char *)abs_path)[idx] == '/') {
             last_slash = idx + 1;
           }
         }
         // Get substrings of both paths.
-        char *link_substr = (char *)combined_path + last_slash;
+        char *link_substr = (char *)link_abs_path + last_slash;
         char *dest_substr = (char *)abs_path + last_slash;
         rel_path = malloc(strlen(dest_substr) + 1);
         strncpy(rel_path, dest_substr, strlen(dest_substr) + 1);
         // fprintf(stderr, "DEBUG: link_substr: %s\nDEBUG: dest_substr: %s\n",
         //         link_substr, dest_substr);
+
         // Generate the relative path.
         int has_slash = 0;
         idx = 0;
