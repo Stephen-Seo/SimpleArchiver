@@ -704,21 +704,13 @@ int write_files_fn(void *data, void *ud) {
     // Unsupported platform. Just set the permission bits for user.
     ((unsigned char *)temp_to_write->buf)[0] |= 0xE;
 #endif
-    simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
+    // Need to get abs_path for checking/setting a flag before storing flags.
     // Get absolute path.
     __attribute__((cleanup(free_malloced_memory))) void *abs_path =
         realpath(file_info->filename, NULL);
     __attribute__((cleanup(free_malloced_memory))) void *rel_path = NULL;
-    if (!abs_path) {
-      fprintf(stderr,
-              "WARNING: Failed to get absolute path of link destination!\n");
-      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
-      temp_to_write->buf = malloc(2);
-      temp_to_write->size = 2;
-      memset(temp_to_write->buf, 0, 2);
-      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
-    } else {
+    if (abs_path) {
       // Get relative path.
       // First get absolute path of link.
       __attribute__((cleanup(free_malloced_memory))) void *link_abs_path =
@@ -770,38 +762,58 @@ int write_files_fn(void *data, void *ud) {
           }
         } while (has_slash);
       }
+    }
 
-      if ((state->parsed->flags & 0x20) == 0) {
-        // Write absolute path length.
-        u16 = strlen(abs_path);
-        simple_archiver_helper_16_bit_be(&u16);
+    // Check if absolute path refers to one of the filenames.
+    if (abs_path && (state->parsed->flags & 0x20) == 0 &&
+        !simple_archiver_hash_map_get(state->map, abs_path,
+                                      strlen(abs_path) + 1)) {
+      // Is not a filename being archived, set preference to absolute path.
+      fprintf(stderr,
+              "NOTICE: abs_path exists, \"--no-abs-symlink\" not specified, "
+              "and link refers to file NOT in archive; preferring abs_path.\n");
+      ((unsigned char *)temp_to_write->buf)[1] |= 0x4;
+    }
 
-        temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
-        temp_to_write->buf = malloc(2);
-        temp_to_write->size = 2;
-        memcpy(temp_to_write->buf, &u16, 2);
-        simple_archiver_list_add(to_write, temp_to_write,
-                                 free_internal_to_write);
+    // Store the 4 byte bit-flags for file.
+    simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
-        // Write absolute path.
-        simple_archiver_helper_16_bit_be(&u16);
-        temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
-        temp_to_write->buf = malloc(u16 + 1);
-        temp_to_write->size = u16 + 1;
-        strncpy(temp_to_write->buf, abs_path, u16 + 1);
-        simple_archiver_list_add(to_write, temp_to_write,
-                                 free_internal_to_write);
-      } else {
-        fprintf(stderr,
-                "NOTICE: Not saving absolute path since \"--no-abs-symlink\" "
-                "was specified.\n");
-        temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
-        temp_to_write->buf = malloc(2);
-        temp_to_write->size = 2;
-        memset(temp_to_write->buf, 0, 2);
-        simple_archiver_list_add(to_write, temp_to_write,
-                                 free_internal_to_write);
-      }
+    // Store the absolute and relative paths.
+    if (!abs_path) {
+      fprintf(stderr,
+              "WARNING: Failed to get absolute path of link destination!\n");
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(2);
+      temp_to_write->size = 2;
+      memset(temp_to_write->buf, 0, 2);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+    } else if ((state->parsed->flags & 0x20) == 0) {
+      // Write absolute path length.
+      u16 = strlen(abs_path);
+      simple_archiver_helper_16_bit_be(&u16);
+
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(2);
+      temp_to_write->size = 2;
+      memcpy(temp_to_write->buf, &u16, 2);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+      // Write absolute path.
+      simple_archiver_helper_16_bit_be(&u16);
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(u16 + 1);
+      temp_to_write->size = u16 + 1;
+      strncpy(temp_to_write->buf, abs_path, u16 + 1);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+    } else {
+      fprintf(stderr,
+              "NOTICE: Not saving absolute path since \"--no-abs-symlink\" "
+              "was specified.\n");
+      temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
+      temp_to_write->buf = malloc(2);
+      temp_to_write->size = 2;
+      memset(temp_to_write->buf, 0, 2);
+      simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
     }
 
     if (rel_path) {
@@ -852,9 +864,44 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
 
   // Get combined full path to file.
   char *fullpath = filename_to_absolute_path(file_info->filename);
+  if (!fullpath) {
+    return 1;
+  }
 
   simple_archiver_hash_map_insert(abs_filenames, fullpath, fullpath,
                                   strlen(fullpath) + 1, cleanup_nop_fn, NULL);
+
+  // Try putting all parent dirs up to current working directory.
+  // First get absolute path to current working directory.
+  __attribute__((cleanup(free_malloced_memory))) void *cwd_dirname =
+      realpath(".", NULL);
+  if (!cwd_dirname) {
+    return 1;
+  }
+
+  // Use copy of fullpath to avoid clobbering it.
+  __attribute__((cleanup(free_malloced_memory))) void *fullpath_copy =
+      malloc(strlen(fullpath) + 1);
+  strncpy(fullpath_copy, fullpath, strlen(fullpath) + 1);
+
+  // Get dirnames.
+  char *prev = fullpath_copy;
+  char *fullpath_dirname;
+  while (1) {
+    fullpath_dirname = dirname(prev);
+    if (!fullpath_dirname || strlen(fullpath_dirname) <= strlen(cwd_dirname)) {
+      break;
+    } else {
+      // Make and store copy of fullpath_dirname.
+      char *fullpath_dirname_copy = malloc(strlen(fullpath_dirname) + 1);
+      strncpy(fullpath_dirname_copy, fullpath_dirname,
+              strlen(fullpath_dirname) + 1);
+      simple_archiver_hash_map_insert(
+          abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy,
+          strlen(fullpath_dirname_copy) + 1, cleanup_nop_fn, NULL);
+    }
+    prev = fullpath_dirname;
+  }
 
   return 0;
 }
@@ -1566,6 +1613,11 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       }
     } else {
       // Is a symbolic link.
+
+      int abs_preferred = (buf[1] & 0x4) != 0 ? 1 : 0;
+      fprintf(stderr, "  Absolute paths are %s\n",
+              (abs_preferred ? "preferred" : "NOT preferred"));
+
       if (fread(&u16, 2, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
       }
