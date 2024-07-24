@@ -10,6 +10,24 @@ archiver will be written with support for Cosmopolitan in mind. This means
 sticking to the C programming language and possibly using Cosmopolitan-specfic
 API calls.
 
+## Usage
+
+    Usage flags:
+    -c : create archive file
+    -x : extract archive file
+    -t : examine archive file
+    -f <filename> : filename to work on
+      Use "-f -" to work on stdout when creating archive or stdin when reading archive
+    --compressor <full_compress_cmd> : requires --decompressor
+    --decompressor <full_decompress_cmd> : requires --compressor
+      Specifying "--decompressor" when extracting overrides archive file's stored decompressor
+    --overwrite-create : allows overwriting an archive file
+    --overwrite-extract : allows overwriting when extracting
+    --no-abs-symlink : do not store absolute paths for symlinks
+    -- : specifies remaining arguments are files to archive/extract
+    If creating archive file, remaining args specify files to archive.
+    If extracting archive file, remaining args specify files to extract.
+
 ## LICENSE Information
 
 Uses the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0).
