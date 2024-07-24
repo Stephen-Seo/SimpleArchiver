@@ -55,6 +55,8 @@ Following the file-count bytes, the following bytes are added for each file:
     2. The second byte.
         1. The first bit is "other write permission".
         2. The second bit is "other execute permission".
+        3. The third bit is UNSET if relative links are preferred, and is SET
+           if absolute links are preferred.
     3. The third byte.
         1. Currently unused.
     4. The fourth byte.
