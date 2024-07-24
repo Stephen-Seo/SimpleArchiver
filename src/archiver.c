@@ -926,6 +926,8 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
       return "Internal error";
     case SDAS_FAILED_TO_CREATE_MAP:
       return "Failed to create set of filenames (internal error)";
+    case SDAS_FAILED_TO_EXTRACT_SYMLINK:
+      return "Failed to extract symlink (internal error)";
     default:
       return "Unknown error";
   }
@@ -1615,8 +1617,11 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       // Is a symbolic link.
 
       int abs_preferred = (buf[1] & 0x4) != 0 ? 1 : 0;
-      fprintf(stderr, "  Absolute paths are %s\n",
+      fprintf(stderr, "  Absolute path is %s\n",
               (abs_preferred ? "preferred" : "NOT preferred"));
+
+      __attribute__((cleanup(free_malloced_memory))) void *abs_path = NULL;
+      __attribute__((cleanup(free_malloced_memory))) void *rel_path = NULL;
 
       if (fread(&u16, 2, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
@@ -1630,15 +1635,15 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         }
         buf[1023] = 0;
         fprintf(stderr, "  Link absolute path: %s\n", buf);
+        abs_path = malloc((size_t)u16 + 1);
+        strncpy(abs_path, (char *)buf, (size_t)u16 + 1);
       } else {
-        __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
-            malloc(u16 + 1);
-        unsigned char *uc_heap_buf = heap_buf;
-        if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        abs_path = malloc(u16 + 1);
+        if (fread(abs_path, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
           return SDAS_INVALID_FILE;
         }
-        uc_heap_buf[u16 - 1] = 0;
-        fprintf(stderr, "  Link absolute path: %s\n", uc_heap_buf);
+        ((char *)abs_path)[u16 - 1] = 0;
+        fprintf(stderr, "  Link absolute path: %s\n", (char *)abs_path);
       }
 
       if (fread(&u16, 2, 1, in_f) != 1) {
@@ -1653,15 +1658,62 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         }
         buf[1023] = 0;
         fprintf(stderr, "  Link relative path: %s\n", buf);
+        rel_path = malloc((size_t)u16 + 1);
+        strncpy(rel_path, (char *)buf, (size_t)u16 + 1);
       } else {
-        __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
-            malloc(u16 + 1);
-        unsigned char *uc_heap_buf = heap_buf;
-        if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        rel_path = malloc(u16 + 1);
+        if (fread(rel_path, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
           return SDAS_INVALID_FILE;
         }
-        uc_heap_buf[u16 - 1] = 0;
-        fprintf(stderr, "  Link relative path: %s\n", uc_heap_buf);
+        ((char *)rel_path)[u16 - 1] = 0;
+        fprintf(stderr, "  Link relative path: %s\n", (char *)rel_path);
+      }
+
+      if (do_extract) {
+        simple_archiver_helper_make_dirs((const char *)out_f_name);
+        if (abs_path && rel_path) {
+          if (abs_preferred) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+            int ret = symlink(abs_path, out_f_name);
+            if (ret == -1) {
+              return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+            }
+#endif
+          } else {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+            int ret = symlink(rel_path, out_f_name);
+            if (ret == -1) {
+              return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+            }
+#endif
+          }
+        } else if (abs_path) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+          int ret = symlink(abs_path, out_f_name);
+          if (ret == -1) {
+            return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+          }
+#endif
+        } else if (rel_path) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+          int ret = symlink(rel_path, out_f_name);
+          if (ret == -1) {
+            return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+          }
+#endif
+        } else {
+          fprintf(
+              stderr,
+              "WARNING: Symlink entry in archive has no paths to link to!\n");
+        }
       }
     }
   }
