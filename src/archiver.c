@@ -37,7 +37,6 @@
 #include <unistd.h>
 #endif
 
-#include "data_structures/hash_map.h"
 #include "helpers.h"
 
 #define TEMP_FILENAME_CMP "simple_archiver_compressed_%u.tmp"
