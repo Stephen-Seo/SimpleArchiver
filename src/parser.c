@@ -388,7 +388,8 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
                 strcmp(dir_entry->d_name, "..") == 0) {
               continue;
             }
-            fprintf(stderr, "dir entry in %s is %s\n", next, dir_entry->d_name);
+            // fprintf(stderr, "dir entry in %s is %s\n", next,
+            // dir_entry->d_name);
             int combined_size = strlen(next) + strlen(dir_entry->d_name) + 2;
             char *combined_path = malloc(combined_size);
             snprintf(combined_path, combined_size, "%s/%s", next,
