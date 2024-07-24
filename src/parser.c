@@ -152,6 +152,8 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr, "--overwrite-create : allows overwriting an archive file\n");
   fprintf(stderr, "--overwrite-extract : allows overwriting when extracting\n");
   fprintf(stderr,
+          "--no-abs-symlink : do not store absolute paths for symlinks\n");
+  fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
   fprintf(
       stderr,
@@ -243,6 +245,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x4;
       } else if (strcmp(argv[0], "--overwrite-extract") == 0) {
         out->flags |= 0x8;
+      } else if (strcmp(argv[0], "--no-abs-symlink") == 0) {
+        out->flags |= 0x20;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;
       } else if (argv[0][0] != '-') {
