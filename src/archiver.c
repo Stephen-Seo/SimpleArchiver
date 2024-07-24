@@ -104,6 +104,9 @@ void cleanup_temp_filename_delete(void ***ptrs_array) {
 }
 
 char *filename_to_absolute_path(const char *filename) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   __attribute__((cleanup(free_malloced_memory))) void *path =
       malloc(strlen(filename) + 1);
   strncpy(path, filename, strlen(filename) + 1);
@@ -138,6 +141,8 @@ char *filename_to_absolute_path(const char *filename) {
           strlen(filename_basename) + 1);
 
   return fullpath;
+#endif
+  return NULL;
 }
 
 int write_files_fn(void *data, void *ud) {
@@ -707,8 +712,12 @@ int write_files_fn(void *data, void *ud) {
 
     // Need to get abs_path for checking/setting a flag before storing flags.
     // Get absolute path.
-    __attribute__((cleanup(free_malloced_memory))) void *abs_path =
-        realpath(file_info->filename, NULL);
+    __attribute__((cleanup(free_malloced_memory))) void *abs_path = NULL;
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+    abs_path = realpath(file_info->filename, NULL);
+#endif
     __attribute__((cleanup(free_malloced_memory))) void *rel_path = NULL;
     if (abs_path) {
       // Get relative path.
@@ -873,8 +882,12 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
 
   // Try putting all parent dirs up to current working directory.
   // First get absolute path to current working directory.
-  __attribute__((cleanup(free_malloced_memory))) void *cwd_dirname =
-      realpath(".", NULL);
+  __attribute__((cleanup(free_malloced_memory))) void *cwd_dirname = NULL;
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+  cwd_dirname = realpath(".", NULL);
+#endif
   if (!cwd_dirname) {
     return 1;
   }
