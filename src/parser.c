@@ -148,7 +148,7 @@ void simple_archiver_print_usage(void) {
           "--decompressor <full_decompress_cmd> : requires --compressor\n");
   fprintf(stderr,
           "  Specifying \"--decompressor\" when extracting overrides archive "
-          "file's stored decompressor\n");
+          "file's stored decompressor cmd\n");
   fprintf(stderr, "--overwrite-create : allows overwriting an archive file\n");
   fprintf(stderr, "--overwrite-extract : allows overwriting when extracting\n");
   fprintf(stderr,

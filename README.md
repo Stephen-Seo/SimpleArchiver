@@ -20,7 +20,7 @@ API calls.
       Use "-f -" to work on stdout when creating archive or stdin when reading archive
     --compressor <full_compress_cmd> : requires --decompressor
     --decompressor <full_decompress_cmd> : requires --compressor
-      Specifying "--decompressor" when extracting overrides archive file's stored decompressor
+      Specifying "--decompressor" when extracting overrides archive file's stored decompressor cmd
     --overwrite-create : allows overwriting an archive file
     --overwrite-extract : allows overwriting when extracting
     --no-abs-symlink : do not store absolute paths for symlinks
