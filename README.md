@@ -24,6 +24,7 @@ API calls.
     --overwrite-create : allows overwriting an archive file
     --overwrite-extract : allows overwriting when extracting
     --no-abs-symlink : do not store absolute paths for symlinks
+    --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to current working directory)
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
     If extracting archive file, remaining args specify files to extract.
