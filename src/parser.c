@@ -174,6 +174,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.compressor = NULL;
   parsed.decompressor = NULL;
   parsed.working_files = NULL;
+  parsed.temp_dir = NULL;
 
   return parsed;
 }
@@ -202,6 +203,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
   while (argc > 0) {
     if (!is_remaining_args) {
       if (strcmp(argv[0], "-h") == 0 || strcmp(argv[0], "--help") == 0) {
+        simple_archiver_free_parsed(out);
         simple_archiver_print_usage();
         exit(0);
       } else if (strcmp(argv[0], "-c") == 0) {
@@ -317,6 +319,10 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
     --argc;
     ++argv;
+  }
+
+  if (!out->temp_dir) {
+    out->temp_dir = "./";
   }
 
   return 0;

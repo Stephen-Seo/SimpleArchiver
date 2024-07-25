@@ -39,7 +39,7 @@
 
 #include "helpers.h"
 
-#define TEMP_FILENAME_CMP "simple_archiver_compressed_%u.tmp"
+#define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%u.tmp"
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -168,15 +168,21 @@ int write_files_fn(void *data, void *ud) {
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       // Use temp file to store compressed data.
-      char temp_filename[128];
+      char temp_filename[512];
       unsigned int idx = 0;
-      snprintf(temp_filename, 128, TEMP_FILENAME_CMP, idx);
+      unsigned int temp_dir_end = strlen(state->parsed->temp_dir);
+      snprintf(temp_filename, 512, TEMP_FILENAME_CMP, state->parsed->temp_dir,
+               state->parsed->temp_dir[temp_dir_end - 1] == '/' ? "" : "/",
+               idx);
       do {
         FILE *test_fd = fopen(temp_filename, "rb");
         if (test_fd) {
           // File exists.
           fclose(test_fd);
-          snprintf(temp_filename, 128, TEMP_FILENAME_CMP, ++idx);
+          snprintf(temp_filename, 512, TEMP_FILENAME_CMP,
+                   state->parsed->temp_dir,
+                   state->parsed->temp_dir[temp_dir_end - 1] == '/' ? "" : "/",
+                   ++idx);
         } else if (idx > 0xFFFF) {
           // Sanity check.
           return 1;
@@ -192,14 +198,14 @@ int write_files_fn(void *data, void *ud) {
       }
       __attribute__((cleanup(free_FILE_helper))) FILE *tmp_fd =
           fopen(temp_filename, "wb");
+      if (!tmp_fd) {
+        fprintf(stderr, "ERROR: Unable to create temp file for compressing!\n");
+        return 1;
+      }
       __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
           malloc(sizeof(void *) * 2);
       ptrs_array[0] = temp_filename;
       ptrs_array[1] = &tmp_fd;
-      if (!tmp_fd) {
-        // Unable to create temp file.
-        return 1;
-      }
 
       // Handle SIGPIPE.
       signal(SIGPIPE, handle_sig_pipe);
