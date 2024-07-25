@@ -44,7 +44,10 @@ int main(int argc, const char **argv) {
       cleanup(simple_archiver_free_parsed))) SDArchiverParsed parsed =
       simple_archiver_create_parsed();
 
-  simple_archiver_parse_args(argc, argv, &parsed);
+  if (simple_archiver_parse_args(argc, argv, &parsed)) {
+    fprintf(stderr, "Failed to parse args.\n");
+    return 7;
+  }
 
   if (!parsed.filename && (parsed.flags & 0x10) == 0) {
     fprintf(stderr, "ERROR: Filename not specified!\n");

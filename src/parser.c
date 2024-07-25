@@ -154,6 +154,9 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--no-abs-symlink : do not store absolute paths for symlinks\n");
   fprintf(stderr,
+          "--temp-files-dir <dir> : where to store temporary files created "
+          "when compressing (defaults to current working directory)\n");
+  fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
   fprintf(
       stderr,
@@ -214,7 +217,12 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags &= 0xFFFFFFFC;
         // set second bit.
         out->flags |= 0x2;
-      } else if (strcmp(argv[0], "-f") == 0 && argc > 1) {
+      } else if (strcmp(argv[0], "-f") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: -f specified but missing argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
         if (strcmp(argv[1], "-") == 0) {
           out->flags |= 0x10;
           if (out->filename) {
@@ -229,13 +237,23 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
         --argc;
         ++argv;
-      } else if (strcmp(argv[0], "--compressor") == 0 && argc > 1) {
+      } else if (strcmp(argv[0], "--compressor") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "--compressor specfied but missing argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
         int size = strlen(argv[1]) + 1;
         out->compressor = malloc(size);
         strncpy(out->compressor, argv[1], size);
         --argc;
         ++argv;
-      } else if (strcmp(argv[0], "--decompressor") == 0 && argc > 1) {
+      } else if (strcmp(argv[0], "--decompressor") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "--decompressor specfied but missing argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
         int size = strlen(argv[1]) + 1;
         out->decompressor = malloc(size);
         strncpy(out->decompressor, argv[1], size);
@@ -247,6 +265,15 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x8;
       } else if (strcmp(argv[0], "--no-abs-symlink") == 0) {
         out->flags |= 0x20;
+      } else if (strcmp(argv[0], "--temp-files-dir") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --temp-files-dir is missing an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->temp_dir = argv[1];
+        --argc;
+        ++argv;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;
       } else if (argv[0][0] != '-') {

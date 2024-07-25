@@ -42,6 +42,9 @@ typedef struct SDArchiverParsed {
   /// Last entry should be NULL.
   /// Determines a "white-list" of files to extract when extracting.
   char **working_files;
+  /// Determines where to place temporary files. If NULL, temporary files are
+  /// created in the current working directory.
+  const char *temp_dir;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {
@@ -57,6 +60,7 @@ SDArchiverParsed simple_archiver_create_parsed(void);
 /// Expects the user to pass a pointer to an SDArchiverParsed.
 /// This means the user should have a SDArchiverParsed variable
 /// and it should be passed with e.g. "&var".
+/// Returns 0 on success.
 int simple_archiver_parse_args(int argc, const char **argv,
                                SDArchiverParsed *out);
 
