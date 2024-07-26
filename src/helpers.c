@@ -216,3 +216,13 @@ char *simple_archiver_helper_cut_substr(const char *s, unsigned int start_idx,
     return new_s;
   }
 }
+
+unsigned int simple_archiver_helper_num_digits(unsigned int value) {
+  unsigned int digits = 0;
+  do {
+    ++digits;
+    value /= 10;
+  } while (value != 0);
+
+  return digits;
+}

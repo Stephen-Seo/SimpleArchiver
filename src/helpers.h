@@ -52,4 +52,6 @@ int simple_archiver_helper_make_dirs(const char *file_path);
 char *simple_archiver_helper_cut_substr(const char *s, unsigned int start_idx,
                                         unsigned int end_idx);
 
+unsigned int simple_archiver_helper_num_digits(unsigned int value);
+
 #endif

@@ -40,6 +40,8 @@
 #include "helpers.h"
 
 #define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%u.tmp"
+#define FILE_COUNTS_OUTPUT_FORMAT_STR_0 "\nFile %%%uu of %%%uu.\n"
+#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 "[%%%uu/%%%uu]\n"
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -871,7 +873,10 @@ int write_files_fn(void *data, void *ud) {
     simple_archiver_list_free(&to_write);
   }
 
-  fprintf(stderr, "[%10u/%10u]\n", ++(state->count), state->max);
+  char format_str[64];
+  snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
+           state->digits);
+  fprintf(stderr, format_str, ++(state->count), state->max);
   return 0;
 }
 
@@ -996,6 +1001,9 @@ SDArchiverState *simple_archiver_init_state(const SDArchiverParsed *parsed) {
   state->parsed = parsed;
   state->out_f = NULL;
   state->map = NULL;
+  state->count = 0;
+  state->max = 0;
+  state->digits = 10;
 
   return state;
 }
@@ -1105,6 +1113,7 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   state->max = filenames->count;
   state->out_f = out_f;
   state->map = abs_filenames;
+  state->digits = simple_archiver_helper_num_digits(state->max);
   fprintf(stderr, "Begin archiving...\n");
   __attribute__((
       cleanup(simple_archiver_internal_chdir_back2))) char *original_cwd = NULL;
@@ -1118,7 +1127,10 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
     }
 #endif
   }
-  fprintf(stderr, "[%10u/%10u]\n", state->count, state->max);
+  char format_str[64];
+  snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
+           state->digits);
+  fprintf(stderr, format_str, state->count, state->max);
   if (simple_archiver_list_get(filenames, write_files_fn, state)) {
     // Error occurred.
     fprintf(stderr, "Error ocurred writing file(s) to archive.\n");
@@ -1226,7 +1238,10 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
   simple_archiver_helper_32_bit_be(&u32);
   fprintf(stderr, "File count is %u\n", u32);
 
-  uint32_t size = u32;
+  const uint32_t size = u32;
+  const unsigned int digits = simple_archiver_helper_num_digits(size);
+  char format_str[128];
+  snprintf(format_str, 128, FILE_COUNTS_OUTPUT_FORMAT_STR_0, digits, digits);
   int skip = 0;
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *hash_map = NULL;
@@ -1244,7 +1259,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
     }
   }
   for (uint32_t idx = 0; idx < size; ++idx) {
-    fprintf(stderr, "\nFile %10u of %10u.\n", idx + 1, size);
+    fprintf(stderr, format_str, idx + 1, size);
     if (feof(in_f) || ferror(in_f)) {
       return SDAS_INVALID_FILE;
     } else if (fread(&u16, 2, 1, in_f) != 1) {
