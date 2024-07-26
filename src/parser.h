@@ -45,6 +45,8 @@ typedef struct SDArchiverParsed {
   /// Determines where to place temporary files. If NULL, temporary files are
   /// created in the current working directory.
   const char *temp_dir;
+  /// Dir specified by "-C".
+  const char *user_cwd;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

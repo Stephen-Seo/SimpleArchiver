@@ -21,6 +21,7 @@
 
 #include "parser.h"
 
-unsigned int simple_archiver_parser_internal_filename_idx(const char *filename);
+unsigned int simple_archiver_parser_internal_get_first_non_current_idx(
+    const char *filename);
 
 #endif

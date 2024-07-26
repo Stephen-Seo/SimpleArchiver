@@ -57,34 +57,42 @@ static int checks_passed = 0;
 int main(void) {
   // Test parser.
   {
-    unsigned int idx = simple_archiver_parser_internal_filename_idx("test");
+    unsigned int idx =
+        simple_archiver_parser_internal_get_first_non_current_idx("test");
     CHECK_TRUE(idx == 0);
 
-    idx = simple_archiver_parser_internal_filename_idx("./test");
+    idx = simple_archiver_parser_internal_get_first_non_current_idx("./test");
     CHECK_TRUE(idx == 2);
 
-    idx = simple_archiver_parser_internal_filename_idx("././test");
+    idx = simple_archiver_parser_internal_get_first_non_current_idx("././test");
     CHECK_TRUE(idx == 4);
 
-    idx = simple_archiver_parser_internal_filename_idx("././//././//./test");
+    idx = simple_archiver_parser_internal_get_first_non_current_idx(
+        "././//././//./test");
     CHECK_TRUE(idx == 14);
 
-    idx = simple_archiver_parser_internal_filename_idx("/././//././//./test");
+    idx = simple_archiver_parser_internal_get_first_non_current_idx(
+        "/././//././//./test");
     CHECK_TRUE(idx == 0);
 
-    idx = simple_archiver_parser_internal_filename_idx(".derp/.//././//./test");
+    idx = simple_archiver_parser_internal_get_first_non_current_idx(
+        ".derp/.//././//./test");
     CHECK_TRUE(idx == 0);
 
-    idx = simple_archiver_parser_internal_filename_idx("././/.derp/.///./test");
+    idx = simple_archiver_parser_internal_get_first_non_current_idx(
+        "././/.derp/.///./test");
     CHECK_TRUE(idx == 5);
 
-    idx = simple_archiver_parser_internal_filename_idx("././/.//.//./");
+    idx = simple_archiver_parser_internal_get_first_non_current_idx(
+        "././/.//.//./");
     CHECK_TRUE(idx == 11);
 
-    idx = simple_archiver_parser_internal_filename_idx("././/.//.//.");
+    idx = simple_archiver_parser_internal_get_first_non_current_idx(
+        "././/.//.//.");
     CHECK_TRUE(idx == 11);
 
-    idx = simple_archiver_parser_internal_filename_idx("././/.//.//");
+    idx = simple_archiver_parser_internal_get_first_non_current_idx(
+        "././/.//.//");
     CHECK_TRUE(idx == 8);
 
     SDArchiverParsed parsed = simple_archiver_create_parsed();
@@ -196,6 +204,39 @@ int main(void) {
 
     simple_archiver_helper_cmd_string_argv_free(result_argv);
   } while (0);
+
+  // Test helpers cut substr.
+  {
+    const char *s = "one two three.";
+    unsigned int s_len = strlen(s);
+    // Invalid range.
+    char *out = simple_archiver_helper_cut_substr(s, 1, 0);
+    CHECK_FALSE(out);
+    // First idx out of range.
+    out = simple_archiver_helper_cut_substr(s, s_len, s_len + 1);
+    CHECK_FALSE(out);
+    // Second idx out of range.
+    out = simple_archiver_helper_cut_substr(s, 1, s_len + 1);
+    CHECK_FALSE(out);
+    // Invalid cut of full string.
+    out = simple_archiver_helper_cut_substr(s, 0, s_len);
+    CHECK_FALSE(out);
+    // Cut end of string.
+    out = simple_archiver_helper_cut_substr(s, 2, s_len);
+    CHECK_TRUE(out);
+    CHECK_STREQ(out, "on");
+    free(out);
+    // Cut start of string.
+    out = simple_archiver_helper_cut_substr(s, 0, s_len - 3);
+    CHECK_TRUE(out);
+    CHECK_STREQ(out, "ee.");
+    free(out);
+    // Cut inside string.
+    out = simple_archiver_helper_cut_substr(s, 4, 8);
+    CHECK_TRUE(out);
+    CHECK_STREQ(out, "one three.");
+    free(out);
+  }
 
   printf("Checks checked: %u\n", checks_checked);
   printf("Checks passed:  %u\n", checks_passed);

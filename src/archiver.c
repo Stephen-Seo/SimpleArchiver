@@ -875,7 +875,9 @@ void cleanup_free_fn(void *data) { free(data); }
 
 int filenames_to_abs_map_fn(void *data, void *ud) {
   SDArchiverFileInfo *file_info = data;
-  SDArchiverHashMap **abs_filenames = ud;
+  void **ptr_array = ud;
+  SDArchiverHashMap **abs_filenames = ptr_array[0];
+  const char *user_cwd = ptr_array[1];
 
   // Get combined full path to file.
   char *fullpath = filename_to_absolute_path(file_info->filename);
@@ -892,11 +894,16 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-  cwd_dirname = realpath(".", NULL);
+  if (user_cwd) {
+    cwd_dirname = realpath(user_cwd, NULL);
+  } else {
+    cwd_dirname = realpath(".", NULL);
+  }
 #endif
   if (!cwd_dirname) {
     return 1;
   }
+  // fprintf(stderr, "cwd_dirname: %s\n", (char*)cwd_dirname);
 
   // Use copy of fullpath to avoid clobbering it.
   __attribute__((cleanup(free_malloced_memory))) void *fullpath_copy =
@@ -947,6 +954,8 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
       return "Failed to create set of filenames (internal error)";
     case SDAS_FAILED_TO_EXTRACT_SYMLINK:
       return "Failed to extract symlink (internal error)";
+    case SDAS_FAILED_TO_CHANGE_CWD:
+      return "Failed to change current working directory";
     default:
       return "Unknown error";
   }
@@ -978,10 +987,14 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   // First create a "set" of absolute paths to given filenames.
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
-  if (simple_archiver_list_get(filenames, filenames_to_abs_map_fn,
-                               &abs_filenames)) {
+  void **ptr_array = malloc(sizeof(void *) * 2);
+  ptr_array[0] = &abs_filenames;
+  ptr_array[1] = (void *)state->parsed->user_cwd;
+  if (simple_archiver_list_get(filenames, filenames_to_abs_map_fn, ptr_array)) {
+    free(ptr_array);
     return SDAS_FAILED_TO_CREATE_MAP;
   }
+  free(ptr_array);
 
   if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
     return SDAS_FAILED_TO_WRITE;
@@ -1100,6 +1113,16 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
     return SDAS_INVALID_FILE;
   } else if (fread(buf, 1, 4, in_f) != 4) {
     return SDAS_INVALID_FILE;
+  }
+
+  if (do_extract && state->parsed->user_cwd) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+    if (chdir(state->parsed->user_cwd)) {
+      return SDAS_FAILED_TO_CHANGE_CWD;
+    }
+#endif
   }
 
   __attribute__((cleanup(free_malloced_memory))) void *decompressor_cmd = NULL;

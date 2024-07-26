@@ -191,3 +191,28 @@ int simple_archiver_helper_make_dirs(const char *file_path) {
   return 1;
 #endif
 }
+
+char *simple_archiver_helper_cut_substr(const char *s, unsigned int start_idx,
+                                        unsigned int end_idx) {
+  unsigned int s_len = strlen(s);
+  if (start_idx > end_idx || start_idx >= s_len || end_idx > s_len) {
+    return NULL;
+  } else if (end_idx == s_len) {
+    if (start_idx == 0) {
+      return NULL;
+    }
+    char *new_s = malloc(start_idx + 1);
+    strncpy(new_s, s, start_idx + 1);
+    new_s[start_idx] = 0;
+    return new_s;
+  } else if (start_idx == 0) {
+    char *new_s = malloc(s_len - end_idx + 1);
+    strncpy(new_s, s + end_idx, s_len - end_idx + 1);
+    return new_s;
+  } else {
+    char *new_s = malloc(start_idx + s_len - end_idx + 1);
+    strncpy(new_s, s, start_idx);
+    strncpy(new_s + start_idx, s + end_idx, s_len - end_idx + 1);
+    return new_s;
+  }
+}
