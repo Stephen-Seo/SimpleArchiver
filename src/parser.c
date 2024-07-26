@@ -413,6 +413,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
         SDArchiverFileInfo *file_info = malloc(sizeof(SDArchiverFileInfo));
         file_info->filename = filename;
         if ((st.st_mode & S_IFMT) == S_IFLNK) {
+          // Is a symlink.
           file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
           ssize_t count = readlinkat(AT_FDCWD, filename, file_info->link_dest,
                                      MAX_SYMBOLIC_LINK_SIZE - 1);
@@ -422,13 +423,35 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
             file_info->link_dest[count] = 0;
           } else {
             // Failure.
+            fprintf(stderr,
+                    "WARNING: Could not get link info for file \"%s\"!\n",
+                    file_info->filename);
             free(file_info->link_dest);
             free(file_info);
             free(filename);
             continue;
           }
         } else {
+          // Is a regular file.
           file_info->link_dest = NULL;
+          // Check that the file is readable by opening it. Easier than to
+          // check permissions because that would also require checking if the
+          // current USER can open the file.
+          FILE *readable_file = fopen(file_info->filename, "rb");
+          if (!readable_file) {
+            // Cannot open file, so it must be unreadable (at least by the
+            // current USER).
+            fprintf(stderr, "WARNING: \"%s\" is not readable, skipping!\n",
+                    file_info->filename);
+            free(file_info->link_dest);
+            free(file_info);
+            free(filename);
+            continue;
+          } else {
+            fclose(readable_file);
+            // fprintf(stderr, "DEBUG: \"%s\" is readable.\n",
+            // file_info->filename);
+          }
         }
         simple_archiver_list_add(files_list, file_info,
                                  simple_archiver_internal_free_file_info_fn);
@@ -486,6 +509,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
                     malloc(sizeof(SDArchiverFileInfo));
                 file_info->filename = combined_path;
                 if ((st.st_mode & S_IFMT) == S_IFLNK) {
+                  // Is a symlink.
                   file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
                   ssize_t count =
                       readlinkat(AT_FDCWD, combined_path, file_info->link_dest,
@@ -502,7 +526,27 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
                     continue;
                   }
                 } else {
+                  // Is a regular file.
                   file_info->link_dest = NULL;
+                  // Check that the file is readable by opening it. Easier than
+                  // to check permissions because that would also require
+                  // checking if the current USER can open the file.
+                  FILE *readable_file = fopen(file_info->filename, "rb");
+                  if (!readable_file) {
+                    // Cannot open file, so it must be unreadable (at least by
+                    // the current USER).
+                    fprintf(stderr,
+                            "WARNING: \"%s\" is not readable, skipping!\n",
+                            file_info->filename);
+                    free(file_info->link_dest);
+                    free(file_info);
+                    free(combined_path);
+                    continue;
+                  } else {
+                    fclose(readable_file);
+                    // fprintf(stderr, "DEBUG: \"%s\" is readable.\n",
+                    // file_info->filename);
+                  }
                 }
                 simple_archiver_list_add(
                     files_list, file_info,

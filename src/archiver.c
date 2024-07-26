@@ -200,6 +200,9 @@ int write_files_fn(void *data, void *ud) {
           fopen(temp_filename, "wb");
       if (!tmp_fd) {
         fprintf(stderr, "ERROR: Unable to create temp file for compressing!\n");
+        fprintf(stderr,
+                "(Use \"--temp-files-dir <dir>\" to change where to write temp "
+                "files.)\n");
         return 1;
       }
       __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
@@ -543,6 +546,8 @@ int write_files_fn(void *data, void *ud) {
       int stat_fd = open(file_info->filename, O_RDONLY);
       if (stat_fd == -1) {
         // Error.
+        fprintf(stderr, "ERROR: Failed to get stat of \"%s\"!\n",
+                file_info->filename);
         return 1;
       }
       int stat_status = fstat(stat_fd, &stat_buf);
