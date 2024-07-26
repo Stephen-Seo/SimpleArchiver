@@ -873,11 +873,31 @@ int write_files_fn(void *data, void *ud) {
 void cleanup_nop_fn(__attribute__((unused)) void *unused) {}
 void cleanup_free_fn(void *data) { free(data); }
 
+void simple_archiver_internal_chdir_back2(char **original) {
+  if (original && *original) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||   \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
+    chdir(*original);
+#endif
+    free(*original);
+    *original = NULL;
+  }
+}
+
 int filenames_to_abs_map_fn(void *data, void *ud) {
   SDArchiverFileInfo *file_info = data;
   void **ptr_array = ud;
   SDArchiverHashMap **abs_filenames = ptr_array[0];
   const char *user_cwd = ptr_array[1];
+  __attribute__((
+      cleanup(simple_archiver_internal_chdir_back2))) char *original_cwd = NULL;
+  if (user_cwd) {
+    original_cwd = realpath(".", NULL);
+    if (chdir(user_cwd)) {
+      return 1;
+    }
+  }
 
   // Get combined full path to file.
   char *fullpath = filename_to_absolute_path(file_info->filename);
@@ -894,11 +914,7 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-  if (user_cwd) {
-    cwd_dirname = realpath(user_cwd, NULL);
-  } else {
-    cwd_dirname = realpath(".", NULL);
-  }
+  cwd_dirname = realpath(".", NULL);
 #endif
   if (!cwd_dirname) {
     return 1;
@@ -1081,6 +1097,14 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   state->out_f = out_f;
   state->map = abs_filenames;
   fprintf(stderr, "Begin archiving...\n");
+  __attribute__((
+      cleanup(simple_archiver_internal_chdir_back2))) char *original_cwd = NULL;
+  if (state->parsed->user_cwd) {
+    original_cwd = realpath(".", NULL);
+    if (chdir(state->parsed->user_cwd)) {
+      return 1;
+    }
+  }
   fprintf(stderr, "[%10u/%10u]\n", state->count, state->max);
   if (simple_archiver_list_get(filenames, write_files_fn, state)) {
     // Error occurred.

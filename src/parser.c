@@ -103,6 +103,18 @@ void simple_archiver_parser_internal_remove_end_slash(char *filename) {
   }
 }
 
+void simple_archiver_internal_chdir_back(char **original) {
+  if (original && *original) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||   \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
+    chdir(*original);
+#endif
+    free(*original);
+    *original = NULL;
+  }
+}
+
 void simple_archiver_internal_free_file_info_fn(void *data) {
   SDArchiverFileInfo *file_info = data;
   if (file_info) {
@@ -305,26 +317,6 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->working_files[0] = malloc(arg_length);
         strncpy(out->working_files[0], argv[0] + arg_idx, arg_length);
         simple_archiver_parser_internal_remove_end_slash(out->working_files[0]);
-        if (out->user_cwd) {
-          if (out->user_cwd[strlen(out->user_cwd) - 1] != '/') {
-            char *temp = malloc(strlen(out->user_cwd) + 1 +
-                                strlen(out->working_files[0]) + 1);
-            strncpy(temp, out->user_cwd, strlen(out->user_cwd) + 1);
-            temp[strlen(out->user_cwd)] = '/';
-            strncpy(temp + strlen(out->user_cwd) + 1, out->working_files[0],
-                    strlen(out->working_files[0]) + 1);
-            free(out->working_files[0]);
-            out->working_files[0] = temp;
-          } else {
-            char *temp = malloc(strlen(out->user_cwd) +
-                                strlen(out->working_files[0]) + 1);
-            strncpy(temp, out->user_cwd, strlen(out->user_cwd) + 1);
-            strncpy(temp + strlen(out->user_cwd), out->working_files[0],
-                    strlen(out->working_files[0]) + 1);
-            free(out->working_files[0]);
-            out->working_files[0] = temp;
-          }
-        }
         out->working_files[1] = NULL;
       } else {
         int working_size = 1;
@@ -348,30 +340,6 @@ int simple_archiver_parse_args(int argc, const char **argv,
         strncpy(out->working_files[working_size - 1], argv[0] + arg_idx, size);
         simple_archiver_parser_internal_remove_end_slash(
             out->working_files[working_size - 1]);
-        if (out->user_cwd) {
-          if (out->user_cwd[strlen(out->user_cwd) - 1] != '/') {
-            char *temp =
-                malloc(strlen(out->user_cwd) + 1 +
-                       strlen(out->working_files[working_size - 1]) + 1);
-            strncpy(temp, out->user_cwd, strlen(out->user_cwd) + 1);
-            temp[strlen(out->user_cwd)] = '/';
-            strncpy(temp + strlen(out->user_cwd) + 1,
-                    out->working_files[working_size - 1],
-                    strlen(out->working_files[working_size - 1]) + 1);
-            free(out->working_files[working_size - 1]);
-            out->working_files[working_size - 1] = temp;
-          } else {
-            char *temp =
-                malloc(strlen(out->user_cwd) +
-                       strlen(out->working_files[working_size - 1]) + 1);
-            strncpy(temp, out->user_cwd, strlen(out->user_cwd) + 1);
-            strncpy(temp + strlen(out->user_cwd),
-                    out->working_files[working_size - 1],
-                    strlen(out->working_files[working_size - 1]) + 1);
-            free(out->working_files[working_size - 1]);
-            out->working_files[working_size - 1] = temp;
-          }
-        }
       }
     }
 
@@ -421,6 +389,16 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+  __attribute__((
+      cleanup(simple_archiver_internal_chdir_back))) char *original_cwd = NULL;
+  if (parsed->user_cwd) {
+    original_cwd = realpath(".", NULL);
+    if (chdir(parsed->user_cwd)) {
+      simple_archiver_list_free(&files_list);
+      return NULL;
+    }
+  }
+
   for (char **iter = parsed->working_files; iter && *iter; ++iter) {
     struct stat st;
     memset(&st, 0, sizeof(struct stat));

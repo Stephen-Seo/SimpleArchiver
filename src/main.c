@@ -70,6 +70,11 @@ int main(int argc, const char **argv) {
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *filenames =
       simple_archiver_parsed_to_filenames(&parsed);
+  if (!filenames) {
+    fprintf(stderr,
+            "ERROR: Failed to resolve filenames from positional arguments!\n");
+    return 8;
+  }
 
   if (filenames->count > 0) {
     fprintf(stderr, "Filenames:\n");
