@@ -207,8 +207,10 @@ int write_files_fn(void *data, void *ud) {
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
         __attribute__((cleanup(free_malloced_memory))) void *real_cwd =
             realpath(".", NULL);
-        fprintf(stderr, "Tried to create temp file(s) in \"%s\"!\n",
-                (char *)real_cwd);
+        if (real_cwd) {
+          fprintf(stderr, "Tried to create temp file(s) in \"%s\"!\n",
+                  (char *)real_cwd);
+        }
 #endif
         fprintf(stderr,
                 "(Use \"--temp-files-dir <dir>\" to change where to write temp "
