@@ -18,6 +18,8 @@ API calls.
     -t : examine archive file
     -f <filename> : filename to work on
       Use "-f -" to work on stdout when creating archive or stdin when reading archive
+      NOTICE: "-f" is not affected by "-C"!
+    -C <dir> : Change current working directory before archiving/extracting
     --compressor <full_compress_cmd> : requires --decompressor
     --decompressor <full_decompress_cmd> : requires --compressor
       Specifying "--decompressor" when extracting overrides archive file's stored decompressor cmd
