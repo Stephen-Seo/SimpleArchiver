@@ -893,10 +893,14 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   __attribute__((
       cleanup(simple_archiver_internal_chdir_back2))) char *original_cwd = NULL;
   if (user_cwd) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     original_cwd = realpath(".", NULL);
     if (chdir(user_cwd)) {
       return 1;
     }
+#endif
   }
 
   // Get combined full path to file.
@@ -1100,10 +1104,14 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   __attribute__((
       cleanup(simple_archiver_internal_chdir_back2))) char *original_cwd = NULL;
   if (state->parsed->user_cwd) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
       return 1;
     }
+#endif
   }
   fprintf(stderr, "[%10u/%10u]\n", state->count, state->max);
   if (simple_archiver_list_get(filenames, write_files_fn, state)) {
