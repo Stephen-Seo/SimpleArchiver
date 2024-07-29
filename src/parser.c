@@ -103,18 +103,6 @@ void simple_archiver_parser_internal_remove_end_slash(char *filename) {
   }
 }
 
-void simple_archiver_internal_chdir_back(char **original) {
-  if (original && *original) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||   \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
-    chdir(*original);
-#endif
-    free(*original);
-    *original = NULL;
-  }
-}
-
 void simple_archiver_internal_free_file_info_fn(void *data) {
   SDArchiverFileInfo *file_info = data;
   if (file_info) {
@@ -134,8 +122,6 @@ int list_get_last_fn(void *data, void *ud) {
   *last = data;
   return 0;
 }
-
-void container_no_free_fn(__attribute__((unused)) void *data) { return; }
 
 int list_remove_same_str_fn(void *data, void *ud) {
   if (strcmp((char *)data, (char *)ud) == 0) {
@@ -389,8 +375,8 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-  __attribute__((
-      cleanup(simple_archiver_internal_chdir_back))) char *original_cwd = NULL;
+  __attribute__((cleanup(
+      simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
   if (parsed->user_cwd) {
     original_cwd = realpath(".", NULL);
     if (chdir(parsed->user_cwd)) {
@@ -455,9 +441,10 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
         }
         simple_archiver_list_add(files_list, file_info,
                                  simple_archiver_internal_free_file_info_fn);
-        simple_archiver_hash_map_insert(&hash_map, &hash_map_sentinel, filename,
-                                        len - 1, container_no_free_fn,
-                                        container_no_free_fn);
+        simple_archiver_hash_map_insert(
+            &hash_map, &hash_map_sentinel, filename, len - 1,
+            simple_archiver_helper_datastructure_cleanup_nop,
+            simple_archiver_helper_datastructure_cleanup_nop);
       } else {
         free(filename);
       }
@@ -465,7 +452,9 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
       // Is a directory.
       __attribute__((cleanup(simple_archiver_list_free)))
       SDArchiverLinkedList *dir_list = simple_archiver_list_init();
-      simple_archiver_list_add(dir_list, file_path, container_no_free_fn);
+      simple_archiver_list_add(
+          dir_list, file_path,
+          simple_archiver_helper_datastructure_cleanup_nop);
       char *next;
       while (dir_list->count != 0) {
         simple_archiver_list_get(dir_list, list_get_last_fn, &next);
@@ -553,8 +542,9 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
                     simple_archiver_internal_free_file_info_fn);
                 simple_archiver_hash_map_insert(
                     &hash_map, &hash_map_sentinel, combined_path,
-                    combined_size - 1, container_no_free_fn,
-                    container_no_free_fn);
+                    combined_size - 1,
+                    simple_archiver_helper_datastructure_cleanup_nop,
+                    simple_archiver_helper_datastructure_cleanup_nop);
               } else {
                 free(combined_path);
               }

@@ -60,20 +60,6 @@ typedef struct SDArchiverInternalToWrite {
   uint64_t size;
 } SDArchiverInternalToWrite;
 
-void free_FILE_helper(FILE **fd) {
-  if (fd && *fd) {
-    fclose(*fd);
-    *fd = NULL;
-  }
-}
-
-void free_malloced_memory(void **data) {
-  if (data && *data) {
-    free(*data);
-    *data = NULL;
-  }
-}
-
 void free_internal_to_write(void *data) {
   SDArchiverInternalToWrite *to_write = data;
   free(to_write->buf);
@@ -94,7 +80,7 @@ void cleanup_temp_filename_delete(void ***ptrs_array) {
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   if (ptrs_array && *ptrs_array) {
     if ((*ptrs_array)[1]) {
-      free_FILE_helper((FILE **)(*ptrs_array)[1]);
+      simple_archiver_helper_cleanup_FILE((FILE **)(*ptrs_array)[1]);
     }
     if ((*ptrs_array)[0]) {
       unlink((char *)((*ptrs_array)[0]));
@@ -109,7 +95,7 @@ char *filename_to_absolute_path(const char *filename) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-  __attribute__((cleanup(free_malloced_memory))) void *path =
+  __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void *path =
       malloc(strlen(filename) + 1);
   strncpy(path, filename, strlen(filename) + 1);
 
@@ -118,14 +104,15 @@ char *filename_to_absolute_path(const char *filename) {
     return NULL;
   }
 
-  __attribute__((cleanup(free_malloced_memory))) void *dir_realpath =
+  __attribute__((
+      cleanup(simple_archiver_helper_cleanup_malloced))) void *dir_realpath =
       realpath(path_dir, NULL);
   if (!dir_realpath) {
     return NULL;
   }
 
   // Recreate "path" since it may have been modified by dirname().
-  free_malloced_memory(&path);
+  simple_archiver_helper_cleanup_malloced(&path);
   path = malloc(strlen(filename) + 1);
   strncpy(path, filename, strlen(filename) + 1);
 
@@ -192,20 +179,21 @@ int write_files_fn(void *data, void *ud) {
           break;
         }
       } while (1);
-      __attribute__((cleanup(free_FILE_helper))) FILE *file_fd =
-          fopen(file_info->filename, "rb");
+      __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
+      FILE *file_fd = fopen(file_info->filename, "rb");
       if (!file_fd) {
         // Unable to open file for compressing and archiving.
         return 1;
       }
-      __attribute__((cleanup(free_FILE_helper))) FILE *tmp_fd =
-          fopen(temp_filename, "wb");
+      __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
+      FILE *tmp_fd = fopen(temp_filename, "wb");
       if (!tmp_fd) {
         fprintf(stderr, "ERROR: Unable to create temp file for compressing!\n");
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-        __attribute__((cleanup(free_malloced_memory))) void *real_cwd =
+        __attribute__((
+            cleanup(simple_archiver_helper_cleanup_malloced))) void *real_cwd =
             realpath(".", NULL);
         if (real_cwd) {
           fprintf(stderr, "Tried to create temp file(s) in \"%s\"!\n",
@@ -335,7 +323,7 @@ int write_files_fn(void *data, void *ud) {
             }
           } else {
             if (feof(file_fd)) {
-              free_FILE_helper(&file_fd);
+              simple_archiver_helper_cleanup_FILE(&file_fd);
               write_done = 1;
               close(pipe_into_cmd[1]);
               // fprintf(stderr, "write_done\n");
@@ -365,7 +353,7 @@ int write_files_fn(void *data, void *ud) {
             }
           } else if (ret == 0) {
             read_done = 1;
-            free_FILE_helper(&tmp_fd);
+            simple_archiver_helper_cleanup_FILE(&tmp_fd);
             close(pipe_outof_cmd[0]);
             // fprintf(stderr, "read_done\n");
           } else if (ret == -1) {
@@ -517,7 +505,7 @@ int write_files_fn(void *data, void *ud) {
       } while (1);
 
       // Cleanup.
-      free_FILE_helper(&tmp_fd);
+      simple_archiver_helper_cleanup_FILE(&tmp_fd);
 #endif
     } else {
       uint16_t u16;
@@ -604,7 +592,7 @@ int write_files_fn(void *data, void *ud) {
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
       // Write file length.
-      __attribute__((cleanup(free_FILE_helper))) FILE *fd =
+      __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
           fopen(file_info->filename, "rb");
       if (!fd) {
         // Error.
@@ -735,17 +723,20 @@ int write_files_fn(void *data, void *ud) {
 
     // Need to get abs_path for checking/setting a flag before storing flags.
     // Get absolute path.
-    __attribute__((cleanup(free_malloced_memory))) void *abs_path = NULL;
+    __attribute__((cleanup(
+        simple_archiver_helper_cleanup_malloced))) void *abs_path = NULL;
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     abs_path = realpath(file_info->filename, NULL);
 #endif
-    __attribute__((cleanup(free_malloced_memory))) void *rel_path = NULL;
+    __attribute__((cleanup(
+        simple_archiver_helper_cleanup_malloced))) void *rel_path = NULL;
     if (abs_path) {
       // Get relative path.
       // First get absolute path of link.
-      __attribute__((cleanup(free_malloced_memory))) void *link_abs_path =
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
           filename_to_absolute_path(file_info->filename);
       if (!link_abs_path) {
         fprintf(stderr, "WARNING: Failed to get absolute path of link!\n");
@@ -890,28 +881,13 @@ int write_files_fn(void *data, void *ud) {
   return 0;
 }
 
-void cleanup_nop_fn(__attribute__((unused)) void *unused) {}
-void cleanup_free_fn(void *data) { free(data); }
-
-void simple_archiver_internal_chdir_back2(char **original) {
-  if (original && *original) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||   \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
-    chdir(*original);
-#endif
-    free(*original);
-    *original = NULL;
-  }
-}
-
 int filenames_to_abs_map_fn(void *data, void *ud) {
   SDArchiverFileInfo *file_info = data;
   void **ptr_array = ud;
   SDArchiverHashMap **abs_filenames = ptr_array[0];
   const char *user_cwd = ptr_array[1];
-  __attribute__((
-      cleanup(simple_archiver_internal_chdir_back2))) char *original_cwd = NULL;
+  __attribute__((cleanup(
+      simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
   if (user_cwd) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -929,12 +905,14 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
     return 1;
   }
 
-  simple_archiver_hash_map_insert(abs_filenames, fullpath, fullpath,
-                                  strlen(fullpath) + 1, cleanup_nop_fn, NULL);
+  simple_archiver_hash_map_insert(
+      abs_filenames, fullpath, fullpath, strlen(fullpath) + 1,
+      simple_archiver_helper_datastructure_cleanup_nop, NULL);
 
   // Try putting all parent dirs up to current working directory.
   // First get absolute path to current working directory.
-  __attribute__((cleanup(free_malloced_memory))) void *cwd_dirname = NULL;
+  __attribute__((cleanup(
+      simple_archiver_helper_cleanup_malloced))) void *cwd_dirname = NULL;
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -946,7 +924,8 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   // fprintf(stderr, "cwd_dirname: %s\n", (char*)cwd_dirname);
 
   // Use copy of fullpath to avoid clobbering it.
-  __attribute__((cleanup(free_malloced_memory))) void *fullpath_copy =
+  __attribute__((
+      cleanup(simple_archiver_helper_cleanup_malloced))) void *fullpath_copy =
       malloc(strlen(fullpath) + 1);
   strncpy(fullpath_copy, fullpath, strlen(fullpath) + 1);
 
@@ -964,7 +943,8 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
               strlen(fullpath_dirname) + 1);
       simple_archiver_hash_map_insert(
           abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy,
-          strlen(fullpath_dirname_copy) + 1, cleanup_nop_fn, NULL);
+          strlen(fullpath_dirname_copy) + 1,
+          simple_archiver_helper_datastructure_cleanup_nop, NULL);
     }
     prev = fullpath_dirname;
   }
@@ -1125,8 +1105,8 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   state->map = abs_filenames;
   state->digits = simple_archiver_helper_num_digits(state->max);
   fprintf(stderr, "Begin archiving...\n");
-  __attribute__((
-      cleanup(simple_archiver_internal_chdir_back2))) char *original_cwd = NULL;
+  __attribute__((cleanup(
+      simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
   if (state->parsed->user_cwd) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -1184,7 +1164,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
 #endif
   }
 
-  __attribute__((cleanup(free_malloced_memory))) void *decompressor_cmd = NULL;
+  __attribute__((cleanup(
+      simple_archiver_helper_cleanup_malloced))) void *decompressor_cmd = NULL;
 
   if ((buf[0] & 1) != 0) {
     fprintf(stderr, "De/compressor flag is set.\n");
@@ -1203,7 +1184,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       buf[1023] = 0;
       fprintf(stderr, "Compressor cmd: %s\n", buf);
     } else {
-      __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
+      __attribute__((
+          cleanup(simple_archiver_helper_cleanup_malloced))) void *heap_buf =
           malloc(u16 + 1);
       unsigned char *uc_heap_buf = heap_buf;
       if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
@@ -1229,7 +1211,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       memcpy((char *)decompressor_cmd, buf, u16 + 1);
       ((char *)decompressor_cmd)[u16] = 0;
     } else {
-      __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
+      __attribute__((
+          cleanup(simple_archiver_helper_cleanup_malloced))) void *heap_buf =
           malloc(u16 + 1);
       unsigned char *uc_heap_buf = heap_buf;
       if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
@@ -1263,8 +1246,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       char *key = malloc(len);
       memcpy(key, *iter, len);
       key[len - 1] = 0;
-      simple_archiver_hash_map_insert(&hash_map, key, key, len, cleanup_nop_fn,
-                                      cleanup_free_fn);
+      simple_archiver_hash_map_insert(
+          &hash_map, key, key, len,
+          simple_archiver_helper_datastructure_cleanup_nop, NULL);
       // fprintf(stderr, "\"%s\" put in map\n", key);
     }
   }
@@ -1276,8 +1260,10 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       return SDAS_INVALID_FILE;
     }
     simple_archiver_helper_16_bit_be(&u16);
-    __attribute__((cleanup(free_malloced_memory))) void *out_f_name = NULL;
-    __attribute__((cleanup(free_FILE_helper))) FILE *out_f = NULL;
+    __attribute__((cleanup(
+        simple_archiver_helper_cleanup_malloced))) void *out_f_name = NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *out_f =
+        NULL;
     if (u16 < 1024) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
@@ -1286,8 +1272,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       fprintf(stderr, "  Filename: %s\n", buf);
       if (do_extract) {
         if ((state->parsed->flags & 0x8) == 0) {
-          __attribute__((cleanup(free_FILE_helper))) FILE *test_fd =
-              fopen((const char *)buf, "rb");
+          __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
+          FILE *test_fd = fopen((const char *)buf, "rb");
           if (test_fd) {
             skip = 1;
             fprintf(stderr,
@@ -1305,7 +1291,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         }
       }
     } else {
-      __attribute__((cleanup(free_malloced_memory))) void *heap_buf =
+      __attribute__((
+          cleanup(simple_archiver_helper_cleanup_malloced))) void *heap_buf =
           malloc(u16 + 1);
       unsigned char *uc_heap_buf = heap_buf;
       if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
@@ -1315,8 +1302,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
       if (do_extract) {
         if ((state->parsed->flags & 0x8) == 0) {
-          __attribute__((cleanup(free_FILE_helper))) FILE *test_fd =
-              fopen((const char *)buf, "rb");
+          __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
+          FILE *test_fd = fopen((const char *)buf, "rb");
           if (test_fd) {
             skip = 1;
             fprintf(stderr,
@@ -1639,7 +1626,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
                 // EOF.
                 read_pipe_done = 1;
                 close(pipe_outof_cmd[0]);
-                free_FILE_helper(&out_f);
+                simple_archiver_helper_cleanup_FILE(&out_f);
               } else {
                 // Invalid state (unreachable?), error.
                 fprintf(stderr,
@@ -1724,8 +1711,10 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       fprintf(stderr, "  Absolute path is %s\n",
               (abs_preferred ? "preferred" : "NOT preferred"));
 
-      __attribute__((cleanup(free_malloced_memory))) void *abs_path = NULL;
-      __attribute__((cleanup(free_malloced_memory))) void *rel_path = NULL;
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_malloced))) void *abs_path = NULL;
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_malloced))) void *rel_path = NULL;
 
       if (fread(&u16, 2, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;

@@ -33,12 +33,41 @@
 #include <unistd.h>
 #endif
 
-void simple_archiver_internal_free_c_string(char **str) {
+void simple_archiver_helper_cleanup_FILE(FILE **fd) {
+  if (fd && *fd) {
+    fclose(*fd);
+    *fd = NULL;
+  }
+}
+
+void simple_archiver_helper_cleanup_malloced(void **data) {
+  if (data && *data) {
+    free(*data);
+    *data = NULL;
+  }
+}
+
+void simple_archiver_helper_cleanup_c_string(char **str) {
   if (str && *str) {
     free(*str);
     *str = NULL;
   }
 }
+
+void simple_archiver_helper_cleanup_chdir_back(char **original) {
+  if (original && *original) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||   \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
+    chdir(*original);
+#endif
+    free(*original);
+    *original = NULL;
+  }
+}
+
+void simple_archiver_helper_datastructure_cleanup_nop(
+    __attribute__((unused)) void *unused) {}
 
 int simple_archiver_helper_is_big_endian(void) {
   union {
@@ -152,7 +181,7 @@ int simple_archiver_helper_make_dirs(const char *file_path) {
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   __attribute__((
-      cleanup(simple_archiver_internal_free_c_string))) char *path_dup =
+      cleanup(simple_archiver_helper_cleanup_c_string))) char *path_dup =
       strdup(file_path);
   if (!path_dup) {
     return 3;

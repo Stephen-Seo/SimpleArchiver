@@ -20,6 +20,7 @@
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_HELPERS_H_
 
 #include <stdint.h>
+#include <stdio.h>
 
 static const unsigned int MAX_SYMBOLIC_LINK_SIZE = 512;
 
@@ -53,5 +54,12 @@ char *simple_archiver_helper_cut_substr(const char *s, unsigned int start_idx,
                                         unsigned int end_idx);
 
 unsigned int simple_archiver_helper_num_digits(unsigned int value);
+
+void simple_archiver_helper_cleanup_FILE(FILE **fd);
+void simple_archiver_helper_cleanup_malloced(void **data);
+void simple_archiver_helper_cleanup_c_string(char **str);
+void simple_archiver_helper_cleanup_chdir_back(char **original);
+
+void simple_archiver_helper_datastructure_cleanup_nop(void *unused);
 
 #endif
