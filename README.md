@@ -36,4 +36,4 @@ and return processed data to stdout.
 
 ## LICENSE Information
 
-Uses the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0).
+Uses the [ISC License](https://choosealicense.com/licenses/isc/).
