@@ -1,11 +1,11 @@
 // ISC License
-// 
+//
 // Copyright (c) 2024 Stephen Seo
-// 
+//
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
 // copyright notice and this permission notice appear in all copies.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
 // REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
 // AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
@@ -52,5 +52,16 @@ void *simple_archiver_hash_map_get(SDArchiverHashMap *hash_map, void *key,
 /// Otherwise returns non-zero and non-one value on error.
 int simple_archiver_hash_map_remove(SDArchiverHashMap *hash_map, void *key,
                                     unsigned int key_size);
+
+/// Iterates through the hash map with the "iter_check_fn", which is passed the
+/// key, key-size, value, and user_data. This function will call "iter_check_fn"
+/// on every entry in the given hash_map. If "iter_check_fn" returns non-zero,
+/// iteration will halt and this function will return the same value. If
+/// "iter_check_fn" returns zero for every call, then this function will return
+/// zero after having iterated through every key-value pair.
+int simple_archiver_hash_map_iter(const SDArchiverHashMap *hash_map,
+                                  int (*iter_check_fn)(void *, unsigned int,
+                                                       void *, void *),
+                                  void *user_data);
 
 #endif

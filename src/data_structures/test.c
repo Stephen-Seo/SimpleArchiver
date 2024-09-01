@@ -1,11 +1,11 @@
 // ISC License
-// 
+//
 // Copyright (c) 2024 Stephen Seo
-// 
+//
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
 // copyright notice and this permission notice appear in all copies.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
 // REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
 // AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
@@ -62,6 +62,19 @@ int get_three_fn(void *data, __attribute__((unused)) void *ud) {
 }
 
 int more_fn(long long a, long long b) { return a > b ? 1 : 0; }
+
+int hash_map_iter_check_fn(__attribute__((unused)) void *key,
+                           __attribute__((unused)) unsigned int key_size,
+                           void *value, void *ud) {
+  char *found_buf = ud;
+  size_t real_value = (size_t)value;
+  if (real_value < 5) {
+    found_buf[real_value] += 1;
+    return 0;
+  } else {
+    return 1;
+  }
+}
 
 int main(void) {
   // Test LinkedList.
@@ -165,6 +178,27 @@ int main(void) {
       simple_archiver_hash_map_insert(&hash_map, copy_value, copy_key,
                                       sizeof(unsigned int), NULL, NULL);
     }
+    simple_archiver_hash_map_free(&hash_map);
+
+    // Hash map iter test.
+    hash_map = simple_archiver_hash_map_init();
+
+    for (size_t idx = 0; idx < 5; ++idx) {
+      simple_archiver_hash_map_insert(&hash_map, (void *)idx, &idx,
+                                      sizeof(size_t), no_free_fn, no_free_fn);
+    }
+
+    char found[5] = {0, 0, 0, 0, 0};
+
+    CHECK_TRUE(simple_archiver_hash_map_iter(hash_map, hash_map_iter_check_fn,
+                                             found) == 0);
+
+    CHECK_TRUE(found[0] == 1);
+    CHECK_TRUE(found[1] == 1);
+    CHECK_TRUE(found[2] == 1);
+    CHECK_TRUE(found[3] == 1);
+    CHECK_TRUE(found[4] == 1);
+
     simple_archiver_hash_map_free(&hash_map);
   }
 

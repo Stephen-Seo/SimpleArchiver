@@ -1,11 +1,11 @@
 // ISC License
-// 
+//
 // Copyright (c) 2024 Stephen Seo
-// 
+//
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
 // copyright notice and this permission notice appear in all copies.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
 // REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
 // AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
@@ -35,6 +35,12 @@ typedef struct SDArchiverHashMapKeyData {
   void *key;
   unsigned int key_size;
 } SDArchiverHashMapKeyData;
+
+typedef struct SDArchiverInternalIterContext {
+  int (*iter_check_fn)(void *, unsigned int, void *, void *);
+  int ret;
+  void *user_data;
+} SDArchiverInternalIterContext;
 
 void simple_archiver_hash_map_internal_cleanup_data(void *data) {
   SDArchiverHashMapData *hash_map_data = data;
@@ -247,4 +253,33 @@ int simple_archiver_hash_map_remove(SDArchiverHashMap *hash_map, void *key,
   } else {
     return 2;
   }
+}
+
+int simple_archiver_internal_hash_map_bucket_iter_fn(void *data, void *ud) {
+  SDArchiverHashMapData *hash_map_data = data;
+  SDArchiverInternalIterContext *ctx = ud;
+
+  ctx->ret = ctx->iter_check_fn(hash_map_data->key, hash_map_data->key_size,
+                                hash_map_data->value, ctx->user_data);
+  if (ctx->ret != 0) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+int simple_archiver_hash_map_iter(const SDArchiverHashMap *hash_map,
+                                  int (*iter_check_fn)(void *, unsigned int,
+                                                       void *, void *),
+                                  void *user_data) {
+  SDArchiverInternalIterContext ctx;
+  ctx.iter_check_fn = iter_check_fn;
+  ctx.ret = 0;
+  ctx.user_data = user_data;
+  for (unsigned int idx = 0; idx < hash_map->buckets_size; ++idx) {
+    simple_archiver_list_get(hash_map->buckets[idx],
+                             simple_archiver_internal_hash_map_bucket_iter_fn,
+                             &ctx);
+  }
+  return ctx.ret;
 }
