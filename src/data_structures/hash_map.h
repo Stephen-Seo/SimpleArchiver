@@ -60,8 +60,9 @@ int simple_archiver_hash_map_remove(SDArchiverHashMap *hash_map, void *key,
 /// "iter_check_fn" returns zero for every call, then this function will return
 /// zero after having iterated through every key-value pair.
 int simple_archiver_hash_map_iter(const SDArchiverHashMap *hash_map,
-                                  int (*iter_check_fn)(void *, unsigned int,
-                                                       void *, void *),
+                                  int (*iter_check_fn)(const void *,
+                                                       unsigned int,
+                                                       const void *, void *),
                                   void *user_data);
 
 #endif

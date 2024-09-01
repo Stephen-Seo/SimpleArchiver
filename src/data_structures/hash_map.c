@@ -37,7 +37,7 @@ typedef struct SDArchiverHashMapKeyData {
 } SDArchiverHashMapKeyData;
 
 typedef struct SDArchiverInternalIterContext {
-  int (*iter_check_fn)(void *, unsigned int, void *, void *);
+  int (*iter_check_fn)(const void *, unsigned int, const void *, void *);
   int ret;
   void *user_data;
 } SDArchiverInternalIterContext;
@@ -269,17 +269,20 @@ int simple_archiver_internal_hash_map_bucket_iter_fn(void *data, void *ud) {
 }
 
 int simple_archiver_hash_map_iter(const SDArchiverHashMap *hash_map,
-                                  int (*iter_check_fn)(void *, unsigned int,
-                                                       void *, void *),
+                                  int (*iter_check_fn)(const void *,
+                                                       unsigned int,
+                                                       const void *, void *),
                                   void *user_data) {
   SDArchiverInternalIterContext ctx;
   ctx.iter_check_fn = iter_check_fn;
   ctx.ret = 0;
   ctx.user_data = user_data;
   for (unsigned int idx = 0; idx < hash_map->buckets_size; ++idx) {
-    simple_archiver_list_get(hash_map->buckets[idx],
-                             simple_archiver_internal_hash_map_bucket_iter_fn,
-                             &ctx);
+    if (simple_archiver_list_get(
+            hash_map->buckets[idx],
+            simple_archiver_internal_hash_map_bucket_iter_fn, &ctx) != 0) {
+      return ctx.ret;
+    }
   }
   return ctx.ret;
 }

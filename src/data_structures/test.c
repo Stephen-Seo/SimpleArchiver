@@ -25,6 +25,8 @@
 #include "linked_list.h"
 #include "priority_heap.h"
 
+#define SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE 100
+
 static int checks_checked = 0;
 static int checks_passed = 0;
 
@@ -63,17 +65,24 @@ int get_three_fn(void *data, __attribute__((unused)) void *ud) {
 
 int more_fn(long long a, long long b) { return a > b ? 1 : 0; }
 
-int hash_map_iter_check_fn(__attribute__((unused)) void *key,
+int hash_map_iter_check_fn(__attribute__((unused)) const void *key,
                            __attribute__((unused)) unsigned int key_size,
-                           void *value, void *ud) {
+                           const void *value, void *ud) {
   char *found_buf = ud;
-  size_t real_value = (size_t)value;
-  if (real_value < 5) {
+  const size_t real_value = (const size_t)value;
+  if (real_value < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE) {
     found_buf[real_value] += 1;
     return 0;
   } else {
     return 1;
   }
+}
+
+int hash_map_iter_check_fn2(__attribute__((unused)) const void *key,
+                            __attribute__((unused)) unsigned int key_size,
+                            __attribute__((unused)) const void *value,
+                            __attribute__((unused)) void *ud) {
+  return 2;
 }
 
 int main(void) {
@@ -183,21 +192,28 @@ int main(void) {
     // Hash map iter test.
     hash_map = simple_archiver_hash_map_init();
 
-    for (size_t idx = 0; idx < 5; ++idx) {
+    for (size_t idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE; ++idx) {
       simple_archiver_hash_map_insert(&hash_map, (void *)idx, &idx,
                                       sizeof(size_t), no_free_fn, no_free_fn);
     }
 
-    char found[5] = {0, 0, 0, 0, 0};
+    char found[SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE] = {0};
 
     CHECK_TRUE(simple_archiver_hash_map_iter(hash_map, hash_map_iter_check_fn,
                                              found) == 0);
 
-    CHECK_TRUE(found[0] == 1);
-    CHECK_TRUE(found[1] == 1);
-    CHECK_TRUE(found[2] == 1);
-    CHECK_TRUE(found[3] == 1);
-    CHECK_TRUE(found[4] == 1);
+    for (unsigned int idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE;
+         ++idx) {
+      CHECK_TRUE(found[idx] == 1);
+    }
+
+    CHECK_TRUE(simple_archiver_hash_map_iter(hash_map, hash_map_iter_check_fn2,
+                                             found) == 2);
+
+    for (unsigned int idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE;
+         ++idx) {
+      CHECK_TRUE(found[idx] == 1);
+    }
 
     simple_archiver_hash_map_free(&hash_map);
   }
