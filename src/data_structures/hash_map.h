@@ -45,8 +45,8 @@ int simple_archiver_hash_map_insert(SDArchiverHashMap **hash_map, void *value,
                                     void (*key_cleanup_fn)(void *));
 
 /// Returns NULL if not found.
-void *simple_archiver_hash_map_get(SDArchiverHashMap *hash_map, void *key,
-                                   unsigned int key_size);
+void *simple_archiver_hash_map_get(const SDArchiverHashMap *hash_map,
+                                   const void *key, unsigned int key_size);
 
 /// Returns zero on success. Returns one if more than one entry was removed.
 /// Otherwise returns non-zero and non-one value on error.

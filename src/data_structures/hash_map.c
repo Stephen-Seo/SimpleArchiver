@@ -75,7 +75,7 @@ int simple_archiver_hash_map_internal_pick_in_list(void *data, void *ud) {
 }
 
 unsigned long long simple_archiver_hash_map_internal_key_to_hash(
-    void *key, unsigned int key_size) {
+    const void *key, unsigned int key_size) {
   unsigned long long seed = 0;
   unsigned long long temp = 0;
   unsigned int count = 0;
@@ -213,8 +213,8 @@ int simple_archiver_hash_map_insert(SDArchiverHashMap **hash_map, void *value,
   }
 }
 
-void *simple_archiver_hash_map_get(SDArchiverHashMap *hash_map, void *key,
-                                   unsigned int key_size) {
+void *simple_archiver_hash_map_get(const SDArchiverHashMap *hash_map,
+                                   const void *key, unsigned int key_size) {
   unsigned long long hash =
       simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
       hash_map->buckets_size;
