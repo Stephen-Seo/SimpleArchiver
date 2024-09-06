@@ -19,6 +19,8 @@
 #ifndef SEODISPARATE_COM_SIMPLE_ARCHIVER_DATA_STRUCTURE_LINKED_LIST_H_
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_DATA_STRUCTURE_LINKED_LIST_H_
 
+#include <stddef.h>
+
 typedef struct SDArchiverLLNode {
   struct SDArchiverLLNode *next;
   struct SDArchiverLLNode *prev;
@@ -29,7 +31,7 @@ typedef struct SDArchiverLLNode {
 typedef struct SDArchiverLinkedList {
   SDArchiverLLNode *head;
   SDArchiverLLNode *tail;
-  unsigned int count;
+  size_t count;
 } SDArchiverLinkedList;
 
 SDArchiverLinkedList *simple_archiver_list_init(void);

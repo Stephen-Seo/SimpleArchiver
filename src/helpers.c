@@ -59,7 +59,7 @@ void simple_archiver_helper_cleanup_chdir_back(char **original) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||   \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
-    chdir(*original);
+    __attribute__((unused)) int unused_ret = chdir(*original);
 #endif
     free(*original);
     *original = NULL;
@@ -221,9 +221,9 @@ int simple_archiver_helper_make_dirs(const char *file_path) {
 #endif
 }
 
-char *simple_archiver_helper_cut_substr(const char *s, unsigned int start_idx,
-                                        unsigned int end_idx) {
-  unsigned int s_len = strlen(s);
+char *simple_archiver_helper_cut_substr(const char *s, size_t start_idx,
+                                        size_t end_idx) {
+  size_t s_len = strlen(s);
   if (start_idx > end_idx || start_idx >= s_len || end_idx > s_len) {
     return NULL;
   } else if (end_idx == s_len) {
@@ -246,8 +246,8 @@ char *simple_archiver_helper_cut_substr(const char *s, unsigned int start_idx,
   }
 }
 
-unsigned int simple_archiver_helper_num_digits(unsigned int value) {
-  unsigned int digits = 0;
+size_t simple_archiver_helper_num_digits(size_t value) {
+  size_t digits = 0;
   do {
     ++digits;
     value /= 10;

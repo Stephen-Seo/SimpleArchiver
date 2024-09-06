@@ -39,15 +39,15 @@
 #include "parser_internal.h"
 
 /// Gets the first non "./"-like character in the filename.
-unsigned int simple_archiver_parser_internal_get_first_non_current_idx(
+size_t simple_archiver_parser_internal_get_first_non_current_idx(
     const char *filename) {
-  unsigned int idx = 0;
-  unsigned int known_good_idx = 0;
-  const unsigned int length = strlen(filename);
+  size_t idx = 0;
+  size_t known_good_idx = 0;
+  const size_t length = strlen(filename);
 
   // 0b0001 - checked that idx char is '.'
   // 0b0010 - checked that idx char is '/'
-  unsigned int flags = 0;
+  size_t flags = 0;
 
   for (; idx < length; ++idx) {
     if ((flags & 3) == 0) {
@@ -90,8 +90,8 @@ unsigned int simple_archiver_parser_internal_get_first_non_current_idx(
 }
 
 void simple_archiver_parser_internal_remove_end_slash(char *filename) {
-  int len = strlen(filename);
-  int idx;
+  size_t len = strlen(filename);
+  size_t idx;
   for (idx = len; idx-- > 0;) {
     if (filename[idx] != '/') {
       ++idx;
@@ -236,7 +236,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
           out->filename = NULL;
         } else {
           out->flags &= 0xFFFFFFEF;
-          int size = strlen(argv[1]) + 1;
+          size_t size = strlen(argv[1]) + 1;
           out->filename = malloc(size);
           strncpy(out->filename, argv[1], size);
         }
@@ -257,7 +257,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_print_usage();
           return 1;
         }
-        int size = strlen(argv[1]) + 1;
+        size_t size = strlen(argv[1]) + 1;
         out->compressor = malloc(size);
         strncpy(out->compressor, argv[1], size);
         --argc;
@@ -268,7 +268,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_print_usage();
           return 1;
         }
-        int size = strlen(argv[1]) + 1;
+        size_t size = strlen(argv[1]) + 1;
         out->decompressor = malloc(size);
         strncpy(out->decompressor, argv[1], size);
         --argc;
@@ -297,15 +297,15 @@ int simple_archiver_parse_args(int argc, const char **argv,
     } else {
       if (out->working_files == NULL) {
         out->working_files = malloc(sizeof(char *) * 2);
-        unsigned int arg_idx =
+        size_t arg_idx =
             simple_archiver_parser_internal_get_first_non_current_idx(argv[0]);
-        unsigned int arg_length = strlen(argv[0] + arg_idx) + 1;
+        size_t arg_length = strlen(argv[0] + arg_idx) + 1;
         out->working_files[0] = malloc(arg_length);
         strncpy(out->working_files[0], argv[0] + arg_idx, arg_length);
         simple_archiver_parser_internal_remove_end_slash(out->working_files[0]);
         out->working_files[1] = NULL;
       } else {
-        int working_size = 1;
+        size_t working_size = 1;
         char **ptr = out->working_files;
         while (ptr && *ptr) {
           ++working_size;
@@ -318,9 +318,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
         // Set new actual last element to NULL.
         out->working_files[working_size] = NULL;
-        unsigned int arg_idx =
+        size_t arg_idx =
             simple_archiver_parser_internal_get_first_non_current_idx(argv[0]);
-        int size = strlen(argv[0] + arg_idx) + 1;
+        size_t size = strlen(argv[0] + arg_idx) + 1;
         // Set last element to the arg.
         out->working_files[working_size - 1] = malloc(size);
         strncpy(out->working_files[working_size - 1], argv[0] + arg_idx, size);
@@ -392,7 +392,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     fstatat(AT_FDCWD, file_path, &st, AT_SYMLINK_NOFOLLOW);
     if ((st.st_mode & S_IFMT) == S_IFREG || (st.st_mode & S_IFMT) == S_IFLNK) {
       // Is a regular file or a symbolic link.
-      int len = strlen(file_path) + 1;
+      size_t len = strlen(file_path) + 1;
       char *filename = malloc(len);
       strncpy(filename, file_path, len);
       if (simple_archiver_hash_map_get(hash_map, filename, len - 1) == NULL) {
@@ -472,11 +472,11 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
             }
             // fprintf(stderr, "dir entry in %s is %s\n", next,
             // dir_entry->d_name);
-            int combined_size = strlen(next) + strlen(dir_entry->d_name) + 2;
+            size_t combined_size = strlen(next) + strlen(dir_entry->d_name) + 2;
             char *combined_path = malloc(combined_size);
             snprintf(combined_path, combined_size, "%s/%s", next,
                      dir_entry->d_name);
-            unsigned int valid_idx =
+            size_t valid_idx =
                 simple_archiver_parser_internal_get_first_non_current_idx(
                     combined_path);
             if (valid_idx > 0) {
@@ -574,11 +574,10 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     SDArchiverFileInfo *file_info = iter->data;
 
     // Remove leading "./" entries from files_list.
-    unsigned int idx =
-        simple_archiver_parser_internal_get_first_non_current_idx(
-            file_info->filename);
+    size_t idx = simple_archiver_parser_internal_get_first_non_current_idx(
+        file_info->filename);
     if (idx > 0) {
-      int len = strlen(file_info->filename) + 1 - idx;
+      size_t len = strlen(file_info->filename) + 1 - idx;
       char *substr = malloc(len);
       strncpy(substr, file_info->filename + idx, len);
       free(file_info->filename);

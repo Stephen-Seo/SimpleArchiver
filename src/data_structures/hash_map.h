@@ -21,12 +21,14 @@
 
 #define SC_SA_DS_HASH_MAP_START_BUCKET_SIZE 32
 
+#include <stddef.h>
+
 #include "linked_list.h"
 
 typedef struct SDArchiverHashMap {
   SDArchiverLinkedList **buckets;
-  unsigned int buckets_size;
-  unsigned int count;
+  size_t buckets_size;
+  size_t count;
 } SDArchiverHashMap;
 
 SDArchiverHashMap *simple_archiver_hash_map_init(void);
@@ -40,18 +42,18 @@ void simple_archiver_hash_map_free(SDArchiverHashMap **hash_map);
 /// NOTICE: You must not pass NULL to value, otherwise all "get" checks will
 /// fail for the inserted key.
 int simple_archiver_hash_map_insert(SDArchiverHashMap **hash_map, void *value,
-                                    void *key, unsigned int key_size,
+                                    void *key, size_t key_size,
                                     void (*value_cleanup_fn)(void *),
                                     void (*key_cleanup_fn)(void *));
 
 /// Returns NULL if not found.
 void *simple_archiver_hash_map_get(const SDArchiverHashMap *hash_map,
-                                   const void *key, unsigned int key_size);
+                                   const void *key, size_t key_size);
 
 /// Returns zero on success. Returns one if more than one entry was removed.
 /// Otherwise returns non-zero and non-one value on error.
 int simple_archiver_hash_map_remove(SDArchiverHashMap *hash_map, void *key,
-                                    unsigned int key_size);
+                                    size_t key_size);
 
 /// Iterates through the hash map with the "iter_check_fn", which is passed the
 /// key, key-size, value, and user_data. This function will call "iter_check_fn"
@@ -60,8 +62,7 @@ int simple_archiver_hash_map_remove(SDArchiverHashMap *hash_map, void *key,
 /// "iter_check_fn" returns zero for every call, then this function will return
 /// zero after having iterated through every key-value pair.
 int simple_archiver_hash_map_iter(const SDArchiverHashMap *hash_map,
-                                  int (*iter_check_fn)(const void *,
-                                                       unsigned int,
+                                  int (*iter_check_fn)(const void *, size_t,
                                                        const void *, void *),
                                   void *user_data);
 

@@ -32,9 +32,9 @@ typedef struct SDArchiverState {
   const SDArchiverParsed *parsed;
   FILE *out_f;
   SDArchiverHashMap *map;
-  unsigned int count;
-  unsigned int max;
-  unsigned int digits;
+  size_t count;
+  size_t max;
+  size_t digits;
 } SDArchiverState;
 
 enum SDArchiverStateReturns {

@@ -66,7 +66,7 @@ int get_three_fn(void *data, __attribute__((unused)) void *ud) {
 int more_fn(long long a, long long b) { return a > b ? 1 : 0; }
 
 int hash_map_iter_check_fn(__attribute__((unused)) const void *key,
-                           __attribute__((unused)) unsigned int key_size,
+                           __attribute__((unused)) size_t key_size,
                            const void *value, void *ud) {
   char *found_buf = ud;
   const size_t real_value = (const size_t)value;
@@ -79,7 +79,7 @@ int hash_map_iter_check_fn(__attribute__((unused)) const void *key,
 }
 
 int hash_map_iter_check_fn2(__attribute__((unused)) const void *key,
-                            __attribute__((unused)) unsigned int key_size,
+                            __attribute__((unused)) size_t key_size,
                             __attribute__((unused)) const void *value,
                             __attribute__((unused)) void *ud) {
   return 2;

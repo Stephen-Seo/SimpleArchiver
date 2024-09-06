@@ -39,9 +39,9 @@
 
 #include "helpers.h"
 
-#define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%u.tmp"
-#define FILE_COUNTS_OUTPUT_FORMAT_STR_0 "\nFile %%%uu of %%%uu.\n"
-#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 "[%%%uu/%%%uu]\n"
+#define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%lu.tmp"
+#define FILE_COUNTS_OUTPUT_FORMAT_STR_0 "\nFile %%%lulu of %%%lulu.\n"
+#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 "[%%%lulu/%%%lulu]\n"
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -158,8 +158,8 @@ int write_files_fn(void *data, void *ud) {
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       // Use temp file to store compressed data.
       char temp_filename[512];
-      unsigned int idx = 0;
-      unsigned int temp_dir_end = strlen(state->parsed->temp_dir);
+      size_t idx = 0;
+      size_t temp_dir_end = strlen(state->parsed->temp_dir);
       snprintf(temp_filename, 512, TEMP_FILENAME_CMP, state->parsed->temp_dir,
                state->parsed->temp_dir[temp_dir_end - 1] == '/' ? "" : "/",
                idx);
@@ -341,7 +341,7 @@ int write_files_fn(void *data, void *ud) {
         if (!read_done) {
           ret = read(pipe_outof_cmd[0], read_buf, 1024);
           if (ret > 0) {
-            read_count = fwrite(read_buf, 1, ret, tmp_fd);
+            read_count = fwrite(read_buf, 1, (size_t)ret, tmp_fd);
             if (read_count != (size_t)ret) {
               // Write to tmp_fd error.
               fprintf(stderr,
@@ -384,7 +384,12 @@ int write_files_fn(void *data, void *ud) {
       uint16_t u16;
       uint64_t u64;
 
-      u16 = strlen(file_info->filename);
+      size_t temp_size = strlen(file_info->filename);
+      if (temp_size > 0xFFFF) {
+        fprintf(stderr, "ERROR: Filename size is too large to store!\n");
+        return 1;
+      }
+      u16 = (uint16_t)temp_size;
 
       // Write filename length.
       simple_archiver_helper_16_bit_be(&u16);
@@ -406,7 +411,7 @@ int write_files_fn(void *data, void *ud) {
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(4);
       temp_to_write->size = 4;
-      for (unsigned int idx = 0; idx < temp_to_write->size; ++idx) {
+      for (size_t idx = 0; idx < temp_to_write->size; ++idx) {
         ((unsigned char *)temp_to_write->buf)[idx] = 0;
       }
 
@@ -474,7 +479,7 @@ int write_files_fn(void *data, void *ud) {
       }
 
       // Write file length.
-      u64 = end;
+      u64 = (uint64_t)end;
       simple_archiver_helper_64_bit_be(&u64);
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(8);
@@ -511,7 +516,12 @@ int write_files_fn(void *data, void *ud) {
       uint16_t u16;
       uint64_t u64;
 
-      u16 = strlen(file_info->filename);
+      size_t temp_size = strlen(file_info->filename);
+      if (temp_size > 0xFFFF) {
+        fprintf(stderr, "ERROR: Filename is too large to store!\n");
+        return 1;
+      }
+      u16 = (uint16_t)temp_size;
 
       // Write filename length.
       simple_archiver_helper_16_bit_be(&u16);
@@ -533,7 +543,7 @@ int write_files_fn(void *data, void *ud) {
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(4);
       temp_to_write->size = 4;
-      for (unsigned int idx = 0; idx < temp_to_write->size; ++idx) {
+      for (size_t idx = 0; idx < temp_to_write->size; ++idx) {
         ((unsigned char *)temp_to_write->buf)[idx] = 0;
       }
 
@@ -606,7 +616,7 @@ int write_files_fn(void *data, void *ud) {
         // Error.
         return 1;
       }
-      u64 = end;
+      u64 = (uint64_t)end;
       simple_archiver_helper_64_bit_be(&u64);
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(8);
@@ -647,7 +657,12 @@ int write_files_fn(void *data, void *ud) {
     // A symblic link.
     uint16_t u16;
 
-    u16 = strlen(file_info->filename);
+    size_t temp_size = strlen(file_info->filename);
+    if (temp_size > 0xFFFF) {
+      fprintf(stderr, "ERROR: Filename is too large to store!\n");
+      return 1;
+    }
+    u16 = (uint16_t)temp_size;
 
     // Write filename length.
     simple_archiver_helper_16_bit_be(&u16);
@@ -669,7 +684,7 @@ int write_files_fn(void *data, void *ud) {
     temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
     temp_to_write->buf = malloc(4);
     temp_to_write->size = 4;
-    for (unsigned int idx = 0; idx < temp_to_write->size; ++idx) {
+    for (size_t idx = 0; idx < temp_to_write->size; ++idx) {
       ((unsigned char *)temp_to_write->buf)[idx] = 0;
     }
 
@@ -746,8 +761,8 @@ int write_files_fn(void *data, void *ud) {
 
         // Compare paths to get relative path.
         // Get first non-common char.
-        unsigned int idx;
-        unsigned int last_slash;
+        size_t idx;
+        size_t last_slash;
         for (idx = 0, last_slash = 0;
              idx < strlen(abs_path) && idx < strlen(link_abs_path); ++idx) {
           if (((const char *)abs_path)[idx] !=
@@ -812,7 +827,12 @@ int write_files_fn(void *data, void *ud) {
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
     } else if ((state->parsed->flags & 0x20) == 0) {
       // Write absolute path length.
-      u16 = strlen(abs_path);
+      size_t temp_size = strlen(abs_path);
+      if (temp_size > 0xFFFF) {
+        fprintf(stderr, "ERROR: Absolute path name is too large!\n");
+        return 1;
+      }
+      u16 = (uint16_t)temp_size;
       simple_archiver_helper_16_bit_be(&u16);
 
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
@@ -841,7 +861,12 @@ int write_files_fn(void *data, void *ud) {
 
     if (rel_path) {
       // Write relative path length.
-      u16 = strlen(rel_path);
+      size_t temp_size = strlen(rel_path);
+      if (temp_size > 0xFFFF) {
+        fprintf(stderr, "ERROR: Relative path name is too large!\n");
+        return 1;
+      }
+      u16 = (uint16_t)temp_size;
       simple_archiver_helper_16_bit_be(&u16);
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(2);
@@ -1043,14 +1068,19 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
       return SDAS_FAILED_TO_WRITE;
     }
     c = 0;
-    for (unsigned int i = 0; i < 3; ++i) {
+    for (size_t i = 0; i < 3; ++i) {
       if (fwrite(&c, 1, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
       }
     }
 
     // De/compressor bytes.
-    u16 = strlen(state->parsed->compressor);
+    size_t temp_size = strlen(state->parsed->compressor);
+    if (temp_size > 0xFFFF) {
+      fprintf(stderr, "ERROR: Compressor cmd string is too large!\n");
+      return SDAS_NO_COMPRESSOR;
+    }
+    u16 = (uint16_t)temp_size;
     // To big-endian.
     simple_archiver_helper_16_bit_be(&u16);
     // Write the size in big-endian.
@@ -1065,7 +1095,12 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
       return SDAS_FAILED_TO_WRITE;
     }
 
-    u16 = strlen(state->parsed->decompressor);
+    temp_size = strlen(state->parsed->decompressor);
+    if (temp_size > 0xFFFF) {
+      fprintf(stderr, "ERROR: Decompressor cmd string is too large!\n");
+      return SDAS_NO_DECOMPRESSOR;
+    }
+    u16 = (uint16_t)temp_size;
     // To big-endian.
     simple_archiver_helper_16_bit_be(&u16);
     // Write the size in big-endian.
@@ -1082,7 +1117,7 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   } else {
     // Write the four flag bytes with first bit NOT set.
     unsigned char c = 0;
-    for (unsigned int i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < 4; ++i) {
       if (fwrite(&c, 1, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
       }
@@ -1091,7 +1126,11 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
 
   // Write file count.
   {
-    uint32_t u32 = filenames->count;
+    if (filenames->count > 0xFFFFFFFF) {
+      fprintf(stderr, "ERROR: Filenames count is too large!\n");
+      return SDAS_INTERNAL_ERROR;
+    }
+    uint32_t u32 = (uint32_t)filenames->count;
     simple_archiver_helper_32_bit_be(&u32);
     if (fwrite(&u32, 1, 4, out_f) != 4) {
       return SDAS_FAILED_TO_WRITE;
@@ -1232,7 +1271,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
   fprintf(stderr, "File count is %u\n", u32);
 
   const uint32_t size = u32;
-  const unsigned int digits = simple_archiver_helper_num_digits(size);
+  const size_t digits = simple_archiver_helper_num_digits(size);
   char format_str[128];
   snprintf(format_str, 128, FILE_COUNTS_OUTPUT_FORMAT_STR_0, digits, digits);
   int skip = 0;
@@ -1242,7 +1281,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       state->parsed->working_files[0] != NULL) {
     hash_map = simple_archiver_hash_map_init();
     for (char **iter = state->parsed->working_files; *iter != NULL; ++iter) {
-      int len = strlen(*iter) + 1;
+      size_t len = strlen(*iter) + 1;
       char *key = malloc(len);
       memcpy(key, *iter, len);
       key[len - 1] = 0;
@@ -1326,7 +1365,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       return SDAS_INVALID_FILE;
     }
 
-    unsigned int permissions = 0;
+    mode_t permissions = 0;
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -1537,7 +1576,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
           int write_again = 0;
           int write_pipe_done = 0;
           int read_pipe_done = 0;
-          ssize_t fread_ret;
+          size_t fread_ret;
           char recv_buf[1024];
           size_t amount_to_read;
           while (!write_pipe_done || !read_pipe_done) {
@@ -1565,7 +1604,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
               // Send over pipe to decompressor.
               if (fread_ret > 0) {
                 ssize_t write_ret = write(pipe_into_cmd[1], buf, fread_ret);
-                if (write_ret == fread_ret) {
+                if (write_ret > 0 && (size_t)write_ret == fread_ret) {
                   // Successful write.
                   write_again = 0;
                   if (compressed_file_size == 0) {
@@ -1596,7 +1635,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
             if (!read_pipe_done) {
               ssize_t read_ret = read(pipe_outof_cmd[0], recv_buf, 1024);
               if (read_ret > 0) {
-                size_t fwrite_ret = fwrite(recv_buf, 1, read_ret, out_f);
+                size_t fwrite_ret =
+                    fwrite(recv_buf, 1, (size_t)read_ret, out_f);
                 if (fwrite_ret == (size_t)read_ret) {
                   // Success.
                 } else if (ferror(out_f)) {
@@ -1647,7 +1687,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
           waitpid(decompressor_pid, NULL, 0);
         } else {
           uint64_t compressed_file_size = u64;
-          ssize_t fread_ret;
+          size_t fread_ret;
           while (compressed_file_size != 0) {
             if (compressed_file_size > 1024) {
               fread_ret = fread(buf, 1, 1024, in_f);
@@ -1688,14 +1728,14 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       } else {
         while (u64 != 0) {
           if (u64 > 1024) {
-            ssize_t read_ret = fread(buf, 1, 1024, in_f);
+            size_t read_ret = fread(buf, 1, 1024, in_f);
             if (read_ret > 0) {
               u64 -= read_ret;
             } else if (ferror(in_f)) {
               return SDAS_INTERNAL_ERROR;
             }
           } else {
-            ssize_t read_ret = fread(buf, 1, u64, in_f);
+            size_t read_ret = fread(buf, 1, u64, in_f);
             if (read_ret > 0) {
               u64 -= read_ret;
             } else if (ferror(in_f)) {
