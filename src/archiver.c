@@ -909,7 +909,7 @@ int write_files_fn(void *data, void *ud) {
 int filenames_to_abs_map_fn(void *data, void *ud) {
   SDArchiverFileInfo *file_info = data;
   void **ptr_array = ud;
-  SDArchiverHashMap **abs_filenames = ptr_array[0];
+  SDArchiverHashMap *abs_filenames = ptr_array[0];
   const char *user_cwd = ptr_array[1];
   __attribute__((cleanup(
       simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
@@ -931,7 +931,7 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   }
 
   simple_archiver_hash_map_insert(
-      *abs_filenames, fullpath, fullpath, strlen(fullpath) + 1,
+      abs_filenames, fullpath, fullpath, strlen(fullpath) + 1,
       simple_archiver_helper_datastructure_cleanup_nop, NULL);
 
   // Try putting all parent dirs up to current working directory.
@@ -967,7 +967,7 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
       strncpy(fullpath_dirname_copy, fullpath_dirname,
               strlen(fullpath_dirname) + 1);
       simple_archiver_hash_map_insert(
-          *abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy,
+          abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy,
           strlen(fullpath_dirname_copy) + 1,
           simple_archiver_helper_datastructure_cleanup_nop, NULL);
     }
@@ -1036,7 +1036,7 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
   void **ptr_array = malloc(sizeof(void *) * 2);
-  ptr_array[0] = &abs_filenames;
+  ptr_array[0] = abs_filenames;
   ptr_array[1] = (void *)state->parsed->user_cwd;
   if (simple_archiver_list_get(filenames, filenames_to_abs_map_fn, ptr_array)) {
     free(ptr_array);
