@@ -101,12 +101,12 @@ void simple_archiver_hash_map_internal_no_free_fn(
 }
 
 /// Returns 0 on success.
-int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap **hash_map) {
-  if (!hash_map || !*hash_map) {
+int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap *hash_map) {
+  if (!hash_map) {
     return 1;
   }
   SDArchiverHashMap *new_hash_map = malloc(sizeof(SDArchiverHashMap));
-  new_hash_map->buckets_size = (*hash_map)->buckets_size * 2;
+  new_hash_map->buckets_size = hash_map->buckets_size * 2;
   // Pointers have the same size (at least on the same machine), so
   // sizeof(void*) should be ok.
   new_hash_map->buckets = malloc(sizeof(void *) * new_hash_map->buckets_size);
@@ -116,15 +116,14 @@ int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap **hash_map) {
   new_hash_map->count = 0;
 
   // Iterate through the old hash map to populate the new hash map.
-  for (size_t bucket_idx = 0; bucket_idx < (*hash_map)->buckets_size;
+  for (size_t bucket_idx = 0; bucket_idx < hash_map->buckets_size;
        ++bucket_idx) {
-    SDArchiverLLNode *node = (*hash_map)->buckets[bucket_idx]->head;
+    SDArchiverLLNode *node = hash_map->buckets[bucket_idx]->head;
     while (node) {
       node = node->next;
-      if (node && node != (*hash_map)->buckets[bucket_idx]->tail &&
-          node->data) {
+      if (node && node != hash_map->buckets[bucket_idx]->tail && node->data) {
         SDArchiverHashMapData *data = node->data;
-        simple_archiver_hash_map_insert(&new_hash_map, data->value, data->key,
+        simple_archiver_hash_map_insert(new_hash_map, data->value, data->key,
                                         data->key_size, data->value_cleanup_fn,
                                         data->key_cleanup_fn);
         data->key_cleanup_fn = simple_archiver_hash_map_internal_no_free_fn;
@@ -133,8 +132,18 @@ int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap **hash_map) {
     }
   }
 
-  simple_archiver_hash_map_free(hash_map);
-  *hash_map = new_hash_map;
+  // Free the buckets in the old hash_map.
+  for (size_t idx = 0; idx < hash_map->buckets_size; ++idx) {
+    SDArchiverLinkedList **linked_list = hash_map->buckets + idx;
+    simple_archiver_list_free(linked_list);
+  }
+  free(hash_map->buckets);
+
+  // Move the new buckets and related data into the old hash_map.
+  *hash_map = *new_hash_map;
+
+  // `free` the "new_hash_map" as the needed data was moved from it.
+  free(new_hash_map);
 
   return 0;
 }
@@ -167,11 +176,11 @@ void simple_archiver_hash_map_free(SDArchiverHashMap **hash_map) {
   }
 }
 
-int simple_archiver_hash_map_insert(SDArchiverHashMap **hash_map, void *value,
+int simple_archiver_hash_map_insert(SDArchiverHashMap *hash_map, void *value,
                                     void *key, size_t key_size,
                                     void (*value_cleanup_fn)(void *),
                                     void (*key_cleanup_fn)(void *)) {
-  if ((*hash_map)->buckets_size <= (*hash_map)->count) {
+  if (hash_map->buckets_size <= hash_map->count) {
     simple_archiver_hash_map_internal_rehash(hash_map);
   }
 
@@ -184,13 +193,13 @@ int simple_archiver_hash_map_insert(SDArchiverHashMap **hash_map, void *value,
 
   unsigned long long hash =
       simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
-      (*hash_map)->buckets_size;
+      hash_map->buckets_size;
   int result = simple_archiver_list_add_front(
-      (*hash_map)->buckets[hash], data,
+      hash_map->buckets[hash], data,
       simple_archiver_hash_map_internal_cleanup_data);
 
   if (result == 0) {
-    ++(*hash_map)->count;
+    ++hash_map->count;
     return 0;
   } else {
     if (value) {

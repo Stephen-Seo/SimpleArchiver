@@ -931,7 +931,7 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   }
 
   simple_archiver_hash_map_insert(
-      abs_filenames, fullpath, fullpath, strlen(fullpath) + 1,
+      *abs_filenames, fullpath, fullpath, strlen(fullpath) + 1,
       simple_archiver_helper_datastructure_cleanup_nop, NULL);
 
   // Try putting all parent dirs up to current working directory.
@@ -967,7 +967,7 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
       strncpy(fullpath_dirname_copy, fullpath_dirname,
               strlen(fullpath_dirname) + 1);
       simple_archiver_hash_map_insert(
-          abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy,
+          *abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy,
           strlen(fullpath_dirname_copy) + 1,
           simple_archiver_helper_datastructure_cleanup_nop, NULL);
     }
@@ -1286,7 +1286,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       memcpy(key, *iter, len);
       key[len - 1] = 0;
       simple_archiver_hash_map_insert(
-          &hash_map, key, key, len,
+          hash_map, key, key, len,
           simple_archiver_helper_datastructure_cleanup_nop, NULL);
       // fprintf(stderr, "\"%s\" put in map\n", key);
     }

@@ -145,8 +145,8 @@ int main(void) {
         key = malloc(sizeof(int));
         *value = idx;
         *key = idx;
-        simple_archiver_hash_map_insert(&hash_map, value, key, sizeof(int),
-                                        NULL, NULL);
+        simple_archiver_hash_map_insert(hash_map, value, key, sizeof(int), NULL,
+                                        NULL);
       }
     }
 
@@ -184,7 +184,7 @@ int main(void) {
       *copy_value = idx;
       unsigned int *copy_key = malloc(sizeof(unsigned int));
       *copy_key = idx;
-      simple_archiver_hash_map_insert(&hash_map, copy_value, copy_key,
+      simple_archiver_hash_map_insert(hash_map, copy_value, copy_key,
                                       sizeof(unsigned int), NULL, NULL);
     }
     simple_archiver_hash_map_free(&hash_map);
@@ -193,7 +193,7 @@ int main(void) {
     hash_map = simple_archiver_hash_map_init();
 
     for (size_t idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE; ++idx) {
-      simple_archiver_hash_map_insert(&hash_map, (void *)idx, &idx,
+      simple_archiver_hash_map_insert(hash_map, (void *)idx, &idx,
                                       sizeof(size_t), no_free_fn, no_free_fn);
     }
 

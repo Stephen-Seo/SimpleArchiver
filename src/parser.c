@@ -442,7 +442,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
         simple_archiver_list_add(files_list, file_info,
                                  simple_archiver_internal_free_file_info_fn);
         simple_archiver_hash_map_insert(
-            &hash_map, &hash_map_sentinel, filename, len - 1,
+            hash_map, &hash_map_sentinel, filename, len - 1,
             simple_archiver_helper_datastructure_cleanup_nop,
             simple_archiver_helper_datastructure_cleanup_nop);
       } else {
@@ -541,7 +541,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
                     files_list, file_info,
                     simple_archiver_internal_free_file_info_fn);
                 simple_archiver_hash_map_insert(
-                    &hash_map, &hash_map_sentinel, combined_path,
+                    hash_map, &hash_map_sentinel, combined_path,
                     combined_size - 1,
                     simple_archiver_helper_datastructure_cleanup_nop,
                     simple_archiver_helper_datastructure_cleanup_nop);
