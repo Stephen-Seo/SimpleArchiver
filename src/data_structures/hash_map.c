@@ -105,15 +105,15 @@ int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap *hash_map) {
   if (!hash_map) {
     return 1;
   }
-  SDArchiverHashMap *new_hash_map = malloc(sizeof(SDArchiverHashMap));
-  new_hash_map->buckets_size = hash_map->buckets_size * 2;
+  SDArchiverHashMap new_hash_map;
+  new_hash_map.buckets_size = hash_map->buckets_size * 2;
   // Pointers have the same size (at least on the same machine), so
   // sizeof(void*) should be ok.
-  new_hash_map->buckets = malloc(sizeof(void *) * new_hash_map->buckets_size);
-  for (size_t idx = 0; idx < new_hash_map->buckets_size; ++idx) {
-    new_hash_map->buckets[idx] = simple_archiver_list_init();
+  new_hash_map.buckets = malloc(sizeof(void *) * new_hash_map.buckets_size);
+  for (size_t idx = 0; idx < new_hash_map.buckets_size; ++idx) {
+    new_hash_map.buckets[idx] = simple_archiver_list_init();
   }
-  new_hash_map->count = 0;
+  new_hash_map.count = 0;
 
   // Iterate through the old hash map to populate the new hash map.
   for (size_t bucket_idx = 0; bucket_idx < hash_map->buckets_size;
@@ -123,7 +123,7 @@ int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap *hash_map) {
       node = node->next;
       if (node && node != hash_map->buckets[bucket_idx]->tail && node->data) {
         SDArchiverHashMapData *data = node->data;
-        simple_archiver_hash_map_insert(new_hash_map, data->value, data->key,
+        simple_archiver_hash_map_insert(&new_hash_map, data->value, data->key,
                                         data->key_size, data->value_cleanup_fn,
                                         data->key_cleanup_fn);
         data->key_cleanup_fn = simple_archiver_hash_map_internal_no_free_fn;
@@ -140,10 +140,7 @@ int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap *hash_map) {
   free(hash_map->buckets);
 
   // Move the new buckets and related data into the old hash_map.
-  *hash_map = *new_hash_map;
-
-  // `free` the "new_hash_map" as the needed data was moved from it.
-  free(new_hash_map);
+  *hash_map = new_hash_map;
 
   return 0;
 }
