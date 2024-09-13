@@ -32,6 +32,11 @@ typedef struct SDArchiverHashMap {
 } SDArchiverHashMap;
 
 SDArchiverHashMap *simple_archiver_hash_map_init(void);
+
+/// It is recommended to use the double-pointer version of hash-map free as
+/// that will ensure the variable holding the pointer will end up pointing to
+/// NULL after free.
+void simple_archiver_hash_map_free_single_ptr(SDArchiverHashMap *hash_map);
 void simple_archiver_hash_map_free(SDArchiverHashMap **hash_map);
 
 /// Returns zero on success.

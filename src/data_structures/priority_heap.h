@@ -43,6 +43,12 @@ int simple_archiver_priority_heap_default_less(long long a, long long b);
 SDArchiverPHeap *simple_archiver_priority_heap_init(void);
 SDArchiverPHeap *simple_archiver_priority_heap_init_less_fn(
     int (*less_fn)(long long, long long));
+
+/// It is recommended to use the double-pointer version of priority-heap free
+/// as that will ensure the variable holding the pointer will end up pointing
+/// to NULL after free.
+void simple_archiver_priority_heap_free_single_ptr(
+    SDArchiverPHeap *priority_heap);
 void simple_archiver_priority_heap_free(SDArchiverPHeap **priority_heap);
 
 /// If data_cleanup_fn is NULL, then "free()" is used on data when freed.

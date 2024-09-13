@@ -77,23 +77,29 @@ SDArchiverPHeap *simple_archiver_priority_heap_init_less_fn(
   return priority_heap;
 }
 
-void simple_archiver_priority_heap_free(SDArchiverPHeap **priority_heap) {
-  if (priority_heap && *priority_heap) {
-    for (size_t idx = 1; idx < (*priority_heap)->size + 1; ++idx) {
-      if ((*priority_heap)->nodes[idx].is_valid != 0) {
-        if ((*priority_heap)->nodes[idx].data_cleanup_fn) {
-          (*priority_heap)
-              ->nodes[idx]
-              .data_cleanup_fn((*priority_heap)->nodes[idx].data);
+void simple_archiver_priority_heap_free_single_ptr(
+    SDArchiverPHeap *priority_heap) {
+  if (priority_heap) {
+    for (size_t idx = 1; idx < priority_heap->size + 1; ++idx) {
+      if (priority_heap->nodes[idx].is_valid != 0) {
+        if (priority_heap->nodes[idx].data_cleanup_fn) {
+          priority_heap->nodes[idx].data_cleanup_fn(
+              priority_heap->nodes[idx].data);
         } else {
-          free((*priority_heap)->nodes[idx].data);
+          free(priority_heap->nodes[idx].data);
         }
-        (*priority_heap)->nodes[idx].is_valid = 0;
+        priority_heap->nodes[idx].is_valid = 0;
       }
     }
 
-    free((*priority_heap)->nodes);
-    free(*priority_heap);
+    free(priority_heap->nodes);
+    free(priority_heap);
+  }
+}
+
+void simple_archiver_priority_heap_free(SDArchiverPHeap **priority_heap) {
+  if (priority_heap && *priority_heap) {
+    simple_archiver_priority_heap_free_single_ptr(*priority_heap);
     *priority_heap = NULL;
   }
 }

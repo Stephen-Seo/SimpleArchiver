@@ -41,9 +41,9 @@ SDArchiverLinkedList *simple_archiver_list_init(void) {
   return list;
 }
 
-void simple_archiver_list_free(SDArchiverLinkedList **list) {
-  if (list && *list) {
-    SDArchiverLLNode *node = (*list)->head;
+void simple_archiver_list_free_single_ptr(SDArchiverLinkedList *list) {
+  if (list) {
+    SDArchiverLLNode *node = list->head;
     SDArchiverLLNode *prev;
     while (node) {
       prev = node;
@@ -58,7 +58,13 @@ void simple_archiver_list_free(SDArchiverLinkedList **list) {
       }
     }
 
-    free(*list);
+    free(list);
+  }
+}
+
+void simple_archiver_list_free(SDArchiverLinkedList **list) {
+  if (list && *list) {
+    simple_archiver_list_free_single_ptr(*list);
     *list = NULL;
   }
 }

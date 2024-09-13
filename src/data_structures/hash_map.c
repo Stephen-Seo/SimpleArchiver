@@ -159,16 +159,21 @@ SDArchiverHashMap *simple_archiver_hash_map_init(void) {
   return hash_map;
 }
 
-void simple_archiver_hash_map_free(SDArchiverHashMap **hash_map) {
-  if (hash_map && *hash_map) {
-    for (size_t idx = 0; idx < (*hash_map)->buckets_size; ++idx) {
-      SDArchiverLinkedList **linked_list = (*hash_map)->buckets + idx;
+void simple_archiver_hash_map_free_single_ptr(SDArchiverHashMap *hash_map) {
+  if (hash_map) {
+    for (size_t idx = 0; idx < hash_map->buckets_size; ++idx) {
+      SDArchiverLinkedList **linked_list = hash_map->buckets + idx;
       simple_archiver_list_free(linked_list);
     }
 
-    free((*hash_map)->buckets);
-    free(*hash_map);
+    free(hash_map->buckets);
+    free(hash_map);
+  }
+}
 
+void simple_archiver_hash_map_free(SDArchiverHashMap **hash_map) {
+  if (hash_map && *hash_map) {
+    simple_archiver_hash_map_free_single_ptr(*hash_map);
     *hash_map = NULL;
   }
 }

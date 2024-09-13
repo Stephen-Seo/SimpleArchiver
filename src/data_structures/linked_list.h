@@ -35,6 +35,11 @@ typedef struct SDArchiverLinkedList {
 } SDArchiverLinkedList;
 
 SDArchiverLinkedList *simple_archiver_list_init(void);
+
+/// It is recommended to use the double-pointer version of list free as that
+/// will ensure the variable holding the pointer will end up pointing to NULL
+/// after free.
+void simple_archiver_list_free_single_ptr(SDArchiverLinkedList *list);
 void simple_archiver_list_free(SDArchiverLinkedList **list);
 
 /// Returns 0 on success. Puts data at the end of the list
