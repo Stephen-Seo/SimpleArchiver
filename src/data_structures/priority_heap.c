@@ -21,27 +21,27 @@
 #include <stdlib.h>
 
 void simple_archiver_priority_heap_internal_realloc(
-    SDArchiverPHeap **priority_heap) {
-  SDArchiverPHeap *new_priority_heap = malloc(sizeof(SDArchiverPHeap));
+    SDArchiverPHeap *priority_heap) {
+  SDArchiverPHeap new_priority_heap;
 
-  new_priority_heap->capacity = (*priority_heap)->capacity * 2;
-  new_priority_heap->size = 0;
-  new_priority_heap->less_fn = (*priority_heap)->less_fn;
+  new_priority_heap.capacity = priority_heap->capacity * 2;
+  new_priority_heap.size = 0;
+  new_priority_heap.less_fn = priority_heap->less_fn;
 
-  new_priority_heap->nodes =
-      calloc(new_priority_heap->capacity, sizeof(SDArchiverPHNode));
+  new_priority_heap.nodes =
+      calloc(new_priority_heap.capacity, sizeof(SDArchiverPHNode));
 
-  for (size_t idx = 1; idx < (*priority_heap)->size + 1; ++idx) {
-    if ((*priority_heap)->nodes[idx].is_valid != 0) {
+  for (size_t idx = 1; idx < priority_heap->size + 1; ++idx) {
+    if (priority_heap->nodes[idx].is_valid != 0) {
       simple_archiver_priority_heap_insert(
-          &new_priority_heap, (*priority_heap)->nodes[idx].priority,
-          (*priority_heap)->nodes[idx].data,
-          (*priority_heap)->nodes[idx].data_cleanup_fn);
-      (*priority_heap)->nodes[idx].is_valid = 0;
+          &new_priority_heap, priority_heap->nodes[idx].priority,
+          priority_heap->nodes[idx].data,
+          priority_heap->nodes[idx].data_cleanup_fn);
+      priority_heap->nodes[idx].is_valid = 0;
     }
   }
 
-  simple_archiver_priority_heap_free(priority_heap);
+  free(priority_heap->nodes);
 
   *priority_heap = new_priority_heap;
 }
@@ -98,33 +98,32 @@ void simple_archiver_priority_heap_free(SDArchiverPHeap **priority_heap) {
   }
 }
 
-void simple_archiver_priority_heap_insert(SDArchiverPHeap **priority_heap,
+void simple_archiver_priority_heap_insert(SDArchiverPHeap *priority_heap,
                                           long long priority, void *data,
                                           void (*data_cleanup_fn)(void *)) {
-  if (!priority_heap || !*priority_heap) {
+  if (!priority_heap) {
     return;
   }
 
-  if ((*priority_heap)->size + 1 >= (*priority_heap)->capacity) {
+  if (priority_heap->size + 1 >= priority_heap->capacity) {
     simple_archiver_priority_heap_internal_realloc(priority_heap);
   }
 
-  size_t hole = (*priority_heap)->size + 1;
+  size_t hole = priority_heap->size + 1;
 
   while (hole > 1 &&
-         (*priority_heap)
-                 ->less_fn(priority,
-                           (*priority_heap)->nodes[hole / 2].priority) != 0) {
-    (*priority_heap)->nodes[hole] = (*priority_heap)->nodes[hole / 2];
+         priority_heap->less_fn(priority,
+                                priority_heap->nodes[hole / 2].priority) != 0) {
+    priority_heap->nodes[hole] = priority_heap->nodes[hole / 2];
     hole /= 2;
   }
 
-  (*priority_heap)->nodes[hole].priority = priority;
-  (*priority_heap)->nodes[hole].data = data;
-  (*priority_heap)->nodes[hole].data_cleanup_fn = data_cleanup_fn;
-  (*priority_heap)->nodes[hole].is_valid = 1;
+  priority_heap->nodes[hole].priority = priority;
+  priority_heap->nodes[hole].data = data;
+  priority_heap->nodes[hole].data_cleanup_fn = data_cleanup_fn;
+  priority_heap->nodes[hole].is_valid = 1;
 
-  ++(*priority_heap)->size;
+  ++priority_heap->size;
 }
 
 void *simple_archiver_priority_heap_top(SDArchiverPHeap *priority_heap) {

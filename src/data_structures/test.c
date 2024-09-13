@@ -229,7 +229,7 @@ int main(void) {
     for (unsigned int idx = 0; idx < 3; ++idx) {
       unsigned int *data = malloc(sizeof(unsigned int));
       *data = idx;
-      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+      simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
     for (unsigned int idx = 0; idx < 3; ++idx) {
       unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
@@ -251,7 +251,7 @@ int main(void) {
     for (unsigned int idx = 0; idx < max; ++idx) {
       unsigned int *data = malloc(sizeof(unsigned int));
       *data = idx;
-      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+      simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
 
     for (unsigned int idx = 0; idx < max; ++idx) {
@@ -266,7 +266,7 @@ int main(void) {
     for (unsigned int idx = max; idx-- > 0;) {
       unsigned int *data = malloc(sizeof(unsigned int));
       *data = idx;
-      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+      simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
 
     for (unsigned int idx = 0; idx < max; ++idx) {
@@ -296,7 +296,7 @@ int main(void) {
 
     // Insert the deterministically randomized array.
     for (unsigned int idx = 0; idx < max; ++idx) {
-      simple_archiver_priority_heap_insert(&priority_heap, array[idx],
+      simple_archiver_priority_heap_insert(priority_heap, array[idx],
                                            array + idx, no_free_fn);
     }
 
@@ -321,7 +321,7 @@ int main(void) {
     for (unsigned int idx = 0; idx < max; ++idx) {
       unsigned int *data = malloc(sizeof(unsigned int));
       *data = idx;
-      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+      simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
     simple_archiver_priority_heap_free(&priority_heap);
 
@@ -331,7 +331,7 @@ int main(void) {
     for (unsigned int idx = 0; idx < max; ++idx) {
       unsigned int *data = malloc(sizeof(unsigned int));
       *data = idx;
-      simple_archiver_priority_heap_insert(&priority_heap, idx, data, NULL);
+      simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
 
     for (unsigned int idx = max; idx-- > 0;) {
@@ -364,7 +364,7 @@ int main(void) {
 
     // Insert the deterministically randomized array.
     for (unsigned int idx = 0; idx < max; ++idx) {
-      simple_archiver_priority_heap_insert(&priority_heap, array[idx],
+      simple_archiver_priority_heap_insert(priority_heap, array[idx],
                                            array + idx, no_free_fn);
     }
 
