@@ -19,10 +19,13 @@
 #ifndef SEODISPARATE_COM_SIMPLE_ARCHIVER_DATA_STRUCTURE_PRIORITY_HEAP_H_
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_DATA_STRUCTURE_PRIORITY_HEAP_H_
 
+// Standard library includes.
+#include <stdint.h>
+
 #define SC_SA_DS_PRIORITY_HEAP_START_SIZE 32
 
 typedef struct SDArchiverPHNode {
-  long long priority;
+  int64_t priority;
   void *data;
   void (*data_cleanup_fn)(void *);
   /// Is non-zero if valid.
@@ -31,18 +34,18 @@ typedef struct SDArchiverPHNode {
 
 typedef struct SDArchiverPHeap {
   SDArchiverPHNode *nodes;
-  unsigned long long capacity;
-  unsigned long long size;
-  int (*less_fn)(long long, long long);
+  uint64_t capacity;
+  uint64_t size;
+  int (*less_fn)(int64_t, int64_t);
 } SDArchiverPHeap;
 
 /// Default "less" function to determine if a has higher priority than b.
 /// Returns non-zero if "less".
-int simple_archiver_priority_heap_default_less(long long a, long long b);
+int simple_archiver_priority_heap_default_less(int64_t a, int64_t b);
 
 SDArchiverPHeap *simple_archiver_priority_heap_init(void);
 SDArchiverPHeap *simple_archiver_priority_heap_init_less_fn(
-    int (*less_fn)(long long, long long));
+    int (*less_fn)(int64_t, int64_t));
 
 /// It is recommended to use the double-pointer version of priority-heap free
 /// as that will ensure the variable holding the pointer will end up pointing
@@ -53,7 +56,7 @@ void simple_archiver_priority_heap_free(SDArchiverPHeap **priority_heap);
 
 /// If data_cleanup_fn is NULL, then "free()" is used on data when freed.
 void simple_archiver_priority_heap_insert(SDArchiverPHeap *priority_heap,
-                                          long long priority, void *data,
+                                          int64_t priority, void *data,
                                           void (*data_cleanup_fn)(void *));
 
 /// Returns NULL if empty or if priority_heap is NULL.

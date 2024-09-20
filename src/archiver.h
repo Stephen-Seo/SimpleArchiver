@@ -19,8 +19,11 @@
 #ifndef SEODISPARATE_COM_SIMPLE_ARCHIVER_ARCHIVER_H_
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_ARCHIVER_H_
 
+// Standard library includes.
 #include <stdio.h>
+#include <stdint.h>
 
+// Local includes.
 #include "data_structures/hash_map.h"
 #include "data_structures/linked_list.h"
 #include "parser.h"
@@ -28,7 +31,7 @@
 typedef struct SDArchiverState {
   /*
    */
-  unsigned int flags;
+  uint32_t flags;
   const SDArchiverParsed *parsed;
   FILE *out_f;
   SDArchiverHashMap *map;
@@ -63,7 +66,7 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
                               const SDArchiverLinkedList *filenames);
 
 /// Returns zero on success.
-int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
+int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                                        const SDArchiverState *state);
 
 /// Returns zero on success.

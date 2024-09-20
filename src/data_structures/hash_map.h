@@ -21,8 +21,11 @@
 
 #define SC_SA_DS_HASH_MAP_START_BUCKET_SIZE 32
 
+// Standard library includes.
 #include <stddef.h>
+#include <stdint.h>
 
+// Local includes.
 #include "linked_list.h"
 
 typedef struct SDArchiverHashMap {

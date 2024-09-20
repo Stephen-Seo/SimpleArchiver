@@ -16,10 +16,13 @@
 //
 // `data_structures/test.c` is the source for testing data structure code.
 
+// Standard library includes.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
+// Local includes.
 #include "../algorithms/linear_congruential_gen.h"
 #include "hash_map.h"
 #include "linked_list.h"
@@ -27,8 +30,8 @@
 
 #define SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE 100
 
-static int checks_checked = 0;
-static int checks_passed = 0;
+static int32_t checks_checked = 0;
+static int32_t checks_passed = 0;
 
 #define CHECK_TRUE(x)                                             \
   do {                                                            \
@@ -63,7 +66,7 @@ int get_three_fn(void *data, __attribute__((unused)) void *ud) {
   return strcmp(data, "three") == 0 ? 1 : 0;
 }
 
-int more_fn(long long a, long long b) { return a > b ? 1 : 0; }
+int more_fn(int64_t a, int64_t b) { return a > b ? 1 : 0; }
 
 int hash_map_iter_check_fn(__attribute__((unused)) const void *key,
                            __attribute__((unused)) size_t key_size,
@@ -138,37 +141,37 @@ int main(void) {
     hash_map = simple_archiver_hash_map_init();
 
     {
-      int *value, *key;
+      int32_t *value, *key;
 
-      for (unsigned int idx = 0; idx < 20; ++idx) {
-        value = malloc(sizeof(int));
-        key = malloc(sizeof(int));
+      for (uint32_t idx = 0; idx < 20; ++idx) {
+        value = malloc(sizeof(int32_t));
+        key = malloc(sizeof(int32_t));
         *value = idx;
         *key = idx;
-        simple_archiver_hash_map_insert(hash_map, value, key, sizeof(int), NULL,
+        simple_archiver_hash_map_insert(hash_map, value, key, sizeof(int32_t), NULL,
                                         NULL);
       }
     }
 
-    int value, key;
+    int32_t value, key;
     void *value_ptr;
 
     for (value = 0, key = 0; value < 20 && key < 20; ++value, ++key) {
-      value_ptr = simple_archiver_hash_map_get(hash_map, &key, sizeof(int));
+      value_ptr = simple_archiver_hash_map_get(hash_map, &key, sizeof(int32_t));
       CHECK_TRUE(value_ptr != NULL);
-      CHECK_TRUE(memcmp(value_ptr, &value, sizeof(int)) == 0);
+      CHECK_TRUE(memcmp(value_ptr, &value, sizeof(int32_t)) == 0);
     }
 
     key = 5;
-    simple_archiver_hash_map_remove(hash_map, &key, sizeof(int));
+    simple_archiver_hash_map_remove(hash_map, &key, sizeof(int32_t));
     key = 15;
-    simple_archiver_hash_map_remove(hash_map, &key, sizeof(int));
+    simple_archiver_hash_map_remove(hash_map, &key, sizeof(int32_t));
 
     for (value = 0, key = 0; value < 20 && key < 20; ++value, ++key) {
-      value_ptr = simple_archiver_hash_map_get(hash_map, &key, sizeof(int));
+      value_ptr = simple_archiver_hash_map_get(hash_map, &key, sizeof(int32_t));
       if (key != 5 && key != 15) {
         CHECK_TRUE(value_ptr != NULL);
-        CHECK_TRUE(memcmp(value_ptr, &value, sizeof(int)) == 0);
+        CHECK_TRUE(memcmp(value_ptr, &value, sizeof(int32_t)) == 0);
       } else {
         CHECK_TRUE(value_ptr == NULL);
       }
@@ -178,14 +181,14 @@ int main(void) {
 
     // Rehash test for Memcheck.
     hash_map = simple_archiver_hash_map_init();
-    for (unsigned int idx = 0; idx < SC_SA_DS_HASH_MAP_START_BUCKET_SIZE + 1;
+    for (uint32_t idx = 0; idx < SC_SA_DS_HASH_MAP_START_BUCKET_SIZE + 1;
          ++idx) {
-      unsigned int *copy_value = malloc(sizeof(unsigned int));
+      uint32_t *copy_value = malloc(sizeof(uint32_t));
       *copy_value = idx;
-      unsigned int *copy_key = malloc(sizeof(unsigned int));
+      uint32_t *copy_key = malloc(sizeof(uint32_t));
       *copy_key = idx;
       simple_archiver_hash_map_insert(hash_map, copy_value, copy_key,
-                                      sizeof(unsigned int), NULL, NULL);
+                                      sizeof(uint32_t), NULL, NULL);
     }
     simple_archiver_hash_map_free(&hash_map);
 
@@ -202,7 +205,7 @@ int main(void) {
     CHECK_TRUE(simple_archiver_hash_map_iter(hash_map, hash_map_iter_check_fn,
                                              found) == 0);
 
-    for (unsigned int idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE;
+    for (uint32_t idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE;
          ++idx) {
       CHECK_TRUE(found[idx] == 1);
     }
@@ -210,7 +213,7 @@ int main(void) {
     CHECK_TRUE(simple_archiver_hash_map_iter(hash_map, hash_map_iter_check_fn2,
                                              found) == 2);
 
-    for (unsigned int idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE;
+    for (uint32_t idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE;
          ++idx) {
       CHECK_TRUE(found[idx] == 1);
     }
@@ -226,13 +229,13 @@ int main(void) {
     priority_heap = simple_archiver_priority_heap_init();
 
     // Just 3 elements.
-    for (unsigned int idx = 0; idx < 3; ++idx) {
-      unsigned int *data = malloc(sizeof(unsigned int));
+    for (uint32_t idx = 0; idx < 3; ++idx) {
+      uint32_t *data = malloc(sizeof(uint32_t));
       *data = idx;
       simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
-    for (unsigned int idx = 0; idx < 3; ++idx) {
-      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+    for (uint32_t idx = 0; idx < 3; ++idx) {
+      uint32_t *data = simple_archiver_priority_heap_top(priority_heap);
       CHECK_TRUE(*data == idx);
       if (*data != idx) {
         printf("idx is %u, data is %u\n", idx, *data);
@@ -246,16 +249,16 @@ int main(void) {
     }
 
     // 100 elements.
-    unsigned int max = 100;
+    uint32_t max = 100;
 
-    for (unsigned int idx = 0; idx < max; ++idx) {
-      unsigned int *data = malloc(sizeof(unsigned int));
+    for (uint32_t idx = 0; idx < max; ++idx) {
+      uint32_t *data = malloc(sizeof(uint32_t));
       *data = idx;
       simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
 
-    for (unsigned int idx = 0; idx < max; ++idx) {
-      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+    for (uint32_t idx = 0; idx < max; ++idx) {
+      uint32_t *data = simple_archiver_priority_heap_top(priority_heap);
       CHECK_TRUE(*data == idx);
       data = simple_archiver_priority_heap_pop(priority_heap);
       CHECK_TRUE(*data == idx);
@@ -263,14 +266,14 @@ int main(void) {
     }
 
     // Insert in reverse order.
-    for (unsigned int idx = max; idx-- > 0;) {
-      unsigned int *data = malloc(sizeof(unsigned int));
+    for (uint32_t idx = max; idx-- > 0;) {
+      uint32_t *data = malloc(sizeof(uint32_t));
       *data = idx;
       simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
 
-    for (unsigned int idx = 0; idx < max; ++idx) {
-      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+    for (uint32_t idx = 0; idx < max; ++idx) {
+      uint32_t *data = simple_archiver_priority_heap_top(priority_heap);
       CHECK_TRUE(*data == idx);
       data = simple_archiver_priority_heap_pop(priority_heap);
       CHECK_TRUE(*data == idx);
@@ -278,30 +281,30 @@ int main(void) {
     }
 
     // Insert in random order.
-    unsigned int *array = malloc(sizeof(unsigned int) * max);
-    for (unsigned int idx = 0; idx < max; ++idx) {
+    uint32_t *array = malloc(sizeof(uint32_t) * max);
+    for (uint32_t idx = 0; idx < max; ++idx) {
       array[idx] = idx;
     }
 
     // Deterministic randomization.
-    for (unsigned int idx = max - 1; idx-- > 0;) {
-      unsigned int other_idx = simple_archiver_algo_lcg_defaults(idx) %
+    for (uint32_t idx = max - 1; idx-- > 0;) {
+      uint32_t other_idx = simple_archiver_algo_lcg_defaults(idx) %
                                (unsigned long long)(idx + 1);
       if (max - 1 != other_idx) {
-        unsigned int temp = array[max - 1];
+        uint32_t temp = array[max - 1];
         array[max - 1] = array[other_idx];
         array[other_idx] = temp;
       }
     }
 
     // Insert the deterministically randomized array.
-    for (unsigned int idx = 0; idx < max; ++idx) {
+    for (uint32_t idx = 0; idx < max; ++idx) {
       simple_archiver_priority_heap_insert(priority_heap, array[idx],
                                            array + idx, no_free_fn);
     }
 
-    for (unsigned int idx = 0; idx < max; ++idx) {
-      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+    for (uint32_t idx = 0; idx < max; ++idx) {
+      uint32_t *data = simple_archiver_priority_heap_top(priority_heap);
       CHECK_TRUE(*data == idx);
       if (*data != idx) {
         printf("idx is %u, data is %u\n", idx, *data);
@@ -318,8 +321,8 @@ int main(void) {
 
     // Insert, don't pop, do free, for memcheck.
     priority_heap = simple_archiver_priority_heap_init();
-    for (unsigned int idx = 0; idx < max; ++idx) {
-      unsigned int *data = malloc(sizeof(unsigned int));
+    for (uint32_t idx = 0; idx < max; ++idx) {
+      uint32_t *data = malloc(sizeof(uint32_t));
       *data = idx;
       simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
@@ -328,14 +331,14 @@ int main(void) {
     // Reverse priority.
     priority_heap = simple_archiver_priority_heap_init_less_fn(more_fn);
 
-    for (unsigned int idx = 0; idx < max; ++idx) {
-      unsigned int *data = malloc(sizeof(unsigned int));
+    for (uint32_t idx = 0; idx < max; ++idx) {
+      uint32_t *data = malloc(sizeof(uint32_t));
       *data = idx;
       simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
 
-    for (unsigned int idx = max; idx-- > 0;) {
-      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+    for (uint32_t idx = max; idx-- > 0;) {
+      uint32_t *data = simple_archiver_priority_heap_top(priority_heap);
       CHECK_TRUE(*data == idx);
       data = simple_archiver_priority_heap_pop(priority_heap);
       CHECK_TRUE(*data == idx);
@@ -346,30 +349,30 @@ int main(void) {
 
     // Insert in random order with reverse-priority-heap.
     priority_heap = simple_archiver_priority_heap_init_less_fn(more_fn);
-    array = malloc(sizeof(unsigned int) * max);
-    for (unsigned int idx = 0; idx < max; ++idx) {
+    array = malloc(sizeof(uint32_t) * max);
+    for (uint32_t idx = 0; idx < max; ++idx) {
       array[idx] = idx;
     }
 
     // Deterministic randomization.
-    for (unsigned int idx = max - 1; idx-- > 0;) {
-      unsigned int other_idx = simple_archiver_algo_lcg_defaults(idx) %
+    for (uint32_t idx = max - 1; idx-- > 0;) {
+      uint32_t other_idx = simple_archiver_algo_lcg_defaults(idx) %
                                (unsigned long long)(idx + 1);
       if (max - 1 != other_idx) {
-        unsigned int temp = array[max - 1];
+        uint32_t temp = array[max - 1];
         array[max - 1] = array[other_idx];
         array[other_idx] = temp;
       }
     }
 
     // Insert the deterministically randomized array.
-    for (unsigned int idx = 0; idx < max; ++idx) {
+    for (uint32_t idx = 0; idx < max; ++idx) {
       simple_archiver_priority_heap_insert(priority_heap, array[idx],
                                            array + idx, no_free_fn);
     }
 
-    for (unsigned int idx = max; idx-- > 0;) {
-      unsigned int *data = simple_archiver_priority_heap_top(priority_heap);
+    for (uint32_t idx = max; idx-- > 0;) {
+      uint32_t *data = simple_archiver_priority_heap_top(priority_heap);
       CHECK_TRUE(*data == idx);
       if (*data != idx) {
         printf("idx is %u, data is %u\n", idx, *data);

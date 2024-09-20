@@ -16,15 +16,18 @@
 //
 // `test.c` is the source for testing code.
 
+// Standard library includes.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
+// Local includes.
 #include "helpers.h"
 #include "parser_internal.h"
 
-static int checks_checked = 0;
-static int checks_passed = 0;
+static int32_t checks_checked = 0;
+static int32_t checks_passed = 0;
 
 #define CHECK_TRUE(x)                                             \
   do {                                                            \
@@ -57,7 +60,7 @@ static int checks_passed = 0;
 int main(void) {
   // Test parser.
   {
-    unsigned int idx =
+    size_t idx =
         simple_archiver_parser_internal_get_first_non_current_idx("test");
     CHECK_TRUE(idx == 0);
 
@@ -132,58 +135,58 @@ int main(void) {
     // Only if system is little-endian.
     if (simple_archiver_helper_is_big_endian() == 0) {
       uint16_t u16 = 0x0102;
-      CHECK_TRUE(((unsigned char *)&u16)[0] == 2);
-      CHECK_TRUE(((unsigned char *)&u16)[1] == 1);
+      CHECK_TRUE(((uint8_t *)&u16)[0] == 2);
+      CHECK_TRUE(((uint8_t *)&u16)[1] == 1);
       simple_archiver_helper_16_bit_be(&u16);
-      CHECK_TRUE(((unsigned char *)&u16)[0] == 1);
-      CHECK_TRUE(((unsigned char *)&u16)[1] == 2);
+      CHECK_TRUE(((uint8_t *)&u16)[0] == 1);
+      CHECK_TRUE(((uint8_t *)&u16)[1] == 2);
       simple_archiver_helper_16_bit_be(&u16);
-      CHECK_TRUE(((unsigned char *)&u16)[0] == 2);
-      CHECK_TRUE(((unsigned char *)&u16)[1] == 1);
+      CHECK_TRUE(((uint8_t *)&u16)[0] == 2);
+      CHECK_TRUE(((uint8_t *)&u16)[1] == 1);
 
       uint32_t u32 = 0x01020304;
-      CHECK_TRUE(((unsigned char *)&u32)[0] == 4);
-      CHECK_TRUE(((unsigned char *)&u32)[1] == 3);
-      CHECK_TRUE(((unsigned char *)&u32)[2] == 2);
-      CHECK_TRUE(((unsigned char *)&u32)[3] == 1);
+      CHECK_TRUE(((uint8_t *)&u32)[0] == 4);
+      CHECK_TRUE(((uint8_t *)&u32)[1] == 3);
+      CHECK_TRUE(((uint8_t *)&u32)[2] == 2);
+      CHECK_TRUE(((uint8_t *)&u32)[3] == 1);
       simple_archiver_helper_32_bit_be(&u32);
-      CHECK_TRUE(((unsigned char *)&u32)[0] == 1);
-      CHECK_TRUE(((unsigned char *)&u32)[1] == 2);
-      CHECK_TRUE(((unsigned char *)&u32)[2] == 3);
-      CHECK_TRUE(((unsigned char *)&u32)[3] == 4);
+      CHECK_TRUE(((uint8_t *)&u32)[0] == 1);
+      CHECK_TRUE(((uint8_t *)&u32)[1] == 2);
+      CHECK_TRUE(((uint8_t *)&u32)[2] == 3);
+      CHECK_TRUE(((uint8_t *)&u32)[3] == 4);
       simple_archiver_helper_32_bit_be(&u32);
-      CHECK_TRUE(((unsigned char *)&u32)[0] == 4);
-      CHECK_TRUE(((unsigned char *)&u32)[1] == 3);
-      CHECK_TRUE(((unsigned char *)&u32)[2] == 2);
-      CHECK_TRUE(((unsigned char *)&u32)[3] == 1);
+      CHECK_TRUE(((uint8_t *)&u32)[0] == 4);
+      CHECK_TRUE(((uint8_t *)&u32)[1] == 3);
+      CHECK_TRUE(((uint8_t *)&u32)[2] == 2);
+      CHECK_TRUE(((uint8_t *)&u32)[3] == 1);
 
       uint64_t u64 = 0x010203040a0b0c0d;
-      CHECK_TRUE(((unsigned char *)&u64)[0] == 0xd);
-      CHECK_TRUE(((unsigned char *)&u64)[1] == 0xc);
-      CHECK_TRUE(((unsigned char *)&u64)[2] == 0xb);
-      CHECK_TRUE(((unsigned char *)&u64)[3] == 0xa);
-      CHECK_TRUE(((unsigned char *)&u64)[4] == 0x4);
-      CHECK_TRUE(((unsigned char *)&u64)[5] == 0x3);
-      CHECK_TRUE(((unsigned char *)&u64)[6] == 0x2);
-      CHECK_TRUE(((unsigned char *)&u64)[7] == 0x1);
+      CHECK_TRUE(((uint8_t *)&u64)[0] == 0xd);
+      CHECK_TRUE(((uint8_t *)&u64)[1] == 0xc);
+      CHECK_TRUE(((uint8_t *)&u64)[2] == 0xb);
+      CHECK_TRUE(((uint8_t *)&u64)[3] == 0xa);
+      CHECK_TRUE(((uint8_t *)&u64)[4] == 0x4);
+      CHECK_TRUE(((uint8_t *)&u64)[5] == 0x3);
+      CHECK_TRUE(((uint8_t *)&u64)[6] == 0x2);
+      CHECK_TRUE(((uint8_t *)&u64)[7] == 0x1);
       simple_archiver_helper_64_bit_be(&u64);
-      CHECK_TRUE(((unsigned char *)&u64)[0] == 0x1);
-      CHECK_TRUE(((unsigned char *)&u64)[1] == 0x2);
-      CHECK_TRUE(((unsigned char *)&u64)[2] == 0x3);
-      CHECK_TRUE(((unsigned char *)&u64)[3] == 0x4);
-      CHECK_TRUE(((unsigned char *)&u64)[4] == 0xa);
-      CHECK_TRUE(((unsigned char *)&u64)[5] == 0xb);
-      CHECK_TRUE(((unsigned char *)&u64)[6] == 0xc);
-      CHECK_TRUE(((unsigned char *)&u64)[7] == 0xd);
+      CHECK_TRUE(((uint8_t *)&u64)[0] == 0x1);
+      CHECK_TRUE(((uint8_t *)&u64)[1] == 0x2);
+      CHECK_TRUE(((uint8_t *)&u64)[2] == 0x3);
+      CHECK_TRUE(((uint8_t *)&u64)[3] == 0x4);
+      CHECK_TRUE(((uint8_t *)&u64)[4] == 0xa);
+      CHECK_TRUE(((uint8_t *)&u64)[5] == 0xb);
+      CHECK_TRUE(((uint8_t *)&u64)[6] == 0xc);
+      CHECK_TRUE(((uint8_t *)&u64)[7] == 0xd);
       simple_archiver_helper_64_bit_be(&u64);
-      CHECK_TRUE(((unsigned char *)&u64)[0] == 0xd);
-      CHECK_TRUE(((unsigned char *)&u64)[1] == 0xc);
-      CHECK_TRUE(((unsigned char *)&u64)[2] == 0xb);
-      CHECK_TRUE(((unsigned char *)&u64)[3] == 0xa);
-      CHECK_TRUE(((unsigned char *)&u64)[4] == 0x4);
-      CHECK_TRUE(((unsigned char *)&u64)[5] == 0x3);
-      CHECK_TRUE(((unsigned char *)&u64)[6] == 0x2);
-      CHECK_TRUE(((unsigned char *)&u64)[7] == 0x1);
+      CHECK_TRUE(((uint8_t *)&u64)[0] == 0xd);
+      CHECK_TRUE(((uint8_t *)&u64)[1] == 0xc);
+      CHECK_TRUE(((uint8_t *)&u64)[2] == 0xb);
+      CHECK_TRUE(((uint8_t *)&u64)[3] == 0xa);
+      CHECK_TRUE(((uint8_t *)&u64)[4] == 0x4);
+      CHECK_TRUE(((uint8_t *)&u64)[5] == 0x3);
+      CHECK_TRUE(((uint8_t *)&u64)[6] == 0x2);
+      CHECK_TRUE(((uint8_t *)&u64)[7] == 0x1);
     }
   }
 
@@ -208,7 +211,7 @@ int main(void) {
   // Test helpers cut substr.
   {
     const char *s = "one two three.";
-    unsigned int s_len = strlen(s);
+    uint32_t s_len = strlen(s);
     // Invalid range.
     char *out = simple_archiver_helper_cut_substr(s, 1, 0);
     CHECK_FALSE(out);

@@ -80,41 +80,41 @@ int simple_archiver_helper_is_big_endian(void) {
 
 void simple_archiver_helper_16_bit_be(uint16_t *value) {
   if (simple_archiver_helper_is_big_endian() == 0) {
-    unsigned char c = ((unsigned char *)value)[0];
-    ((unsigned char *)value)[0] = ((unsigned char *)value)[1];
-    ((unsigned char *)value)[1] = c;
+    uint8_t c = ((uint8_t *)value)[0];
+    ((uint8_t *)value)[0] = ((uint8_t *)value)[1];
+    ((uint8_t *)value)[1] = c;
   }
 }
 
 void simple_archiver_helper_32_bit_be(uint32_t *value) {
   if (simple_archiver_helper_is_big_endian() == 0) {
-    for (unsigned int i = 0; i < 2; ++i) {
-      unsigned char c = ((unsigned char *)value)[i];
-      ((unsigned char *)value)[i] = ((unsigned char *)value)[3 - i];
-      ((unsigned char *)value)[3 - i] = c;
+    for (uint32_t i = 0; i < 2; ++i) {
+      uint8_t c = ((uint8_t *)value)[i];
+      ((uint8_t *)value)[i] = ((uint8_t *)value)[3 - i];
+      ((uint8_t *)value)[3 - i] = c;
     }
   }
 }
 
 void simple_archiver_helper_64_bit_be(uint64_t *value) {
   if (simple_archiver_helper_is_big_endian() == 0) {
-    for (unsigned int i = 0; i < 4; ++i) {
-      unsigned char c = ((unsigned char *)value)[i];
-      ((unsigned char *)value)[i] = ((unsigned char *)value)[7 - i];
-      ((unsigned char *)value)[7 - i] = c;
+    for (uint32_t i = 0; i < 4; ++i) {
+      uint8_t c = ((uint8_t *)value)[i];
+      ((uint8_t *)value)[i] = ((uint8_t *)value)[7 - i];
+      ((uint8_t *)value)[7 - i] = c;
     }
   }
 }
 
 char **simple_archiver_helper_cmd_string_to_argv(const char *cmd) {
-  unsigned int capacity = 16;
-  unsigned int idx = 0;
+  uint32_t capacity = 16;
+  uint32_t idx = 0;
   // Size of every pointer is the same, so using size of (void*) should be ok.
   char **args = malloc(sizeof(void *) * capacity);
   memset(args, 0, sizeof(void *) * capacity);
 
-  unsigned int word_capacity = 16;
-  unsigned int word_idx = 0;
+  uint32_t word_capacity = 16;
+  uint32_t word_idx = 0;
   char *word = malloc(word_capacity);
   memset(word, 0, word_capacity);
   for (const char *c = cmd; *c != 0; ++c) {

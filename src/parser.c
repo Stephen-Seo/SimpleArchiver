@@ -201,7 +201,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
   --argc;
   ++argv;
 
-  int is_remaining_args = 0;
+  int_fast8_t is_remaining_args = 0;
 
   while (argc > 0) {
     if (!is_remaining_args) {
@@ -356,7 +356,7 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   }
   if (parsed->working_files) {
     char **ptr = parsed->working_files;
-    unsigned int idx = 0;
+    uint32_t idx = 0;
     while (ptr[idx]) {
       free(ptr[idx]);
       ++idx;
@@ -585,8 +585,8 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     }
 
     // Remove "./" entries inside the file path.
-    int slash_found = 0;
-    int dot_found = 0;
+    int_fast8_t slash_found = 0;
+    int_fast8_t dot_found = 0;
     for (idx = strlen(file_info->filename); idx-- > 0;) {
       if (file_info->filename[idx] == '/') {
         if (dot_found) {

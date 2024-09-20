@@ -280,9 +280,9 @@ int write_files_fn(void *data, void *ud) {
       // Write file to pipe, and read from other pipe.
       char write_buf[1024];
       char read_buf[1024];
-      int write_again = 0;
-      int write_done = 0;
-      int read_done = 0;
+      int_fast8_t write_again = 0;
+      int_fast8_t write_done = 0;
+      int_fast8_t read_done = 0;
       size_t write_count;
       size_t read_count;
       ssize_t ret;
@@ -412,7 +412,7 @@ int write_files_fn(void *data, void *ud) {
       temp_to_write->buf = malloc(4);
       temp_to_write->size = 4;
       for (size_t idx = 0; idx < temp_to_write->size; ++idx) {
-        ((unsigned char *)temp_to_write->buf)[idx] = 0;
+        ((uint8_t *)temp_to_write->buf)[idx] = 0;
       }
 
       // Get file stats.
@@ -431,31 +431,31 @@ int write_files_fn(void *data, void *ud) {
       }
 
       if ((stat_buf.st_mode & S_IRUSR) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x2;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x2;
       }
       if ((stat_buf.st_mode & S_IWUSR) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x4;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x4;
       }
       if ((stat_buf.st_mode & S_IXUSR) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x8;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x8;
       }
       if ((stat_buf.st_mode & S_IRGRP) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x10;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x10;
       }
       if ((stat_buf.st_mode & S_IWGRP) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x20;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x20;
       }
       if ((stat_buf.st_mode & S_IXGRP) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x40;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x40;
       }
       if ((stat_buf.st_mode & S_IROTH) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x80;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x80;
       }
       if ((stat_buf.st_mode & S_IWOTH) != 0) {
-        ((unsigned char *)temp_to_write->buf)[1] |= 0x1;
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x1;
       }
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
-        ((unsigned char *)temp_to_write->buf)[1] |= 0x2;
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
       }
 
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
@@ -544,7 +544,7 @@ int write_files_fn(void *data, void *ud) {
       temp_to_write->buf = malloc(4);
       temp_to_write->size = 4;
       for (size_t idx = 0; idx < temp_to_write->size; ++idx) {
-        ((unsigned char *)temp_to_write->buf)[idx] = 0;
+        ((uint8_t *)temp_to_write->buf)[idx] = 0;
       }
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
@@ -568,35 +568,35 @@ int write_files_fn(void *data, void *ud) {
       }
 
       if ((stat_buf.st_mode & S_IRUSR) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x2;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x2;
       }
       if ((stat_buf.st_mode & S_IWUSR) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x4;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x4;
       }
       if ((stat_buf.st_mode & S_IXUSR) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x8;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x8;
       }
       if ((stat_buf.st_mode & S_IRGRP) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x10;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x10;
       }
       if ((stat_buf.st_mode & S_IWGRP) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x20;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x20;
       }
       if ((stat_buf.st_mode & S_IXGRP) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x40;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x40;
       }
       if ((stat_buf.st_mode & S_IROTH) != 0) {
-        ((unsigned char *)temp_to_write->buf)[0] |= 0x80;
+        ((uint8_t *)temp_to_write->buf)[0] |= 0x80;
       }
       if ((stat_buf.st_mode & S_IWOTH) != 0) {
-        ((unsigned char *)temp_to_write->buf)[1] |= 0x1;
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x1;
       }
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
-        ((unsigned char *)temp_to_write->buf)[1] |= 0x2;
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
       }
 #else
       // Unsupported platform. Just set the permission bits for user.
-      ((unsigned char *)temp_to_write->buf)[0] |= 0xE;
+      ((uint8_t *)temp_to_write->buf)[0] |= 0xE;
 #endif
 
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
@@ -685,11 +685,11 @@ int write_files_fn(void *data, void *ud) {
     temp_to_write->buf = malloc(4);
     temp_to_write->size = 4;
     for (size_t idx = 0; idx < temp_to_write->size; ++idx) {
-      ((unsigned char *)temp_to_write->buf)[idx] = 0;
+      ((uint8_t *)temp_to_write->buf)[idx] = 0;
     }
 
     // Set "is symbolic link" flag.
-    ((unsigned char *)temp_to_write->buf)[0] = 1;
+    ((uint8_t *)temp_to_write->buf)[0] = 1;
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -705,35 +705,35 @@ int write_files_fn(void *data, void *ud) {
     }
 
     if ((stat_buf.st_mode & S_IRUSR) != 0) {
-      ((unsigned char *)temp_to_write->buf)[0] |= 0x2;
+      ((uint8_t *)temp_to_write->buf)[0] |= 0x2;
     }
     if ((stat_buf.st_mode & S_IWUSR) != 0) {
-      ((unsigned char *)temp_to_write->buf)[0] |= 0x4;
+      ((uint8_t *)temp_to_write->buf)[0] |= 0x4;
     }
     if ((stat_buf.st_mode & S_IXUSR) != 0) {
-      ((unsigned char *)temp_to_write->buf)[0] |= 0x8;
+      ((uint8_t *)temp_to_write->buf)[0] |= 0x8;
     }
     if ((stat_buf.st_mode & S_IRGRP) != 0) {
-      ((unsigned char *)temp_to_write->buf)[0] |= 0x10;
+      ((uint8_t *)temp_to_write->buf)[0] |= 0x10;
     }
     if ((stat_buf.st_mode & S_IWGRP) != 0) {
-      ((unsigned char *)temp_to_write->buf)[0] |= 0x20;
+      ((uint8_t *)temp_to_write->buf)[0] |= 0x20;
     }
     if ((stat_buf.st_mode & S_IXGRP) != 0) {
-      ((unsigned char *)temp_to_write->buf)[0] |= 0x40;
+      ((uint8_t *)temp_to_write->buf)[0] |= 0x40;
     }
     if ((stat_buf.st_mode & S_IROTH) != 0) {
-      ((unsigned char *)temp_to_write->buf)[0] |= 0x80;
+      ((uint8_t *)temp_to_write->buf)[0] |= 0x80;
     }
     if ((stat_buf.st_mode & S_IWOTH) != 0) {
-      ((unsigned char *)temp_to_write->buf)[1] |= 0x1;
+      ((uint8_t *)temp_to_write->buf)[1] |= 0x1;
     }
     if ((stat_buf.st_mode & S_IXOTH) != 0) {
-      ((unsigned char *)temp_to_write->buf)[1] |= 0x2;
+      ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
     }
 #else
     // Unsupported platform. Just set the permission bits for user.
-    ((unsigned char *)temp_to_write->buf)[0] |= 0xE;
+    ((uint8_t *)temp_to_write->buf)[0] |= 0xE;
 #endif
 
     // Need to get abs_path for checking/setting a flag before storing flags.
@@ -781,7 +781,7 @@ int write_files_fn(void *data, void *ud) {
         //         link_substr, dest_substr);
 
         // Generate the relative path.
-        int has_slash = 0;
+        int_fast8_t has_slash = 0;
         idx = 0;
         do {
           for (; link_substr[idx] != '/' && link_substr[idx] != 0; ++idx);
@@ -810,7 +810,7 @@ int write_files_fn(void *data, void *ud) {
       fprintf(stderr,
               "NOTICE: abs_path exists, \"--no-abs-symlink\" not specified, "
               "and link refers to file NOT in archive; preferring abs_path.\n");
-      ((unsigned char *)temp_to_write->buf)[1] |= 0x4;
+      ((uint8_t *)temp_to_write->buf)[1] |= 0x4;
     }
 
     // Store the 4 byte bit-flags for file.
@@ -1063,7 +1063,7 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
     return SDAS_NO_COMPRESSOR;
   } else if (state->parsed->compressor && state->parsed->decompressor) {
     // Write the four flag bytes with first bit set.
-    unsigned char c = 1;
+    uint8_t c = 1;
     if (fwrite(&c, 1, 1, out_f) != 1) {
       return SDAS_FAILED_TO_WRITE;
     }
@@ -1116,7 +1116,7 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
     }
   } else {
     // Write the four flag bytes with first bit NOT set.
-    unsigned char c = 0;
+    uint8_t c = 0;
     for (size_t i = 0; i < 4; ++i) {
       if (fwrite(&c, 1, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
@@ -1171,14 +1171,14 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
   return SDAS_SUCCESS;
 }
 
-int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
+int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                                        const SDArchiverState *state) {
-  unsigned char buf[1024];
+  uint8_t buf[1024];
   memset(buf, 0, 1024);
   uint16_t u16;
   uint32_t u32;
   uint64_t u64;
-  int is_compressed = 0;
+  int_fast8_t is_compressed = 0;
 
   if (fread(buf, 1, 18, in_f) != 18) {
     return SDAS_INVALID_FILE;
@@ -1226,7 +1226,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       __attribute__((
           cleanup(simple_archiver_helper_cleanup_malloced))) void *heap_buf =
           malloc(u16 + 1);
-      unsigned char *uc_heap_buf = heap_buf;
+      uint8_t *uc_heap_buf = heap_buf;
       if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
       }
@@ -1253,7 +1253,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       __attribute__((
           cleanup(simple_archiver_helper_cleanup_malloced))) void *heap_buf =
           malloc(u16 + 1);
-      unsigned char *uc_heap_buf = heap_buf;
+      uint8_t *uc_heap_buf = heap_buf;
       if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
       }
@@ -1274,7 +1274,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
   const size_t digits = simple_archiver_helper_num_digits(size);
   char format_str[128];
   snprintf(format_str, 128, FILE_COUNTS_OUTPUT_FORMAT_STR_0, digits, digits);
-  int skip = 0;
+  int_fast8_t skip = 0;
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *hash_map = NULL;
   if (state && state->parsed->working_files &&
@@ -1333,7 +1333,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
       __attribute__((
           cleanup(simple_archiver_helper_cleanup_malloced))) void *heap_buf =
           malloc(u16 + 1);
-      unsigned char *uc_heap_buf = heap_buf;
+      uint8_t *uc_heap_buf = heap_buf;
       if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
       }
@@ -1465,7 +1465,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
         fprintf(stderr, "  File size: %lu\n", u64);
       }
 
-      int skip_due_to_map = 0;
+      int_fast8_t skip_due_to_map = 0;
       if (hash_map != NULL && out_f_name) {
         if (simple_archiver_hash_map_get(hash_map, out_f_name,
                                          strlen(out_f_name) + 1) == NULL) {
@@ -1573,9 +1573,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
           }
 
           uint64_t compressed_file_size = u64;
-          int write_again = 0;
-          int write_pipe_done = 0;
-          int read_pipe_done = 0;
+          int_fast8_t write_again = 0;
+          int_fast8_t write_pipe_done = 0;
+          int_fast8_t read_pipe_done = 0;
           size_t fread_ret;
           char recv_buf[1024];
           size_t amount_to_read;
@@ -1747,7 +1747,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int do_extract,
     } else {
       // Is a symbolic link.
 
-      int abs_preferred = (buf[1] & 0x4) != 0 ? 1 : 0;
+      int_fast8_t abs_preferred = (buf[1] & 0x4) != 0 ? 1 : 0;
       fprintf(stderr, "  Absolute path is %s\n",
               (abs_preferred ? "preferred" : "NOT preferred"));
 

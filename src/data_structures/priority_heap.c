@@ -46,7 +46,7 @@ void simple_archiver_priority_heap_internal_realloc(
   *priority_heap = new_priority_heap;
 }
 
-int simple_archiver_priority_heap_default_less(long long a, long long b) {
+int simple_archiver_priority_heap_default_less(int64_t a, int64_t b) {
   return a < b ? 1 : 0;
 }
 
@@ -64,7 +64,7 @@ SDArchiverPHeap *simple_archiver_priority_heap_init(void) {
 }
 
 SDArchiverPHeap *simple_archiver_priority_heap_init_less_fn(
-    int (*less_fn)(long long, long long)) {
+    int (*less_fn)(int64_t, int64_t)) {
   SDArchiverPHeap *priority_heap = malloc(sizeof(SDArchiverPHeap));
 
   priority_heap->capacity = SC_SA_DS_PRIORITY_HEAP_START_SIZE;
@@ -105,7 +105,7 @@ void simple_archiver_priority_heap_free(SDArchiverPHeap **priority_heap) {
 }
 
 void simple_archiver_priority_heap_insert(SDArchiverPHeap *priority_heap,
-                                          long long priority, void *data,
+                                          int64_t priority, void *data,
                                           void (*data_cleanup_fn)(void *)) {
   if (!priority_heap) {
     return;

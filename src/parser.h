@@ -19,6 +19,10 @@
 #ifndef SEODISPARATE_COM_SIMPLE_ARCHIVER_PARSER_H_
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_PARSER_H_
 
+// Standard library includes.
+#include <stdint.h>
+
+// Local includes.
 #include "data_structures/linked_list.h"
 
 typedef struct SDArchiverParsed {
@@ -31,7 +35,7 @@ typedef struct SDArchiverParsed {
   /// 0b xxxx 1xxx - Allow extract overwrite.
   /// 0b xxx1 xxxx - Create archive to stdout or read archive from stdin.
   /// 0b xx1x xxxx - Do not save absolute paths for symlinks.
-  unsigned int flags;
+  uint32_t flags;
   /// Null-terminated string.
   char *filename;
   /// Null-terminated string.

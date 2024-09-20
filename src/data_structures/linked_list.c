@@ -18,7 +18,9 @@
 
 #include "linked_list.h"
 
+// Standard library includes.
 #include <stdlib.h>
+#include <stdint.h>
 
 SDArchiverLinkedList *simple_archiver_list_init(void) {
   SDArchiverLinkedList *list = malloc(sizeof(SDArchiverLinkedList));
@@ -118,10 +120,10 @@ int simple_archiver_list_remove(SDArchiverLinkedList *list,
     return 0;
   }
 
-  int removed_count = 0;
+  int32_t removed_count = 0;
 
   SDArchiverLLNode *node = list->head;
-  int iter_removed = 0;
+  int32_t iter_removed = 0;
   while (node) {
     if (iter_removed == 0) {
       node = node->next;

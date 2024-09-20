@@ -80,7 +80,7 @@ unsigned long long simple_archiver_hash_map_internal_key_to_hash(
   unsigned long long temp = 0;
   size_t count = 0;
   for (size_t idx = 0; idx < key_size; ++idx) {
-    temp |= ((unsigned long long)*((unsigned char *)key + idx)) << (8 * count);
+    temp |= ((unsigned long long)*((uint8_t *)key + idx)) << (8 * count);
     ++count;
     if (count >= 8) {
       count = 0;
