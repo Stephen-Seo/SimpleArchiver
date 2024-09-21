@@ -286,8 +286,8 @@ int main(void) {
 
     // Deterministic randomization.
     for (uint32_t idx = max - 1; idx-- > 0;) {
-      uint32_t other_idx = simple_archiver_algo_lcg_defaults(idx) %
-                           (unsigned long long)(idx + 1);
+      uint32_t other_idx =
+          simple_archiver_algo_lcg_defaults(idx) % (uint64_t)(idx + 1);
       if (max - 1 != other_idx) {
         uint32_t temp = array[max - 1];
         array[max - 1] = array[other_idx];
@@ -354,8 +354,8 @@ int main(void) {
 
     // Deterministic randomization.
     for (uint32_t idx = max - 1; idx-- > 0;) {
-      uint32_t other_idx = simple_archiver_algo_lcg_defaults(idx) %
-                           (unsigned long long)(idx + 1);
+      uint32_t other_idx =
+          simple_archiver_algo_lcg_defaults(idx) % (uint64_t)(idx + 1);
       if (max - 1 != other_idx) {
         uint32_t temp = array[max - 1];
         array[max - 1] = array[other_idx];

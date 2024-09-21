@@ -74,13 +74,13 @@ int simple_archiver_hash_map_internal_pick_in_list(void *data, void *ud) {
              : 0;
 }
 
-unsigned long long simple_archiver_hash_map_internal_key_to_hash(
-    const void *key, size_t key_size) {
-  unsigned long long seed = 0;
-  unsigned long long temp = 0;
+uint64_t simple_archiver_hash_map_internal_key_to_hash(const void *key,
+                                                       size_t key_size) {
+  uint64_t seed = 0;
+  uint64_t temp = 0;
   size_t count = 0;
   for (size_t idx = 0; idx < key_size; ++idx) {
-    temp |= ((unsigned long long)*((uint8_t *)key + idx)) << (8 * count);
+    temp |= ((uint64_t) * ((uint8_t *)key + idx)) << (8 * count);
     ++count;
     if (count >= 8) {
       count = 0;
@@ -193,9 +193,8 @@ int simple_archiver_hash_map_insert(SDArchiverHashMap *hash_map, void *value,
   data->value_cleanup_fn = value_cleanup_fn;
   data->key_cleanup_fn = key_cleanup_fn;
 
-  unsigned long long hash =
-      simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
-      hash_map->buckets_size;
+  uint64_t hash = simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
+                  hash_map->buckets_size;
   int result = simple_archiver_list_add_front(
       hash_map->buckets[hash], data,
       simple_archiver_hash_map_internal_cleanup_data);
@@ -226,9 +225,8 @@ int simple_archiver_hash_map_insert(SDArchiverHashMap *hash_map, void *value,
 
 void *simple_archiver_hash_map_get(const SDArchiverHashMap *hash_map,
                                    const void *key, size_t key_size) {
-  unsigned long long hash =
-      simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
-      hash_map->buckets_size;
+  uint64_t hash = simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
+                  hash_map->buckets_size;
 
   SDArchiverLLNode *node = hash_map->buckets[hash]->head;
   while (node) {
@@ -246,9 +244,8 @@ void *simple_archiver_hash_map_get(const SDArchiverHashMap *hash_map,
 
 int simple_archiver_hash_map_remove(SDArchiverHashMap *hash_map, void *key,
                                     size_t key_size) {
-  unsigned long long hash =
-      simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
-      hash_map->buckets_size;
+  uint64_t hash = simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
+                  hash_map->buckets_size;
 
   SDArchiverHashMapKeyData key_data;
   key_data.key = key;

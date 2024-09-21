@@ -19,14 +19,12 @@
 
 #include "linear_congruential_gen.h"
 
-unsigned long long simple_archiver_algo_lcg(unsigned long long seed,
-                                            unsigned long long a,
-                                            unsigned long long c) {
+uint64_t simple_archiver_algo_lcg(uint64_t seed, uint64_t a, uint64_t c) {
   // "m" is implicity 2^64.
   return seed * a + c;
 }
 
-unsigned long long simple_archiver_algo_lcg_defaults(unsigned long long seed) {
+uint64_t simple_archiver_algo_lcg_defaults(uint64_t seed) {
   // "m" is implicity 2^64.
   return seed * SC_ALGO_LCG_DEFAULT_A + SC_ALGO_LCG_DEFAULT_C;
 }

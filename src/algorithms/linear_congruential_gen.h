@@ -20,13 +20,14 @@
 #ifndef SEODISPARATE_COM_ALGORITHMS_LINEAR_CONGRUENTIAL_GEN_H_
 #define SEODISPARATE_COM_ALGORITHMS_LINEAR_CONGRUENTIAL_GEN_H_
 
+// Standard library includes.
+#include <stdint.h>
+
 #define SC_ALGO_LCG_DEFAULT_A 0x9ABD
 #define SC_ALGO_LCG_DEFAULT_C 0x2A9A9A9
 
-unsigned long long simple_archiver_algo_lcg(unsigned long long seed,
-                                            unsigned long long a,
-                                            unsigned long long c);
+uint64_t simple_archiver_algo_lcg(uint64_t seed, uint64_t a, uint64_t c);
 
-unsigned long long simple_archiver_algo_lcg_defaults(unsigned long long seed);
+uint64_t simple_archiver_algo_lcg_defaults(uint64_t seed);
 
 #endif
