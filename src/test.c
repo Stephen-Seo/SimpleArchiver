@@ -17,10 +17,10 @@
 // `test.c` is the source for testing code.
 
 // Standard library includes.
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
 // Local includes.
 #include "helpers.h"

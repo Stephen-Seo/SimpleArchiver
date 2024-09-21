@@ -17,10 +17,10 @@
 // `data_structures/test.c` is the source for testing data structure code.
 
 // Standard library includes.
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
 // Local includes.
 #include "../algorithms/linear_congruential_gen.h"
@@ -148,8 +148,8 @@ int main(void) {
         key = malloc(sizeof(int32_t));
         *value = idx;
         *key = idx;
-        simple_archiver_hash_map_insert(hash_map, value, key, sizeof(int32_t), NULL,
-                                        NULL);
+        simple_archiver_hash_map_insert(hash_map, value, key, sizeof(int32_t),
+                                        NULL, NULL);
       }
     }
 
@@ -205,16 +205,14 @@ int main(void) {
     CHECK_TRUE(simple_archiver_hash_map_iter(hash_map, hash_map_iter_check_fn,
                                              found) == 0);
 
-    for (uint32_t idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE;
-         ++idx) {
+    for (uint32_t idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE; ++idx) {
       CHECK_TRUE(found[idx] == 1);
     }
 
     CHECK_TRUE(simple_archiver_hash_map_iter(hash_map, hash_map_iter_check_fn2,
                                              found) == 2);
 
-    for (uint32_t idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE;
-         ++idx) {
+    for (uint32_t idx = 0; idx < SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE; ++idx) {
       CHECK_TRUE(found[idx] == 1);
     }
 
@@ -289,7 +287,7 @@ int main(void) {
     // Deterministic randomization.
     for (uint32_t idx = max - 1; idx-- > 0;) {
       uint32_t other_idx = simple_archiver_algo_lcg_defaults(idx) %
-                               (unsigned long long)(idx + 1);
+                           (unsigned long long)(idx + 1);
       if (max - 1 != other_idx) {
         uint32_t temp = array[max - 1];
         array[max - 1] = array[other_idx];
@@ -357,7 +355,7 @@ int main(void) {
     // Deterministic randomization.
     for (uint32_t idx = max - 1; idx-- > 0;) {
       uint32_t other_idx = simple_archiver_algo_lcg_defaults(idx) %
-                               (unsigned long long)(idx + 1);
+                           (unsigned long long)(idx + 1);
       if (max - 1 != other_idx) {
         uint32_t temp = array[max - 1];
         array[max - 1] = array[other_idx];

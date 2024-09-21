@@ -19,8 +19,8 @@
 #include "linked_list.h"
 
 // Standard library includes.
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 SDArchiverLinkedList *simple_archiver_list_init(void) {
   SDArchiverLinkedList *list = malloc(sizeof(SDArchiverLinkedList));

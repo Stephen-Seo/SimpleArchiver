@@ -20,8 +20,8 @@
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_ARCHIVER_H_
 
 // Standard library includes.
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 
 // Local includes.
 #include "data_structures/hash_map.h"
