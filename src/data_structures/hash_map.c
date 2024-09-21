@@ -74,8 +74,7 @@ int simple_archiver_hash_map_internal_pick_in_list(void *data, void *ud) {
              : 0;
 }
 
-uint64_t simple_archiver_hash_map_internal_key_to_hash(const void *key,
-                                                       size_t key_size) {
+uint64_t simple_archiver_hash_default_fn(const void *key, size_t key_size) {
   uint64_t seed = 0;
   uint64_t temp = 0;
   size_t count = 0;
@@ -106,6 +105,7 @@ int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap *hash_map) {
     return 1;
   }
   SDArchiverHashMap new_hash_map;
+  new_hash_map.hash_fn = hash_map->hash_fn;
   new_hash_map.buckets_size = hash_map->buckets_size * 2;
   // Pointers have the same size (at least on the same machine), so
   // sizeof(void*) should be ok.
@@ -146,7 +146,14 @@ int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap *hash_map) {
 }
 
 SDArchiverHashMap *simple_archiver_hash_map_init(void) {
+  return simple_archiver_hash_map_init_custom_hasher(
+      simple_archiver_hash_default_fn);
+}
+
+SDArchiverHashMap *simple_archiver_hash_map_init_custom_hasher(
+    uint64_t (*hash_fn)(const void *, size_t)) {
   SDArchiverHashMap *hash_map = malloc(sizeof(SDArchiverHashMap));
+  hash_map->hash_fn = hash_fn;
   hash_map->buckets_size = SC_SA_DS_HASH_MAP_START_BUCKET_SIZE;
   // Pointers have the same size (at least on the same machine), so
   // sizeof(void*) should be ok.
@@ -193,8 +200,7 @@ int simple_archiver_hash_map_insert(SDArchiverHashMap *hash_map, void *value,
   data->value_cleanup_fn = value_cleanup_fn;
   data->key_cleanup_fn = key_cleanup_fn;
 
-  uint64_t hash = simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
-                  hash_map->buckets_size;
+  uint64_t hash = hash_map->hash_fn(key, key_size) % hash_map->buckets_size;
   int result = simple_archiver_list_add_front(
       hash_map->buckets[hash], data,
       simple_archiver_hash_map_internal_cleanup_data);
@@ -225,8 +231,7 @@ int simple_archiver_hash_map_insert(SDArchiverHashMap *hash_map, void *value,
 
 void *simple_archiver_hash_map_get(const SDArchiverHashMap *hash_map,
                                    const void *key, size_t key_size) {
-  uint64_t hash = simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
-                  hash_map->buckets_size;
+  uint64_t hash = hash_map->hash_fn(key, key_size) % hash_map->buckets_size;
 
   SDArchiverLLNode *node = hash_map->buckets[hash]->head;
   while (node) {
@@ -244,8 +249,7 @@ void *simple_archiver_hash_map_get(const SDArchiverHashMap *hash_map,
 
 int simple_archiver_hash_map_remove(SDArchiverHashMap *hash_map, void *key,
                                     size_t key_size) {
-  uint64_t hash = simple_archiver_hash_map_internal_key_to_hash(key, key_size) %
-                  hash_map->buckets_size;
+  uint64_t hash = hash_map->hash_fn(key, key_size) % hash_map->buckets_size;
 
   SDArchiverHashMapKeyData key_data;
   key_data.key = key;

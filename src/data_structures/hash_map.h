@@ -32,9 +32,20 @@ typedef struct SDArchiverHashMap {
   SDArchiverLinkedList **buckets;
   size_t buckets_size;
   size_t count;
+  uint64_t (*hash_fn)(const void *, size_t);
 } SDArchiverHashMap;
 
+uint64_t simple_archiver_hash_default_fn(const void *key, size_t key_size);
+
 SDArchiverHashMap *simple_archiver_hash_map_init(void);
+
+/// Creates a hash map that will use the custom hash function instead of the
+/// default. Note that the hash function must return a 64-bit unsigned integer
+/// as specified by the function's api. The first parameter of hash_fn is a
+/// pointer to the key to be hashed, and the second parameter is the size of
+/// the key in bytes.
+SDArchiverHashMap *simple_archiver_hash_map_init_custom_hasher(
+    uint64_t (*hash_fn)(const void *, size_t));
 
 /// It is recommended to use the double-pointer version of hash-map free as
 /// that will ensure the variable holding the pointer will end up pointing to
