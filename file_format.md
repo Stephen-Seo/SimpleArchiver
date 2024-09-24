@@ -85,7 +85,7 @@ First 18 bytes of file will be (in ascii):
 
     SIMPLE_ARCHIVE_VER
 
-Next 2 bites is a 16-bit unsigned integer "version" in big-endian. It will be:
+Next 2 bytes is a 16-bit unsigned integer "version" in big-endian. It will be:
 
     0x00 0x01
 
