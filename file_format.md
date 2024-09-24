@@ -139,7 +139,7 @@ Following the chunk-count bytes, the following bytes are added for each chunk:
 
 1. 2 bytes that are a 16-bit unsigned integer "file count" in big-endian.
 
-The following bytes are added for each file within each chunk:
+The following bytes are added for each file within the current chunk:
 
 1. 2 bytes that are a 16-bit unsigned integer "filename length" in big-endian.
    This does not include the NULL at the end of the string.
