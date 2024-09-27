@@ -120,14 +120,18 @@ Following the link-count bytes, the following bytes are added for each symlink:
            absolute links are preferred.
     2. The second byte.
         1. Currently unused.
-2. 2 bytes is 16-bit unsigned integer "link target absolute path" in
+2. 2 bytes 16-bit unsigned integer "link name" in big-endian. This does not
+   include the NULL at the end of the string. Must not be zero.
+3. X bytes of link-name (length defined by previous value). Is a NULL-terminated
+   string.
+4. 2 bytes is 16-bit unsigned integer "link target absolute path" in
    big-endian. This does not include the NULL at the end of the string.
-3. X bytes of link-target-absolute-path (length defined by previous value).
+5. X bytes of link-target-absolute-path (length defined by previous value).
    Is a NULL-terminated string. If the previous "size" value is 0, then
    this entry does not exist and should be skipped.
-4. 2 bytes is 16-bit unsigned integer "link target relative path" in
+6. 2 bytes is 16-bit unsigned integer "link target relative path" in
    big-endian. This does not include the NULL at the end of the string.
-5. X bytes of link-target-relative-path (length defined by previous value).
+7. X bytes of link-target-relative-path (length defined by previous value).
    Is a NULL-terminated string. If the previous "size" value is 0, then
    this entry does not exist and should be skipped.
 
