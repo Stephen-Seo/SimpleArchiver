@@ -1173,12 +1173,9 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
 
 int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                                        const SDArchiverState *state) {
-  uint8_t buf[1024];
-  memset(buf, 0, 1024);
+  uint8_t buf[32];
+  memset(buf, 0, 32);
   uint16_t u16;
-  uint32_t u32;
-  uint64_t u64;
-  int_fast8_t is_compressed = 0;
 
   if (fread(buf, 1, 18, in_f) != 18) {
     return SDAS_INVALID_FILE;
@@ -1186,10 +1183,31 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
     return SDAS_INVALID_FILE;
   } else if (fread(buf, 1, 2, in_f) != 2) {
     return SDAS_INVALID_FILE;
-  } else if (buf[0] != 0 || buf[1] != 0) {
-    // Version is not zero.
+  }
+
+  memcpy(&u16, buf, 2);
+  simple_archiver_helper_16_bit_be(&u16);
+
+  if (u16 == 0) {
+    return simple_archiver_parse_archive_version_0(in_f, do_extract, state);
+  } else if (u16 == 1) {
+    return simple_archiver_parse_archive_version_1(in_f, do_extract, state);
+  } else {
+    fprintf(stderr, "ERROR Unsupported archive version %u!\n", u16);
     return SDAS_INVALID_FILE;
-  } else if (fread(buf, 1, 4, in_f) != 4) {
+  }
+}
+
+int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
+                                            const SDArchiverState *state) {
+  uint8_t buf[1024];
+  memset(buf, 0, 1024);
+  uint16_t u16;
+  uint32_t u32;
+  uint64_t u64;
+  int_fast8_t is_compressed = 0;
+
+  if (fread(buf, 1, 4, in_f) != 4) {
     return SDAS_INVALID_FILE;
   }
 
@@ -1997,6 +2015,13 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
   }
 
   return SDAS_SUCCESS;
+}
+
+int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
+                                            const SDArchiverState *state) {
+  // TODO Implement this.
+  fprintf(stderr, "ERROR Handling archive version 1 is unimplemented!\n");
+  return SDAS_INTERNAL_ERROR;
 }
 
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
