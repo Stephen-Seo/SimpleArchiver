@@ -2463,6 +2463,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           if (chmod(file_info->filename, permissions) == -1) {
             return SDAS_INTERNAL_ERROR;
+          } else if (geteuid() == 0 &&
+                     chown(file_info->filename, file_info->uid,
+                           file_info->gid) != 0) {
+            fprintf(stderr,
+                    "ERROR Failed to set UID/GID as EUID 0 of file \"%s\"!\n",
+                    file_info->filename);
+            return SDAS_INTERNAL_ERROR;
           }
 #endif
         } else {
