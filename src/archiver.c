@@ -1054,6 +1054,9 @@ void cleanup_internal_file_info(SDArchiverInternalFileInfo **file_info) {
   }
 }
 
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 mode_t permissions_from_bits_version_1(const uint8_t flags[4],
                                        uint_fast8_t print) {
   mode_t permissions = 0;
@@ -1133,6 +1136,7 @@ mode_t permissions_from_bits_version_1(const uint8_t flags[4],
 
   return permissions;
 }
+#endif
 
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
@@ -1565,10 +1569,10 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       return SDAS_INVALID_FILE;
     }
 
-    mode_t permissions = 0;
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+    mode_t permissions = 0;
 
     if (do_extract == 0) {
       fprintf(stderr, "  Permissions: ");
@@ -2423,8 +2427,12 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
           return SDAS_INTERNAL_ERROR;
         } else if (do_extract) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           mode_t permissions =
               permissions_from_bits_version_1(file_info->bit_flags, 0);
+#endif
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
@@ -2450,9 +2458,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             return ret;
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           if (chmod(file_info->filename, permissions) == -1) {
             return SDAS_INTERNAL_ERROR;
           }
+#endif
         } else {
           fprintf(stderr, "    Permissions: ");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
