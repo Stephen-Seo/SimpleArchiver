@@ -1259,6 +1259,8 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
       }
       uc_heap_buf[u16 - 1] = 0;
       fprintf(stderr, "Decompressor cmd: %s\n", uc_heap_buf);
+      decompressor_cmd = heap_buf;
+      heap_buf = NULL;
     }
   } else {
     fprintf(stderr, "De/compressor flag is NOT set.\n");
