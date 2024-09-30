@@ -2186,6 +2186,21 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
   uint32_t u32;
   uint64_t u64;
 
+  __attribute__((cleanup(simple_archiver_hash_map_free)))
+  SDArchiverHashMap *working_files_map = NULL;
+  if (state && state->parsed->working_files[0] != NULL) {
+    working_files_map = simple_archiver_hash_map_init();
+    for (char **iter = state->parsed->working_files; *iter != NULL; ++iter) {
+      size_t len = strlen(*iter) + 1;
+      char *key = malloc(len);
+      memcpy(key, *iter, len);
+      key[len - 1] = 0;
+      simple_archiver_hash_map_insert(
+          working_files_map, key, key, len,
+          simple_archiver_helper_datastructure_cleanup_nop, NULL);
+    }
+  }
+
   if (fread(buf, 1, 4, in_f) != 4) {
     return SDAS_INVALID_FILE;
   }
@@ -2249,6 +2264,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
     uint_fast8_t link_extracted = 0;
+    uint_fast8_t skip_due_to_map = 0;
 
     if (fread(buf, 1, 2, in_f) != 2) {
       return SDAS_INVALID_FILE;
@@ -2264,6 +2280,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         read_buf_full_from_fd(in_f, (char *)buf, 1024, u16 + 1, link_name);
     if (ret != SDAS_SUCCESS) {
       return ret;
+    } else if (working_files_map &&
+               simple_archiver_hash_map_get(working_files_map, link_name,
+                                            u16 + 1) == NULL) {
+      skip_due_to_map = 1;
+      fprintf(stderr, "Skipping not specified in args...\n");
     }
 
     if (fread(buf, 1, 2, in_f) != 2) {
@@ -2280,7 +2301,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         return ret;
       }
       path[u16] = 0;
-      if (do_extract && absolute_preferred) {
+      if (do_extract && !skip_due_to_map && absolute_preferred) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -2309,7 +2330,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         return ret;
       }
       path[u16] = 0;
-      if (do_extract && !absolute_preferred) {
+      if (do_extract && !skip_due_to_map && !absolute_preferred) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -2324,7 +2345,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       }
     }
 
-    if (!link_extracted) {
+    if (!link_extracted && !skip_due_to_map) {
       fprintf(stderr, "WARNING Symlink \"%s\" was not created!\n", link_name);
     }
   }
@@ -2426,7 +2447,17 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
           return SDAS_INTERNAL_ERROR;
-        } else if (do_extract) {
+        }
+
+        uint_fast8_t skip_due_to_map = 0;
+        if (working_files_map && simple_archiver_hash_map_get(
+                                     working_files_map, file_info->filename,
+                                     strlen(file_info->filename) + 1) == NULL) {
+          skip_due_to_map = 1;
+          fprintf(stderr, "    Skipping not specified in args...\n");
+        }
+
+        if (do_extract && !skip_due_to_map) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -2472,7 +2503,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             return SDAS_INTERNAL_ERROR;
           }
 #endif
-        } else {
+        } else if (!skip_due_to_map) {
           fprintf(stderr, "    Permissions: ");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
           fprintf(stderr, "\n    UID: %u\n    GID: %u\n", file_info->uid,
@@ -2483,6 +2514,12 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           } else {
             fprintf(stderr, "    File size: %lu\n", file_info->file_size);
           }
+          int ret = read_buf_full_from_fd(in_f, (char *)buf, 1024,
+                                          file_info->file_size, NULL);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+        } else {
           int ret = read_buf_full_from_fd(in_f, (char *)buf, 1024,
                                           file_info->file_size, NULL);
           if (ret != SDAS_SUCCESS) {
