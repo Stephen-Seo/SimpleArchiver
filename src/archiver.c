@@ -2428,11 +2428,17 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         read_buf_full_from_fd(in_f, (char *)buf, 1024, u16 + 1, link_name);
     if (ret != SDAS_SUCCESS) {
       return ret;
-    } else if (working_files_map &&
-               simple_archiver_hash_map_get(working_files_map, link_name,
-                                            u16 + 1) == NULL) {
+    }
+
+    if (!do_extract) {
+      fprintf(stderr, "  Link name: %s\n", link_name);
+    }
+
+    if (working_files_map &&
+        simple_archiver_hash_map_get(working_files_map, link_name, u16 + 1) ==
+            NULL) {
       skip_due_to_map = 1;
-      fprintf(stderr, "Skipping not specified in args...\n");
+      fprintf(stderr, "  Skipping not specified in args...\n");
     }
 
     if (fread(buf, 1, 2, in_f) != 2) {
@@ -2461,7 +2467,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         link_extracted = 1;
         fprintf(stderr, "  %s -> %s\n", link_name, path);
 #endif
+      } else {
+        fprintf(stderr, "  Abs path: %s\n", path);
       }
+    } else if (!do_extract) {
+      fprintf(stderr, "  No Absolute path.\n");
     }
 
     if (fread(buf, 1, 2, in_f) != 2) {
@@ -2490,10 +2500,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         link_extracted = 1;
         fprintf(stderr, "  %s -> %s\n", link_name, path);
 #endif
+      } else {
+        fprintf(stderr, "  Rel path: %s\n", path);
       }
+    } else if (!do_extract) {
+      fprintf(stderr, "  No Relative path.\n");
     }
 
-    if (!link_extracted && !skip_due_to_map) {
+    if (do_extract && !link_extracted && !skip_due_to_map) {
       fprintf(stderr, "WARNING Symlink \"%s\" was not created!\n", link_name);
     }
   }
