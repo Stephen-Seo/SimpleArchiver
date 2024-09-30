@@ -46,7 +46,7 @@
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-int is_sig_pipe_occurred = 0;
+volatile int is_sig_pipe_occurred = 0;
 
 void handle_sig_pipe(int sig) {
   if (sig == SIGPIPE) {
@@ -1034,6 +1034,100 @@ int read_fd_to_out_fd(FILE *in_fd, FILE *out_fd, char *read_buf,
   return SDAS_SUCCESS;
 }
 
+/// Returns SDAS_SUCCESS on success.
+int read_decomp_to_out_file(const char *out_filename, int in_pipe,
+                            char *read_buf, const size_t read_buf_size,
+                            const uint64_t file_size) {
+  __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *out_fd =
+      NULL;
+  if (out_filename) {
+    out_fd = fopen(out_filename, "wb");
+    if (!out_fd) {
+      fprintf(stderr, "ERROR Failed to open \"%s\" for writing!\n",
+              out_filename);
+      return SDAS_INTERNAL_ERROR;
+    }
+  }
+
+  uint64_t written_amt = 0;
+  ssize_t read_ret;
+  size_t fwrite_ret;
+  while (written_amt < file_size) {
+    if (file_size - written_amt >= read_buf_size) {
+      read_ret = read(in_pipe, read_buf, read_buf_size);
+      if (read_ret > 0) {
+        if (out_fd) {
+          fwrite_ret = fwrite(read_buf, 1, (size_t)read_ret, out_fd);
+          if (fwrite_ret == (size_t)read_ret) {
+            written_amt += fwrite_ret;
+          } else if (ferror(out_fd)) {
+            fprintf(stderr, "ERROR Failed to write decompressed data!\n");
+            return SDAS_INTERNAL_ERROR;
+          } else {
+            fprintf(
+                stderr,
+                "ERROR Failed to write decompressed data (invalid state)!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+        } else {
+          written_amt += (size_t)read_ret;
+        }
+      } else if (read_ret == 0) {
+        // EOF.
+        if (written_amt < file_size) {
+          fprintf(stderr,
+                  "ERROR Decompressed EOF while file needs more bytes!\n");
+          return SDAS_INTERNAL_ERROR;
+        } else {
+          break;
+        }
+      } else {
+        // Error.
+        fprintf(stderr, "ERROR Failed to read from decompressor! (%lu)\n",
+                read_ret);
+        return SDAS_INTERNAL_ERROR;
+      }
+    } else {
+      read_ret = read(in_pipe, read_buf, file_size - written_amt);
+      if (read_ret > 0) {
+        if (out_fd) {
+          fwrite_ret = fwrite(read_buf, 1, (size_t)read_ret, out_fd);
+          if (fwrite_ret == (size_t)read_ret) {
+            written_amt += fwrite_ret;
+          } else if (ferror(out_fd)) {
+            fprintf(stderr, "ERROR Failed to write decompressed data!\n");
+            return SDAS_INTERNAL_ERROR;
+          } else {
+            fprintf(
+                stderr,
+                "ERROR Failed to write decompressed data (invalid state)!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+        } else {
+          written_amt += (size_t)read_ret;
+        }
+      } else if (read_ret == 0) {
+        // EOF.
+        if (written_amt < file_size) {
+          fprintf(stderr,
+                  "ERROR Decompressed EOF while file needs more bytes!\n");
+          return SDAS_INTERNAL_ERROR;
+        } else {
+          break;
+        }
+      } else {
+        // Error.
+        fprintf(stderr, "ERROR Failed to read from decompressor! (%d)\n",
+                errno);
+        fprintf(stderr, "EAGAIN %d, EWOULDBLOCK %d\n", EAGAIN, EWOULDBLOCK);
+        return SDAS_INTERNAL_ERROR;
+      }
+    }
+  }
+
+  return written_amt == file_size ? SDAS_SUCCESS : SDAS_INTERNAL_ERROR;
+}
+
 void free_internal_file_info(void *data) {
   SDArchiverInternalFileInfo *file_info = data;
   if (file_info) {
@@ -1135,6 +1229,52 @@ mode_t permissions_from_bits_version_1(const uint8_t flags[4],
   }
 
   return permissions;
+}
+#endif
+
+void simple_archiver_internal_cleanup_int_fd(int *fd) {
+  if (fd && *fd >= 0) {
+    close(*fd);
+    *fd = -1;
+  }
+}
+
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+void simple_archiver_internal_cleanup_decomp(pid_t *decomp_pid) {
+  if (decomp_pid && *decomp_pid >= 0) {
+    int decompressor_status;
+    int decompressor_return_val;
+    int retries = 0;
+    int decompressor_ret;
+  CHECK_DECOMPRESSER:
+    decompressor_ret = waitpid(*decomp_pid, &decompressor_status, 0);
+    if (decompressor_ret == *decomp_pid) {
+      // Status is available.
+      decompressor_return_val = WIFEXITED(decompressor_status);
+      if (decompressor_return_val && WEXITSTATUS(decompressor_status)) {
+        fprintf(stderr,
+                "WARNING: Exec failed (exec exit code %d)! Invalid "
+                "decompressor cmd?\n",
+                decompressor_return_val);
+      }
+    } else if (decompressor_ret == 0) {
+      // Probably still running.
+      ++retries;
+      if (retries > 5) {
+        fprintf(stderr, "WARNING Decompressor process not stopped!\n");
+        return;
+      }
+      sleep(5);
+      goto CHECK_DECOMPRESSER;
+    } else {
+      // Error.
+      fprintf(stderr,
+              "WARNING: Exec failed (exec exit code unknown)! Invalid "
+              "decompressor cmd?\n");
+    }
+  }
 }
 #endif
 
@@ -2188,7 +2328,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *working_files_map = NULL;
-  if (state && state->parsed->working_files[0] != NULL) {
+  if (state && state->parsed->working_files &&
+      state->parsed->working_files[0] != NULL) {
     working_files_map = simple_archiver_hash_map_init();
     for (char **iter = state->parsed->working_files; *iter != NULL; ++iter) {
       size_t len = strlen(*iter) + 1;
@@ -2236,6 +2377,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     }
     compressor_cmd[u16] = 0;
 
+    fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
+
     if (fread(buf, 1, 2, in_f) != 2) {
       return SDAS_INVALID_FILE;
     }
@@ -2248,6 +2391,12 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       return ret;
     }
     decompressor_cmd[u16] = 0;
+
+    fprintf(stderr, "Decompressor command: %s\n", decompressor_cmd);
+    if (state && state->parsed && state->parsed->decompressor) {
+      fprintf(stderr, "Overriding decompressor with: %s\n",
+              state->parsed->decompressor);
+    }
   }
 
   // Link count.
@@ -2434,10 +2583,248 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     SDArchiverLLNode *node = file_info_list->head;
     uint16_t file_idx = 0;
 
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     if (is_compressed) {
-      fprintf(stderr, "ERROR Extracting compressed chunks is unimplemented!\n");
-      return SDAS_INTERNAL_ERROR;
+      // Start the decompressing process and read into files.
+
+      // Handle SIGPIPE.
+      signal(SIGPIPE, handle_sig_pipe);
+
+      int pipe_into_cmd[2];
+      int pipe_outof_cmd[2];
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_decomp))) pid_t decompressor_pid;
+      if (pipe(pipe_into_cmd) != 0) {
+        // Unable to create pipes.
+        break;
+      } else if (pipe(pipe_outof_cmd) != 0) {
+        // Unable to create second set of pipes.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        return SDAS_INTERNAL_ERROR;
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+        // Unable to set non-blocking on into-write-pipe.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        close(pipe_outof_cmd[0]);
+        close(pipe_outof_cmd[1]);
+        return SDAS_INTERNAL_ERROR;
+      }
+      // else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      //   // Unable to set non-blocking on outof-read-pipe.
+      //   close(pipe_into_cmd[0]);
+      //   close(pipe_into_cmd[1]);
+      //   close(pipe_outof_cmd[0]);
+      //   close(pipe_outof_cmd[1]);
+      //   return SDAS_INTERNAL_ERROR;
+      // }
+
+      if (state && state->parsed && state->parsed->decompressor) {
+        if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                        state->parsed->decompressor,
+                                        &decompressor_pid) != 0) {
+          // Failed to spawn compressor.
+          close(pipe_into_cmd[1]);
+          close(pipe_outof_cmd[0]);
+          fprintf(stderr,
+                  "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
+          return SDAS_INTERNAL_ERROR;
+        }
+      } else {
+        if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                        decompressor_cmd,
+                                        &decompressor_pid) != 0) {
+          // Failed to spawn compressor.
+          close(pipe_into_cmd[1]);
+          close(pipe_outof_cmd[0]);
+          fprintf(stderr,
+                  "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
+          return SDAS_INTERNAL_ERROR;
+        }
+      }
+
+      // Close unnecessary pipe fds on this end of the transfer.
+      close(pipe_into_cmd[0]);
+      close(pipe_outof_cmd[1]);
+
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_int_fd))) int pipe_into_write =
+          pipe_into_cmd[1];
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_int_fd))) int pipe_outof_read =
+          pipe_outof_cmd[0];
+
+      int decompressor_status;
+      int decompressor_return_val;
+      int decompressor_ret =
+          waitpid(decompressor_pid, &decompressor_status, WNOHANG);
+      if (decompressor_ret == decompressor_pid) {
+        // Status is available.
+        if (WIFEXITED(decompressor_status)) {
+          decompressor_return_val = WEXITSTATUS(decompressor_status);
+          fprintf(stderr,
+                  "WARNING: Exec failed (exec exit code %d)! Invalid "
+                  "decompressor cmd?\n",
+                  decompressor_return_val);
+          return SDAS_INTERNAL_ERROR;
+        }
+      } else if (decompressor_ret == 0) {
+        // Probably still running, continue on.
+      } else {
+        // Error.
+        fprintf(stderr,
+                "WARNING: Exec failed (exec exit code unknown)! Invalid "
+                "decompressor cmd?\n");
+        return SDAS_INTERNAL_ERROR;
+      }
+
+      // Write all of chunk into decompressor.
+      uint64_t chunk_written = 0;
+      while (chunk_written < chunk_size) {
+        if (is_sig_pipe_occurred) {
+          fprintf(stderr,
+                  "WARNING: Failed to write to decompressor (SIGPIPE)! Invalid "
+                  "decompressor cmd?\n");
+          return SDAS_INTERNAL_ERROR;
+        } else if (chunk_size - chunk_written >= 1024) {
+          if (fread(buf, 1, 1024, in_f) != 1024) {
+            fprintf(stderr, "ERROR Failed to read chunk for decompressing!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          ssize_t write_ret = write(pipe_into_cmd[1], buf, 1024);
+          if (write_ret > 0 && (size_t)write_ret == 1024) {
+            // Successful write.
+          } else if (write_ret == -1) {
+            fprintf(stderr,
+                    "WARNING: Failed to write chunk data into decompressor! "
+                    "Invalid decompressor cmd?\n");
+            return SDAS_INTERNAL_ERROR;
+          } else {
+            fprintf(stderr,
+                    "WARNING: Failed to write chunk data into decompressor! "
+                    "Invalid decompressor cmd?\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          chunk_written += 1024;
+        } else {
+          if (fread(buf, 1, chunk_size - chunk_written, in_f) !=
+              chunk_size - chunk_written) {
+            fprintf(stderr, "ERROR Failed to read chunk for decompressing!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          ssize_t write_ret = write(pipe_into_cmd[1], buf, 1024);
+          if (write_ret > 0 && (size_t)write_ret == 1024) {
+            // Successful write.
+          } else if (write_ret == -1) {
+            fprintf(stderr,
+                    "WARNING: Failed to write chunk data into decompressor! "
+                    "Invalid decompressor cmd?\n");
+            return SDAS_INTERNAL_ERROR;
+          } else {
+            fprintf(stderr,
+                    "WARNING: Failed to write chunk data into decompressor! "
+                    "Invalid decompressor cmd?\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          chunk_written = chunk_size;
+        }
+      }
+
+      simple_archiver_internal_cleanup_int_fd(&pipe_into_write);
+
+      while (node->next != file_info_list->tail) {
+        node = node->next;
+        const SDArchiverInternalFileInfo *file_info = node->data;
+        fprintf(stderr, "  FILE %3u of %3u\n", ++file_idx, file_count);
+        fprintf(stderr, "    Filename: %s\n", file_info->filename);
+
+        uint_fast8_t skip_due_to_map = 0;
+        if (working_files_map && simple_archiver_hash_map_get(
+                                     working_files_map, file_info->filename,
+                                     strlen(file_info->filename) + 1) == NULL) {
+          skip_due_to_map = 1;
+          fprintf(stderr, "    Skipping not specified in args...\n");
+        }
+
+        if (do_extract && !skip_due_to_map) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+          mode_t permissions =
+              permissions_from_bits_version_1(file_info->bit_flags, 0);
+#endif
+          if ((state->parsed->flags & 8) == 0) {
+            // Check if file already exists.
+            __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
+            FILE *temp_fd = fopen(file_info->filename, "r");
+            if (temp_fd) {
+              fprintf(stderr,
+                      "  WARNING: File already exists and "
+                      "\"--overwrite-extract\" is not specified, skipping!\n");
+              read_decomp_to_out_file(NULL, pipe_outof_cmd[0], (char *)buf,
+                                      1024, file_info->file_size);
+              continue;
+            }
+          }
+
+          simple_archiver_helper_make_dirs(file_info->filename);
+          int ret =
+              read_decomp_to_out_file(file_info->filename, pipe_outof_cmd[0],
+                                      (char *)buf, 1024, file_info->file_size);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+          if (chmod(file_info->filename, permissions) == -1) {
+            return SDAS_INTERNAL_ERROR;
+          } else if (geteuid() == 0 &&
+                     chown(file_info->filename, file_info->uid,
+                           file_info->gid) != 0) {
+            fprintf(stderr,
+                    "ERROR Failed to set UID/GID as EUID 0 of file \"%s\"!\n",
+                    file_info->filename);
+            return SDAS_INTERNAL_ERROR;
+          }
+#endif
+        } else if (!skip_due_to_map) {
+          fprintf(stderr, "    Permissions: ");
+          permissions_from_bits_version_1(file_info->bit_flags, 1);
+          fprintf(stderr, "\n    UID: %u\n    GID: %u\n", file_info->uid,
+                  file_info->gid);
+          if (is_compressed) {
+            fprintf(stderr, "    File size (uncompressed): %lu\n",
+                    file_info->file_size);
+          } else {
+            fprintf(stderr, "    File size: %lu\n", file_info->file_size);
+          }
+          int ret = read_decomp_to_out_file(
+              NULL, pipe_outof_cmd[0], (char *)buf, 1024, file_info->file_size);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+        } else {
+          int ret = read_decomp_to_out_file(
+              NULL, pipe_outof_cmd[0], (char *)buf, 1024, file_info->file_size);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+        }
+      }
+
+      // Ensure EOF is left from pipe.
+      ssize_t read_ret = read(pipe_outof_cmd[0], buf, 1024);
+      if (read_ret != 0) {
+        fprintf(stderr, "WARNING decompressor didn't reach EOF!\n");
+      }
     } else {
+#else
+    // } (This comment exists so that vim can correctly match curly-braces.
+    if (!is_compressed) {
+#endif
       while (node->next != file_info_list->tail) {
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
