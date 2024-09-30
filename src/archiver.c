@@ -1119,7 +1119,6 @@ int read_decomp_to_out_file(const char *out_filename, int in_pipe,
         // Error.
         fprintf(stderr, "ERROR Failed to read from decompressor! (%d)\n",
                 errno);
-        fprintf(stderr, "EAGAIN %d, EWOULDBLOCK %d\n", EAGAIN, EWOULDBLOCK);
         return SDAS_INTERNAL_ERROR;
       }
     }
