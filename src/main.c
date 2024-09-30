@@ -67,12 +67,13 @@ int main(int argc, const char **argv) {
     }
   }
 
+  SDArchiverParsedStatus parsed_status;
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *filenames =
-      simple_archiver_parsed_to_filenames(&parsed);
-  if (!filenames) {
-    fprintf(stderr,
-            "ERROR: Failed to resolve filenames from positional arguments!\n");
+      simple_archiver_parsed_to_filenames(&parsed, &parsed_status);
+  if (!filenames || parsed_status != SDAPS_SUCCESS) {
+    fprintf(stderr, "ERROR: %s!\n",
+            simple_archiver_parsed_status_to_str(parsed_status));
     return 8;
   }
 

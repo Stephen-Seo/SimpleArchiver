@@ -59,6 +59,14 @@ typedef struct SDArchiverFileInfo {
   char *link_dest;
 } SDArchiverFileInfo;
 
+typedef enum SDArchiverParsedStatus {
+  SDAPS_SUCCESS,
+  SDAPS_NO_USER_CWD,
+} SDArchiverParsedStatus;
+
+/// Returned c-string does not need to be free'd.
+char *simple_archiver_parsed_status_to_str(SDArchiverParsedStatus status);
+
 void simple_archiver_print_usage(void);
 
 SDArchiverParsed simple_archiver_create_parsed(void);
@@ -74,6 +82,6 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed);
 
 /// Each entry in the linked list is an SDArchiverFileInfo object.
 SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
-    const SDArchiverParsed *parsed);
+    const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out);
 
 #endif

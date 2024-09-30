@@ -131,6 +131,17 @@ int list_remove_same_str_fn(void *data, void *ud) {
   return 0;
 }
 
+char *simple_archiver_parsed_status_to_str(SDArchiverParsedStatus status) {
+  switch (status) {
+    case SDAPS_SUCCESS:
+      return "Success";
+    case SDAPS_NO_USER_CWD:
+      return "No user current working directory (-C <dir>)";
+    default:
+      return "Unknown error";
+  }
+}
+
 void simple_archiver_print_usage(void) {
   fprintf(stderr, "Usage flags:\n");
   fprintf(stderr, "-c : create archive file\n");
@@ -367,7 +378,7 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
 }
 
 SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
-    const SDArchiverParsed *parsed) {
+    const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out) {
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *hash_map = simple_archiver_hash_map_init();
@@ -381,6 +392,9 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     original_cwd = realpath(".", NULL);
     if (chdir(parsed->user_cwd)) {
       simple_archiver_list_free(&files_list);
+      if (status_out) {
+        *status_out = SDAPS_NO_USER_CWD;
+      }
       return NULL;
     }
   }
@@ -607,5 +621,8 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     }
   }
 
+  if (status_out) {
+    *status_out = SDAPS_SUCCESS;
+  }
   return files_list;
 }
