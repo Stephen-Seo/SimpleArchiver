@@ -2713,8 +2713,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             fprintf(stderr, "ERROR Failed to read chunk for decompressing!\n");
             return SDAS_INTERNAL_ERROR;
           }
-          ssize_t write_ret = write(pipe_into_cmd[1], buf, 1024);
-          if (write_ret > 0 && (size_t)write_ret == 1024) {
+          ssize_t write_ret =
+              write(pipe_into_cmd[1], buf, chunk_size - chunk_written);
+          if (write_ret > 0 &&
+              (size_t)write_ret == chunk_size - chunk_written) {
             // Successful write.
           } else if (write_ret == -1) {
             fprintf(stderr,
