@@ -170,6 +170,9 @@ void simple_archiver_print_usage(void) {
           "--temp-files-dir <dir> : where to store temporary files created "
           "when compressing (defaults to current working directory)\n");
   fprintf(stderr,
+          "--write-version <version> : Force write version file format "
+          "(default 1)\n");
+  fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
   fprintf(
       stderr,
@@ -189,6 +192,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.working_files = NULL;
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
+  parsed.write_version = 0;
 
   return parsed;
 }
@@ -297,6 +301,26 @@ int simple_archiver_parse_args(int argc, const char **argv,
           return 1;
         }
         out->temp_dir = argv[1];
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--write-version") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --write-version expects an integer argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        int version = atoi(argv[1]);
+        if (version < 0) {
+          fprintf(stderr, "ERROR: --write-version cannot be negative!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (version > 1) {
+          fprintf(stderr, "ERROR: --write-version must be 0 or 1!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->write_version = (uint32_t)version;
         --argc;
         ++argv;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {

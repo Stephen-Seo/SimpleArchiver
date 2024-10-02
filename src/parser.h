@@ -51,6 +51,8 @@ typedef struct SDArchiverParsed {
   const char *temp_dir;
   /// Dir specified by "-C".
   const char *user_cwd;
+  /// Currently only 0 and 1 is supported.
+  uint32_t write_version;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

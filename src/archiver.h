@@ -51,7 +51,8 @@ enum SDArchiverStateReturns {
   SDAS_INTERNAL_ERROR,
   SDAS_FAILED_TO_CREATE_MAP,
   SDAS_FAILED_TO_EXTRACT_SYMLINK,
-  SDAS_FAILED_TO_CHANGE_CWD
+  SDAS_FAILED_TO_CHANGE_CWD,
+  SDAS_INVALID_WRITE_VERSION
 };
 
 /// Returned pointer must not be freed.
@@ -64,6 +65,12 @@ void simple_archiver_free_state(SDArchiverState **state);
 /// enum.
 int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
                               const SDArchiverLinkedList *filenames);
+
+int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
+                             const SDArchiverLinkedList *filenames);
+
+int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
+                             const SDArchiverLinkedList *filenames);
 
 /// Returns zero on success.
 int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,

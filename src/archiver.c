@@ -1301,6 +1301,8 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
       return "Failed to extract symlink (internal error)";
     case SDAS_FAILED_TO_CHANGE_CWD:
       return "Failed to change current working directory";
+    case SDAS_INVALID_WRITE_VERSION:
+      return "Unsupported write version file format";
     default:
       return "Unknown error";
   }
@@ -1332,6 +1334,20 @@ void simple_archiver_free_state(SDArchiverState **state) {
 
 int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
                               const SDArchiverLinkedList *filenames) {
+  switch (state->parsed->write_version) {
+    case 0:
+      return simple_archiver_write_v0(out_f, state, filenames);
+    case 1:
+      return simple_archiver_write_v1(out_f, state, filenames);
+    default:
+      fprintf(stderr, "ERROR: Unsupported write version %u!\n",
+              state->parsed->write_version);
+      return SDAS_INVALID_WRITE_VERSION;
+  }
+}
+
+int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
+                             const SDArchiverLinkedList *filenames) {
   // First create a "set" of absolute paths to given filenames.
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
@@ -1469,6 +1485,13 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
 
   fprintf(stderr, "End archiving.\n");
   return SDAS_SUCCESS;
+}
+
+int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
+                             const SDArchiverLinkedList *filenames) {
+  // TODO Impl.
+  fprintf(stderr, "Writing v1 unimplemented\n");
+  return SDAS_INTERNAL_ERROR;
 }
 
 int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
