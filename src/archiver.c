@@ -1325,6 +1325,17 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
           }
         } else {
           skip = 0;
+          int fd = open((const char *)buf, O_RDONLY | O_NOFOLLOW);
+          if (fd == -1) {
+            if (errno == ELOOP) {
+              // Is an existing symbolic file.
+              unlink((const char *)buf);
+            }
+          } else {
+            close(fd);
+            // Is an existing file.
+            unlink((const char *)buf);
+          }
         }
         if (!skip) {
           out_f_name = malloc(strlen((const char *)buf) + 1);
@@ -1334,17 +1345,17 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
     } else {
       __attribute__((
           cleanup(simple_archiver_helper_cleanup_malloced))) void *heap_buf =
-          malloc(u16 + 1);
+          malloc((uint32_t)u16 + 1);
       uint8_t *uc_heap_buf = heap_buf;
-      if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+      if (fread(uc_heap_buf, 1, (uint32_t)u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
       }
-      uc_heap_buf[u16 - 1] = 0;
+      uc_heap_buf[u16] = 0;
       fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
       if (do_extract) {
         if ((state->parsed->flags & 0x8) == 0) {
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-          FILE *test_fd = fopen((const char *)buf, "rb");
+          FILE *test_fd = fopen((const char *)uc_heap_buf, "rb");
           if (test_fd) {
             skip = 1;
             fprintf(stderr,
@@ -1355,10 +1366,22 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
           }
         } else {
           skip = 0;
+          int fd = open((const char *)uc_heap_buf, O_RDONLY | O_NOFOLLOW);
+          if (fd == -1) {
+            if (errno == ELOOP) {
+              // Is an existing symbolic file.
+              unlink((const char *)uc_heap_buf);
+            }
+          } else {
+            close(fd);
+            // Is an existing file.
+            unlink((const char *)uc_heap_buf);
+          }
         }
         if (!skip) {
-          out_f_name = malloc(strlen((const char *)buf) + 1);
-          memcpy(out_f_name, buf, strlen((const char *)buf) + 1);
+          out_f_name = malloc(strlen((const char *)uc_heap_buf) + 1);
+          memcpy(out_f_name, uc_heap_buf,
+                 strlen((const char *)uc_heap_buf) + 1);
         }
       }
     }
@@ -1481,6 +1504,12 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
 
         simple_archiver_helper_make_dirs((const char *)out_f_name);
         out_f = fopen(out_f_name, "wb");
+        if (!out_f) {
+          fprintf(stderr,
+                  "WARNING: Failed to open \"%s\" for writing! (No write "
+                  "permissions?)\n",
+                  (char *)out_f_name);
+        }
         __attribute__((
             cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
             malloc(sizeof(void *) * 2);
@@ -1489,7 +1518,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-        if (is_compressed) {
+        if (is_compressed && out_f) {
           // Handle SIGPIPE.
           signal(SIGPIPE, handle_sig_pipe);
 
@@ -1697,10 +1726,12 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                 // Error.
                 return SDAS_INTERNAL_ERROR;
               }
-              fwrite(buf, 1, fread_ret, out_f);
-              if (ferror(out_f)) {
-                // Error.
-                return SDAS_INTERNAL_ERROR;
+              if (out_f) {
+                fwrite(buf, 1, fread_ret, out_f);
+                if (ferror(out_f)) {
+                  // Error.
+                  return SDAS_INTERNAL_ERROR;
+                }
               }
               compressed_file_size -= fread_ret;
             } else {
@@ -1709,10 +1740,12 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                 // Error.
                 return SDAS_INTERNAL_ERROR;
               }
-              fwrite(buf, 1, fread_ret, out_f);
-              if (ferror(out_f)) {
-                // Error.
-                return SDAS_INTERNAL_ERROR;
+              if (out_f) {
+                fwrite(buf, 1, fread_ret, out_f);
+                if (ferror(out_f)) {
+                  // Error.
+                  return SDAS_INTERNAL_ERROR;
+                }
               }
               compressed_file_size -= fread_ret;
             }
@@ -1725,7 +1758,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
         }
 
         ptrs_array[0] = NULL;
-        fprintf(stderr, "  Extracted.\n");
+        if (out_f) {
+          fprintf(stderr, "  Extracted.\n");
+        }
 #endif
       } else {
         while (u64 != 0) {
@@ -1804,26 +1839,108 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
         fprintf(stderr, "  Link relative path: %s\n", (char *)rel_path);
       }
 
-      if (do_extract) {
+      if (do_extract && !skip) {
         simple_archiver_helper_make_dirs((const char *)out_f_name);
         if (abs_path && rel_path) {
           if (abs_preferred) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-            int ret = symlink(abs_path, out_f_name);
+            int_fast8_t retry_symlink = 0;
+            int ret;
+          V0_SYMLINK_CREATE_RETRY_0:
+            ret = symlink(abs_path, out_f_name);
             if (ret == -1) {
-              return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+              if (retry_symlink) {
+                fprintf(stderr,
+                        "WARNING: Failed to create symlink after removing "
+                        "existing symlink!\n");
+                goto V0_SYMLINK_CREATE_AFTER_0;
+              } else if (errno == EEXIST) {
+                if ((state->parsed->flags & 8) == 0) {
+                  fprintf(
+                      stderr,
+                      "WARNING: Symlink already exists and "
+                      "\"--overwrite-extract\" is not specified, skipping!\n");
+                  goto V0_SYMLINK_CREATE_AFTER_0;
+                } else {
+                  fprintf(stderr,
+                          "NOTICE: Symlink already exists and "
+                          "\"--overwrite-extract\" specified, attempting to "
+                          "overwrite...\n");
+                  unlink(out_f_name);
+                  retry_symlink = 1;
+                  goto V0_SYMLINK_CREATE_RETRY_0;
+                }
+              } else {
+                return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+              }
             }
+            ret = fchmodat(AT_FDCWD, out_f_name, permissions,
+                           AT_SYMLINK_NOFOLLOW);
+            if (ret == -1) {
+              if (errno == EOPNOTSUPP) {
+                fprintf(stderr,
+                        "NOTICE: Setting permissions of symlink is not "
+                        "supported by FS/OS!\n");
+              } else {
+                fprintf(stderr,
+                        "WARNING: Failed to set permissions of symlink (%d)!\n",
+                        errno);
+              }
+            }
+          V0_SYMLINK_CREATE_AFTER_0:
+            retry_symlink = 1;
 #endif
           } else {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-            int ret = symlink(rel_path, out_f_name);
+            int_fast8_t retry_symlink = 0;
+            int ret;
+          V0_SYMLINK_CREATE_RETRY_1:
+            ret = symlink(rel_path, out_f_name);
             if (ret == -1) {
-              return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+              if (retry_symlink) {
+                fprintf(stderr,
+                        "WARNING: Failed to create symlink after removing "
+                        "existing symlink!\n");
+                goto V0_SYMLINK_CREATE_AFTER_1;
+              } else if (errno == EEXIST) {
+                if ((state->parsed->flags & 8) == 0) {
+                  fprintf(
+                      stderr,
+                      "WARNING: Symlink already exists and "
+                      "\"--overwrite-extract\" is not specified, skipping!\n");
+                  goto V0_SYMLINK_CREATE_AFTER_1;
+                } else {
+                  fprintf(stderr,
+                          "NOTICE: Symlink already exists and "
+                          "\"--overwrite-extract\" specified, attempting to "
+                          "overwrite...\n");
+                  unlink(out_f_name);
+                  retry_symlink = 1;
+                  goto V0_SYMLINK_CREATE_RETRY_1;
+                }
+              } else {
+                return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+              }
             }
+            ret = fchmodat(AT_FDCWD, out_f_name, permissions,
+                           AT_SYMLINK_NOFOLLOW);
+            if (ret == -1) {
+              if (errno == EOPNOTSUPP) {
+                fprintf(stderr,
+                        "NOTICE: Setting permissions of symlink is not "
+                        "supported by FS/OS!\n");
+              } else {
+                fprintf(stderr,
+                        "WARNING: Failed to set permissions of symlink (%d)!\n",
+                        errno);
+              }
+            }
+          V0_SYMLINK_CREATE_AFTER_1:
+            retry_symlink = 1;
 #endif
           }
         } else if (abs_path) {
@@ -1834,6 +1951,19 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
           if (ret == -1) {
             return SDAS_FAILED_TO_EXTRACT_SYMLINK;
           }
+          ret =
+              fchmodat(AT_FDCWD, out_f_name, permissions, AT_SYMLINK_NOFOLLOW);
+          if (ret == -1) {
+            if (errno == EOPNOTSUPP) {
+              fprintf(stderr,
+                      "NOTICE: Setting permissions of symlink is not supported "
+                      "by FS/OS!\n");
+            } else {
+              fprintf(stderr,
+                      "WARNING: Failed to set permissions of symlink (%d)!\n",
+                      errno);
+            }
+          }
 #endif
         } else if (rel_path) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
@@ -1842,6 +1972,19 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
           int ret = symlink(rel_path, out_f_name);
           if (ret == -1) {
             return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+          }
+          ret =
+              fchmodat(AT_FDCWD, out_f_name, permissions, AT_SYMLINK_NOFOLLOW);
+          if (ret == -1) {
+            if (errno == EOPNOTSUPP) {
+              fprintf(stderr,
+                      "NOTICE: Setting permissions of symlink is not supported "
+                      "by FS/OS!\n");
+            } else {
+              fprintf(stderr,
+                      "WARNING: Failed to set permissions of symlink (%d)!\n",
+                      errno);
+            }
           }
 #endif
         } else {
