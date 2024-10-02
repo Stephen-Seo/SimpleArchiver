@@ -88,4 +88,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
                                 const char *cmd, void *pid_out);
 
+/// If returns non-NULL, must be free'd.
+char *simple_archiver_filenames_to_relative_path(const char *from_abs,
+                                                 const char *to_abs);
+
 #endif

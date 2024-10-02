@@ -767,46 +767,8 @@ int write_files_fn(void *data, void *ud) {
         // fprintf(stderr, "DEBUG: abs_path: %s\nDEBUG: link_abs_path: %s\n",
         //                 (char*)abs_path, (char*)link_abs_path);
 
-        // Compare paths to get relative path.
-        // Get first non-common char.
-        size_t idx;
-        size_t last_slash;
-        for (idx = 0, last_slash = 0;
-             idx < strlen(abs_path) && idx < strlen(link_abs_path); ++idx) {
-          if (((const char *)abs_path)[idx] !=
-              ((const char *)link_abs_path)[idx]) {
-            break;
-          } else if (((const char *)abs_path)[idx] == '/') {
-            last_slash = idx + 1;
-          }
-        }
-        // Get substrings of both paths.
-        char *link_substr = (char *)link_abs_path + last_slash;
-        char *dest_substr = (char *)abs_path + last_slash;
-        rel_path = malloc(strlen(dest_substr) + 1);
-        strncpy(rel_path, dest_substr, strlen(dest_substr) + 1);
-        // fprintf(stderr, "DEBUG: link_substr: %s\nDEBUG: dest_substr: %s\n",
-        //         link_substr, dest_substr);
-
-        // Generate the relative path.
-        int_fast8_t has_slash = 0;
-        idx = 0;
-        do {
-          for (; link_substr[idx] != '/' && link_substr[idx] != 0; ++idx);
-          if (link_substr[idx] == 0) {
-            has_slash = 0;
-          } else {
-            has_slash = 1;
-            char *new_rel_path = malloc(strlen(rel_path) + 1 + 3);
-            new_rel_path[0] = '.';
-            new_rel_path[1] = '.';
-            new_rel_path[2] = '/';
-            strncpy(new_rel_path + 3, rel_path, strlen(rel_path) + 1);
-            free(rel_path);
-            rel_path = new_rel_path;
-            ++idx;
-          }
-        } while (has_slash);
+        rel_path =
+            simple_archiver_filenames_to_relative_path(link_abs_path, abs_path);
       }
     }
 
@@ -3014,4 +2976,54 @@ int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
 #else
   return 1;
 #endif
+}
+
+char *simple_archiver_filenames_to_relative_path(const char *from_abs,
+                                                 const char *to_abs) {
+  if (!from_abs || !to_abs) {
+    return NULL;
+  }
+
+  // Get first non-common char and last slash before it.
+  uint_fast32_t idx;
+  uint_fast32_t last_slash;
+  for (idx = 0, last_slash = 0; idx < strlen(from_abs) && idx < strlen(to_abs);
+       ++idx) {
+    if (((const char *)to_abs)[idx] != ((const char *)from_abs)[idx]) {
+      break;
+    } else if (((const char *)to_abs)[idx] == '/') {
+      last_slash = idx + 1;
+    }
+  }
+
+  // Get substrings of both paths.
+  char *link_substr = (char *)from_abs + last_slash;
+  char *dest_substr = (char *)to_abs + last_slash;
+  char *rel_path = malloc(strlen(dest_substr) + 1);
+  strncpy(rel_path, dest_substr, strlen(dest_substr) + 1);
+
+  // fprintf(stderr, "DEBUG: link_substr \"%s\", dest_substr \"%s\"\n",
+  //     link_substr, dest_substr);
+
+  // Get the relative path finally.
+  int_fast8_t has_slash = 0;
+  idx = 0;
+  do {
+    for (; link_substr[idx] != '/' && link_substr[idx] != 0; ++idx);
+    if (link_substr[idx] == 0) {
+      has_slash = 0;
+    } else {
+      has_slash = 1;
+      char *new_rel_path = malloc(strlen(rel_path) + 1 + 3);
+      new_rel_path[0] = '.';
+      new_rel_path[1] = '.';
+      new_rel_path[2] = '/';
+      strncpy(new_rel_path + 3, rel_path, strlen(rel_path) + 1);
+      free(rel_path);
+      rel_path = new_rel_path;
+      ++idx;
+    }
+  } while (has_slash);
+
+  return rel_path;
 }

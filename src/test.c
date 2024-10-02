@@ -23,6 +23,7 @@
 #include <string.h>
 
 // Local includes.
+#include "archiver.h"
 #include "helpers.h"
 #include "parser_internal.h"
 
@@ -239,6 +240,21 @@ int main(void) {
     CHECK_TRUE(out);
     CHECK_STREQ(out, "one three.");
     free(out);
+  }
+
+  // Test archiver.
+  {
+    __attribute__((
+        cleanup(simple_archiver_helper_cleanup_c_string))) char *rel_path =
+        simple_archiver_filenames_to_relative_path(
+            "/one/two/three/four/five", "/one/two/branch/other/path");
+    CHECK_STREQ(rel_path, "../../branch/other/path");
+    simple_archiver_helper_cleanup_c_string(&rel_path);
+
+    rel_path = simple_archiver_filenames_to_relative_path(
+        "/one/two/three/four/five", "/one/two/three/other/dir/");
+    CHECK_STREQ(rel_path, "../other/dir/");
+    simple_archiver_helper_cleanup_c_string(&rel_path);
   }
 
   printf("Checks checked: %u\n", checks_checked);
