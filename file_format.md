@@ -118,8 +118,16 @@ Following the link-count bytes, the following bytes are added for each symlink:
     1. The first byte.
         1. The first bit is UNSET if relative links are preferred, and is SET if
            absolute links are preferred.
+        2. The second bit is "user read permission".
+        3. The third bit is "user write permission".
+        4. The fourth bit is "user execute permission".
+        5. The fifth bit is "group read permission".
+        6. The sixth bit is "group write permission".
+        7. The seventh bit is "group execute permission".
+        8. The eighth bit is "other read permission".
     2. The second byte.
-        1. Currently unused.
+        1. The first bit is "other write permission".
+        2. The second bit is "other execute permission".
 2. 2 bytes 16-bit unsigned integer "link name" in big-endian. This does not
    include the NULL at the end of the string. Must not be zero.
 3. X bytes of link-name (length defined by previous value). Is a NULL-terminated

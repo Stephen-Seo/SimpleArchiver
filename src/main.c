@@ -97,7 +97,8 @@ int main(int argc, const char **argv) {
       int ret = simple_archiver_write_all(file, state, filenames);
       if (ret != SDAS_SUCCESS) {
         fprintf(stderr, "Error during writing.\n");
-        char *error_str = simple_archiver_error_to_string(ret);
+        char *error_str =
+            simple_archiver_error_to_string((SDArchiverStateReturns)ret);
         fprintf(stderr, "  %s\n", error_str);
       }
       fclose(file);
@@ -113,7 +114,8 @@ int main(int argc, const char **argv) {
       int ret = simple_archiver_write_all(stdout, state, filenames);
       if (ret != SDAS_SUCCESS) {
         fprintf(stderr, "Error during writing.\n");
-        char *error_str = simple_archiver_error_to_string(ret);
+        char *error_str =
+            simple_archiver_error_to_string((SDArchiverStateReturns)ret);
         fprintf(stderr, "  %s\n", error_str);
       }
     }
@@ -130,7 +132,8 @@ int main(int argc, const char **argv) {
       int ret = simple_archiver_parse_archive_info(file, 0, NULL);
       if (ret != 0) {
         fprintf(stderr, "Error during archive checking/examining.\n");
-        char *error_str = simple_archiver_error_to_string(ret);
+        char *error_str =
+            simple_archiver_error_to_string((SDArchiverStateReturns)ret);
         fprintf(stderr, "  %s\n", error_str);
       }
       fclose(file);
@@ -138,7 +141,8 @@ int main(int argc, const char **argv) {
       int ret = simple_archiver_parse_archive_info(stdin, 0, NULL);
       if (ret != 0) {
         fprintf(stderr, "Error during archive checking/examining.\n");
-        char *error_str = simple_archiver_error_to_string(ret);
+        char *error_str =
+            simple_archiver_error_to_string((SDArchiverStateReturns)ret);
         fprintf(stderr, "  %s\n", error_str);
       }
     }
@@ -157,7 +161,8 @@ int main(int argc, const char **argv) {
       int ret = simple_archiver_parse_archive_info(file, 1, state);
       if (ret != SDAS_SUCCESS) {
         fprintf(stderr, "Error during archive extracting.\n");
-        char *error_str = simple_archiver_error_to_string(ret);
+        char *error_str =
+            simple_archiver_error_to_string((SDArchiverStateReturns)ret);
         fprintf(stderr, "  %s\n", error_str);
       }
       fclose(file);
@@ -165,7 +170,8 @@ int main(int argc, const char **argv) {
       int ret = simple_archiver_parse_archive_info(stdin, 1, state);
       if (ret != SDAS_SUCCESS) {
         fprintf(stderr, "Error during archive extracting.\n");
-        char *error_str = simple_archiver_error_to_string(ret);
+        char *error_str =
+            simple_archiver_error_to_string((SDArchiverStateReturns)ret);
         fprintf(stderr, "  %s\n", error_str);
       }
     }

@@ -40,7 +40,7 @@ typedef struct SDArchiverState {
   size_t digits;
 } SDArchiverState;
 
-enum SDArchiverStateReturns {
+typedef enum SDArchiverStateReturns {
   SDAS_SUCCESS = 0,
   SDAS_HEADER_ALREADY_WRITTEN = 1,
   SDAS_FAILED_TO_WRITE,
@@ -53,7 +53,7 @@ enum SDArchiverStateReturns {
   SDAS_FAILED_TO_EXTRACT_SYMLINK,
   SDAS_FAILED_TO_CHANGE_CWD,
   SDAS_INVALID_WRITE_VERSION
-};
+} SDArchiverStateReturns;
 
 /// Returned pointer must not be freed.
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error);
