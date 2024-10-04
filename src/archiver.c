@@ -2062,6 +2062,11 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     if (state->parsed->compressor && state->parsed->decompressor) {
       // Is compressing.
 
+      __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
+          malloc(sizeof(void *) * 2);
+      ptrs_array[0] = NULL;
+      ptrs_array[1] = NULL;
+
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
       FILE *temp_fd = NULL;
 
@@ -2070,10 +2075,6 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           simple_archiver_helper_cleanup_c_string))) char *temp_filename =
           malloc(temp_filename_size);
 
-      __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
-          malloc(sizeof(void *) * 2);
-      ptrs_array[0] = NULL;
-      ptrs_array[1] = NULL;
       if (state->parsed->temp_dir) {
         size_t idx = 0;
         size_t temp_dir_len = strlen(state->parsed->temp_dir);
