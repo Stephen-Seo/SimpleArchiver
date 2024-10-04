@@ -173,6 +173,9 @@ void simple_archiver_print_usage(void) {
           "--write-version <version> : Force write version file format "
           "(default 1)\n");
   fprintf(stderr,
+          "--chunk-min-size <bytes> : v1 file format minimum chunk size "
+          "(default 4194304 or 4MiB)\n");
+  fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
   fprintf(
       stderr,
@@ -193,6 +196,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
   parsed.write_version = 0;
+  parsed.minimum_chunk_size = 4194304;
 
   return parsed;
 }
@@ -321,6 +325,21 @@ int simple_archiver_parse_args(int argc, const char **argv,
           return 1;
         }
         out->write_version = (uint32_t)version;
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--chunk-min-size") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --chunk-min-size expects an integer argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->minimum_chunk_size = strtoull(argv[1], NULL, 10);
+        if (out->minimum_chunk_size == 0) {
+          fprintf(stderr, "ERROR: --chunk-min-size cannot be zero!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
         --argc;
         ++argv;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {

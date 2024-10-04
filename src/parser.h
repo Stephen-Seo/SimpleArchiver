@@ -53,6 +53,8 @@ typedef struct SDArchiverParsed {
   const char *user_cwd;
   /// Currently only 0 and 1 is supported.
   uint32_t write_version;
+  /// The minimum size of a chunk in bytes (the last chunk may be less).
+  uint64_t minimum_chunk_size;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

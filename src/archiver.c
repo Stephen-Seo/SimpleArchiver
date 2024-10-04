@@ -1330,6 +1330,7 @@ int symlinks_and_files_from_files(void *data, void *ud) {
   void **ptr_array = ud;
   SDArchiverLinkedList *symlinks_list = ptr_array[0];
   SDArchiverLinkedList *files_list = ptr_array[1];
+  const char *user_cwd = ptr_array[2];
 
   if (file_info->filename) {
     if (file_info->link_dest) {
@@ -1337,10 +1338,113 @@ int symlinks_and_files_from_files(void *data, void *ud) {
           symlinks_list, file_info->filename,
           simple_archiver_helper_datastructure_cleanup_nop);
     } else {
-      simple_archiver_list_add(
-          files_list, file_info->filename,
-          simple_archiver_helper_datastructure_cleanup_nop);
+      SDArchiverInternalFileInfo *file_info_struct =
+          malloc(sizeof(SDArchiverInternalFileInfo));
+      file_info_struct->filename = strdup(file_info->filename);
+      file_info_struct->bit_flags[0] = 0xFF;
+      file_info_struct->bit_flags[1] = 1;
+      file_info_struct->bit_flags[2] = 0;
+      file_info_struct->bit_flags[3] = 0;
+      file_info_struct->uid = 0;
+      file_info_struct->gid = 0;
+      file_info_struct->file_size = 0;
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_chdir_back))) char *original_cwd =
+          NULL;
+      if (user_cwd) {
+        original_cwd = realpath(".", NULL);
+        if (chdir(user_cwd)) {
+          free(file_info_struct);
+          return 1;
+        }
+      }
+      struct stat stat_buf;
+      memset(&stat_buf, 0, sizeof(struct stat));
+      int stat_status = fstatat(AT_FDCWD, file_info_struct->filename, &stat_buf,
+                                AT_SYMLINK_NOFOLLOW);
+      if (stat_status != 0) {
+        free(file_info_struct);
+        return 1;
+      }
+      file_info_struct->bit_flags[0] = 0;
+      file_info_struct->bit_flags[1] &= 0xFE;
+      if ((stat_buf.st_mode & S_IRUSR) != 0) {
+        file_info_struct->bit_flags[0] |= 1;
+      }
+      if ((stat_buf.st_mode & S_IWUSR) != 0) {
+        file_info_struct->bit_flags[0] |= 2;
+      }
+      if ((stat_buf.st_mode & S_IXUSR) != 0) {
+        file_info_struct->bit_flags[0] |= 4;
+      }
+      if ((stat_buf.st_mode & S_IRGRP) != 0) {
+        file_info_struct->bit_flags[0] |= 8;
+      }
+      if ((stat_buf.st_mode & S_IWGRP) != 0) {
+        file_info_struct->bit_flags[0] |= 0x10;
+      }
+      if ((stat_buf.st_mode & S_IXGRP) != 0) {
+        file_info_struct->bit_flags[0] |= 0x20;
+      }
+      if ((stat_buf.st_mode & S_IROTH) != 0) {
+        file_info_struct->bit_flags[0] |= 0x40;
+      }
+      if ((stat_buf.st_mode & S_IWOTH) != 0) {
+        file_info_struct->bit_flags[0] |= 0x80;
+      }
+      if ((stat_buf.st_mode & S_IXOTH) != 0) {
+        file_info_struct->bit_flags[1] |= 1;
+      }
+      file_info_struct->uid = stat_buf.st_uid;
+      file_info_struct->gid = stat_buf.st_gid;
+      __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
+          fopen(file_info_struct->filename, "rb");
+      if (!fd) {
+        free(file_info_struct);
+        return 1;
+      }
+      if (fseek(fd, 0, SEEK_END) < 0) {
+        free(file_info_struct);
+        return 1;
+      }
+      long ftell_ret = ftell(fd);
+      if (ftell_ret < 0) {
+        free(file_info_struct);
+        return 1;
+      }
+      file_info_struct->file_size = (uint64_t)ftell_ret;
+      simple_archiver_list_add(files_list, file_info_struct,
+                               free_internal_file_info);
+#endif
     }
+  }
+
+  return 0;
+}
+
+int files_to_chunk_count(void *data, void *ud) {
+  SDArchiverInternalFileInfo *file_info_struct = data;
+  void **ptrs = ud;
+  const uint64_t *chunk_size = ptrs[0];
+  uint64_t *current_size = ptrs[1];
+  uint64_t *current_count = ptrs[2];
+  SDArchiverLinkedList *chunk_counts = ptrs[3];
+
+  ++(*current_count);
+
+  // Get file size.
+  *current_size += file_info_struct->file_size;
+
+  // Check size.
+  if (*current_size >= *chunk_size) {
+    uint64_t *count = malloc(sizeof(uint64_t));
+    *count = *current_count;
+    simple_archiver_list_add(chunk_counts, count, NULL);
+    *current_count = 0;
+    *current_size = 0;
   }
 
   return 0;
@@ -1576,9 +1680,10 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
 
-  ptr_array = malloc(sizeof(void *) * 2);
+  ptr_array = malloc(sizeof(void *) * 3);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
+  ptr_array[2] = (void *)state->parsed->user_cwd;
 
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
@@ -1667,25 +1772,27 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   }
   simple_archiver_helper_32_bit_be(&u32);
 
-  {
-    __attribute__((cleanup(
-        simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
-    if (state->parsed->user_cwd) {
+  // Change cwd if user specified.
+  __attribute__((cleanup(
+      simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
+  if (state->parsed->user_cwd) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-      original_cwd = realpath(".", NULL);
-      if (chdir(state->parsed->user_cwd)) {
-        return SDAS_INTERNAL_ERROR;
-      }
-#endif
+    original_cwd = realpath(".", NULL);
+    if (chdir(state->parsed->user_cwd)) {
+      return SDAS_INTERNAL_ERROR;
     }
+#endif
+  }
+
+  {
     const SDArchiverLLNode *node = symlinks_list->head;
     for (u32 = 0;
          u32 < (uint32_t)symlinks_list->count && node != symlinks_list->tail;) {
       node = node->next;
       ++u32;
-      u16 = 0;
+      memset(buf, 0, 2);
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -1710,7 +1817,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           !simple_archiver_hash_map_get(abs_filenames, abs_path,
                                         strlen(abs_path) + 1)) {
         // Is not a filename being archived, set preference to absolute path.
-        u16 |= 1;
+        buf[0] |= 1;
       }
 
       // Get symlink stats for permissions.
@@ -1723,37 +1830,37 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       }
 
       if ((stat_buf.st_mode & S_IRUSR) != 0) {
-        u16 |= 2;
+        buf[0] |= 2;
       }
       if ((stat_buf.st_mode & S_IWUSR) != 0) {
-        u16 |= 4;
+        buf[0] |= 4;
       }
       if ((stat_buf.st_mode & S_IXUSR) != 0) {
-        u16 |= 8;
+        buf[0] |= 8;
       }
       if ((stat_buf.st_mode & S_IRGRP) != 0) {
-        u16 |= 0x10;
+        buf[0] |= 0x10;
       }
       if ((stat_buf.st_mode & S_IWGRP) != 0) {
-        u16 |= 0x20;
+        buf[0] |= 0x20;
       }
       if ((stat_buf.st_mode & S_IXGRP) != 0) {
-        u16 |= 0x40;
+        buf[0] |= 0x40;
       }
       if ((stat_buf.st_mode & S_IROTH) != 0) {
-        u16 |= 0x80;
+        buf[0] |= (char)0x80;
       }
       if ((stat_buf.st_mode & S_IWOTH) != 0) {
-        u16 |= 0x100;
+        buf[1] |= 1;
       }
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
-        u16 |= 0x200;
+        buf[1] |= 2;
       }
 #else
-      u16 |= 0x3FE;
+      buf[0] = 0xFE;
+      buf[1] = 3;
 #endif
-      simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(&u16, 2, 1, out_f) != 1) {
+      if (fwrite(buf, 1, 2, out_f) != 2) {
         return SDAS_FAILED_TO_WRITE;
       }
 
@@ -1828,11 +1935,169 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     }
   }
 
-  // TODO Chunk count.
+  __attribute__((cleanup(simple_archiver_list_free)))
+  SDArchiverLinkedList *chunk_counts = simple_archiver_list_init();
 
-  // TODO Impl.
-  fprintf(stderr, "Writing v1 unimplemented\n");
-  return SDAS_INTERNAL_ERROR;
+  {
+    uint64_t current_size = 0;
+    uint64_t current_count = 0;
+    void **ptrs = malloc(sizeof(void *) * 4);
+    ptrs[0] = (void *)&state->parsed->minimum_chunk_size;
+    ptrs[1] = &current_size;
+    ptrs[2] = &current_count;
+    ptrs[3] = chunk_counts;
+    if (simple_archiver_list_get(files_list, files_to_chunk_count, ptrs)) {
+      free(ptrs);
+      fprintf(stderr, "ERROR: Internal error calculating chunk counts!\n");
+      return SDAS_INTERNAL_ERROR;
+    }
+    free(ptrs);
+    if (current_size > 0 && current_count > 0) {
+      uint64_t *count = malloc(sizeof(uint64_t));
+      *count = current_count;
+      simple_archiver_list_add(chunk_counts, count, NULL);
+    }
+  }
+
+  // Verify chunk counts.
+  {
+    uint64_t count = 0;
+    for (SDArchiverLLNode *node = chunk_counts->head->next;
+         node != chunk_counts->tail; node = node->next) {
+      if (*((uint64_t *)node->data) > 0xFFFFFFFF) {
+        fprintf(stderr, "ERROR: file count in chunk is too large!\n");
+        return SDAS_INTERNAL_ERROR;
+      }
+      count += *((uint64_t *)node->data);
+      // fprintf(stderr, "DEBUG: chunk count %4llu\n",
+      // *((uint64_t*)node->data));
+    }
+    if (count != files_list->count) {
+      fprintf(stderr,
+              "ERROR: Internal error calculating chunk counts (invalid number "
+              "of files)!\n");
+      return SDAS_INTERNAL_ERROR;
+    }
+  }
+
+  // Write number of chunks.
+  if (chunk_counts->count > 0xFFFFFFFF) {
+    fprintf(stderr, "ERROR: Too many chunks!\n");
+    return SDAS_INTERNAL_ERROR;
+  }
+  u32 = (uint32_t)chunk_counts->count;
+  simple_archiver_helper_32_bit_be(&u32);
+  if (fwrite(&u32, 4, 1, out_f) != 1) {
+    return SDAS_FAILED_TO_WRITE;
+  }
+
+  __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void
+      *non_compressing_chunk_size = NULL;
+  if (!state->parsed->compressor || !state->parsed->decompressor) {
+    non_compressing_chunk_size = malloc(sizeof(uint64_t));
+  }
+  uint64_t *non_c_chunk_size = non_compressing_chunk_size;
+
+  SDArchiverLLNode *file_node = files_list->head;
+  for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
+       chunk_c_node != chunk_counts->tail; chunk_c_node = chunk_c_node->next) {
+    // Write file count before iterating through files.
+    if (non_c_chunk_size) {
+      *non_c_chunk_size = 0;
+    }
+    u32 = (uint32_t)(*((uint64_t *)chunk_c_node->data));
+    simple_archiver_helper_32_bit_be(&u32);
+    if (fwrite(&u32, 4, 1, out_f) != 1) {
+      return SDAS_FAILED_TO_WRITE;
+    }
+    SDArchiverLLNode *saved_node = file_node;
+    for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
+         ++file_idx) {
+      file_node = file_node->next;
+      if (file_node == files_list->tail) {
+        return SDAS_INTERNAL_ERROR;
+      }
+      const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
+      if (non_c_chunk_size) {
+        *non_c_chunk_size += file_info_struct->file_size;
+      }
+      size_t len = strlen(file_info_struct->filename);
+      if (len >= 0xFFFF) {
+        fprintf(stderr, "ERROR: Filename is too large!\n");
+        return SDAS_INVALID_FILE;
+      }
+      u16 = (uint16_t)len;
+      simple_archiver_helper_16_bit_be(&u16);
+      if (fwrite(&u16, 2, 1, out_f) != 1) {
+        return SDAS_FAILED_TO_WRITE;
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+      if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
+          (size_t)u16 + 1) {
+        return SDAS_FAILED_TO_WRITE;
+      } else if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
+        return SDAS_FAILED_TO_WRITE;
+      }
+      // UID and GID.
+      u32 = file_info_struct->uid;
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(&u32, 4, 1, out_f) != 1) {
+        return SDAS_FAILED_TO_WRITE;
+      }
+      u32 = file_info_struct->gid;
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(&u32, 4, 1, out_f) != 1) {
+        return SDAS_FAILED_TO_WRITE;
+      }
+
+      uint64_t u64 = file_info_struct->file_size;
+      simple_archiver_helper_64_bit_be(&u64);
+      if (fwrite(&u64, 8, 1, out_f) != 1) {
+        return SDAS_FAILED_TO_WRITE;
+      }
+    }
+
+    file_node = saved_node;
+
+    if (state->parsed->compressor && state->parsed->decompressor) {
+      // Is compressing.
+      fprintf(stderr, "Writing compressed v1 unimplemented\n");
+      return SDAS_INTERNAL_ERROR;
+    } else {
+      // Is NOT compressing.
+      if (!non_c_chunk_size) {
+        return SDAS_INTERNAL_ERROR;
+      }
+      simple_archiver_helper_64_bit_be(non_c_chunk_size);
+      fwrite(non_c_chunk_size, 8, 1, out_f);
+      for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
+           ++file_idx) {
+        file_node = file_node->next;
+        if (file_node == files_list->tail) {
+          return SDAS_INTERNAL_ERROR;
+        }
+        const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
+        __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
+            fopen(file_info_struct->filename, "rb");
+        while (!feof(fd)) {
+          if (ferror(fd)) {
+            fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          size_t fread_ret = fread(buf, 1, 1024, fd);
+          if (fread_ret > 0) {
+            size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
+            if (fwrite_ret != fread_ret) {
+              fprintf(stderr, "ERROR: Writing to chunk, file write error!\n");
+              return SDAS_FAILED_TO_WRITE;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return SDAS_SUCCESS;
 }
 
 int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
