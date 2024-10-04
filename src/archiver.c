@@ -1882,7 +1882,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
 
-      if (abs_path) {
+      if (abs_path && (state->parsed->flags & 0x20) == 0) {
         len = strlen(abs_path);
         if (len >= 0xFFFF) {
           fprintf(stderr,
@@ -2441,7 +2441,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       }
       buf[1023] = 0;
       fprintf(stderr, "  Filename: %s\n", buf);
-      if (simple_archiver_validate_file_path((char*)buf)) {
+      if (simple_archiver_validate_file_path((char *)buf)) {
         fprintf(stderr, "  ERROR: Invalid filename!\n");
         skip = 1;
       }
@@ -2488,7 +2488,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       uc_heap_buf[u16] = 0;
       fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
 
-      if (simple_archiver_validate_file_path((char*)uc_heap_buf)) {
+      if (simple_archiver_validate_file_path((char *)uc_heap_buf)) {
         fprintf(stderr, "  ERROR: Invalid filename!\n");
         skip = 1;
       }
@@ -3263,6 +3263,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
     if (!do_extract) {
       fprintf(stderr, "  Link name: %s\n", link_name);
+      if (absolute_preferred) {
+        fprintf(stderr, "  Absolute path preferred.\n");
+      } else {
+        fprintf(stderr, "  Relative path preferred.\n");
+      }
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -3298,7 +3303,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         return ret;
       }
       path[u16] = 0;
-      if (do_extract && !skip_due_to_map && !skip_due_to_invalid && absolute_preferred) {
+      if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
+          absolute_preferred) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -3368,7 +3374,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         return ret;
       }
       path[u16] = 0;
-      if (do_extract && !skip_due_to_map && !skip_due_to_invalid && !absolute_preferred) {
+      if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
+          !absolute_preferred) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -3424,8 +3431,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       fprintf(stderr, "  No Relative path.\n");
     }
 
-    if (do_extract && !link_extracted && !skip_due_to_map && !skip_due_to_invalid) {
-      fprintf(stderr, "  WARNING: Symlink \"%s\" was not created!\n", link_name);
+    if (do_extract && !link_extracted && !skip_due_to_map &&
+        !skip_due_to_invalid) {
+      fprintf(stderr, "  WARNING: Symlink \"%s\" was not created!\n",
+              link_name);
     }
   }
 
@@ -3694,7 +3703,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           fprintf(stderr, "    Skipping invalid filename...\n");
         }
 
-        if (do_extract && !skip_due_to_map && (file_info->other_flags & 1) == 0) {
+        if (do_extract && !skip_due_to_map &&
+            (file_info->other_flags & 1) == 0) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -3792,7 +3802,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           fprintf(stderr, "    Skipping invalid filename...\n");
         }
 
-        if (do_extract && !skip_due_to_map && (file_info->other_flags & 1) == 0) {
+        if (do_extract && !skip_due_to_map &&
+            (file_info->other_flags & 1) == 0) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -4030,9 +4041,11 @@ int simple_archiver_validate_file_path(const char *filepath) {
 
   if (len >= 1 && filepath[0] == '/') {
     return 1;
-  } else if (len >= 3 && filepath[0] == '.' && filepath[1] == '.' && filepath[2] == '/') {
+  } else if (len >= 3 && filepath[0] == '.' && filepath[1] == '.' &&
+             filepath[2] == '/') {
     return 2;
-  } else if (len >= 3 && filepath[len - 1] == '.' && filepath[len - 2] == '.' && filepath[len - 3] == '/') {
+  } else if (len >= 3 && filepath[len - 1] == '.' && filepath[len - 2] == '.' &&
+             filepath[len - 3] == '/') {
     return 4;
   }
 
