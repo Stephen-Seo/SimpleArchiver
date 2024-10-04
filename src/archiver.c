@@ -2061,8 +2061,187 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
 
     if (state->parsed->compressor && state->parsed->decompressor) {
       // Is compressing.
-      fprintf(stderr, "Writing compressed v1 unimplemented\n");
-      return SDAS_INTERNAL_ERROR;
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
+      FILE *temp_fd = NULL;
+
+      size_t temp_filename_size = strlen(state->parsed->temp_dir) + 1 + 64;
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_c_string))) char *temp_filename =
+          malloc(temp_filename_size);
+
+      __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
+          malloc(sizeof(void *) * 2);
+      ptrs_array[0] = NULL;
+      ptrs_array[1] = NULL;
+      if (state->parsed->temp_dir) {
+        size_t idx = 0;
+        size_t temp_dir_len = strlen(state->parsed->temp_dir);
+        snprintf(temp_filename, temp_filename_size, TEMP_FILENAME_CMP,
+                 state->parsed->temp_dir,
+                 state->parsed->temp_dir[temp_dir_len - 1] == '/' ? "" : "/",
+                 idx);
+        do {
+          FILE *test_fd = fopen(temp_filename, "rb");
+          if (test_fd) {
+            // File exists.
+            fclose(test_fd);
+            snprintf(
+                temp_filename, temp_filename_size, TEMP_FILENAME_CMP,
+                state->parsed->temp_dir,
+                state->parsed->temp_dir[temp_dir_len - 1] == '/' ? "" : "/",
+                ++idx);
+          } else if (idx > 0xFFFF) {
+            return SDAS_INTERNAL_ERROR;
+          } else {
+            break;
+          }
+        } while (1);
+        temp_fd = fopen(temp_filename, "w+b");
+        ptrs_array[0] = temp_filename;
+      } else {
+        temp_fd = tmpfile();
+      }
+
+      if (!temp_fd) {
+        return SDAS_INTERNAL_ERROR;
+      }
+
+      // Handle SIGPIPE.
+      is_sig_pipe_occurred = 0;
+      signal(SIGPIPE, handle_sig_pipe);
+
+      int pipe_into_cmd[2];
+      int pipe_outof_cmd[2];
+      pid_t compressor_pid;
+
+      if (pipe(pipe_into_cmd) != 0) {
+        // Unable to create pipes.
+        return SDAS_INTERNAL_ERROR;
+      } else if (pipe(pipe_outof_cmd) != 0) {
+        // Unable to create second set of pipes.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        return SDAS_INTERNAL_ERROR;
+      } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                             state->parsed->compressor,
+                                             &compressor_pid) != 0) {
+        // Failed to spawn compressor.
+        close(pipe_into_cmd[1]);
+        close(pipe_outof_cmd[0]);
+        fprintf(stderr,
+                "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
+        return SDAS_INTERNAL_ERROR;
+      }
+
+      // Close unnecessary pipe fds on this end of the transfer.
+      close(pipe_into_cmd[0]);
+      close(pipe_outof_cmd[1]);
+
+      // Set up cleanup so that remaining open pipes in this side is cleaned up.
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_int_fd))) int pipe_into_write =
+          pipe_into_cmd[1];
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_int_fd))) int pipe_outof_read =
+          pipe_outof_cmd[0];
+
+      for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
+           ++file_idx) {
+        file_node = file_node->next;
+        if (file_node == files_list->tail) {
+          return SDAS_INTERNAL_ERROR;
+        }
+        const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
+        __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
+            fopen(file_info_struct->filename, "rb");
+        while (!feof(fd)) {
+          if (ferror(fd)) {
+            fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          size_t fread_ret = fread(buf, 1, 1024, fd);
+          if (fread_ret > 0) {
+            ssize_t write_ret = write(pipe_into_write, buf, fread_ret);
+            if (write_ret < 0) {
+              fprintf(stderr,
+                      "ERROR: Writing to compressor, pipe write error!\n");
+              return SDAS_FAILED_TO_WRITE;
+            } else if ((size_t)write_ret != fread_ret) {
+              fprintf(stderr,
+                      "ERROR: Writing to compressor, unable to write bytes!\n");
+              return SDAS_FAILED_TO_WRITE;
+            }
+          }
+        }
+      }
+
+      // Close write to pipe to compressor as the chunk is written.
+      simple_archiver_internal_cleanup_int_fd(&pipe_into_write);
+
+      // Read compressed data into temporary file.
+      do {
+        ssize_t read_ret = read(pipe_outof_read, buf, 1024);
+        if (read_ret < 0) {
+          fprintf(stderr, "ERROR: Reading from compressor, pipe read error!\n");
+          return SDAS_INTERNAL_ERROR;
+        } else if (read_ret == 0) {
+          // EOF.
+          break;
+        } else {
+          size_t fwrite_ret = fwrite(buf, 1, (size_t)read_ret, temp_fd);
+          if (fwrite_ret != (size_t)read_ret) {
+            fprintf(stderr,
+                    "ERROR: Reading from compressor, failed to write to "
+                    "temporary file!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+        }
+      } while (1);
+
+      // Close read from pipe from compressor as chunk is fully compressed.
+      simple_archiver_internal_cleanup_int_fd(&pipe_outof_read);
+
+      // Wait on compressor to stop.
+      waitpid(compressor_pid, NULL, 0);
+
+      long comp_chunk_size = ftell(temp_fd);
+      if (comp_chunk_size < 0) {
+        fprintf(stderr,
+                "ERROR: Temp file reported negative size after compression!\n");
+        return SDAS_INTERNAL_ERROR;
+      }
+
+      // Write compressed chunk size.
+      uint64_t u64 = (uint64_t)comp_chunk_size;
+      simple_archiver_helper_64_bit_be(&u64);
+      if (fwrite(&u64, 8, 1, out_f) != 1) {
+        return SDAS_FAILED_TO_WRITE;
+      }
+
+      if (fseek(temp_fd, 0, SEEK_SET) != 0) {
+        return SDAS_INTERNAL_ERROR;
+      }
+
+      // Write compressed chunk.
+      while (!feof(temp_fd)) {
+        if (ferror(temp_fd)) {
+          return SDAS_INTERNAL_ERROR;
+        }
+        size_t fread_ret = fread(buf, 1, 1024, temp_fd);
+        if (fread_ret > 0) {
+          size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
+          if (fwrite_ret != fread_ret) {
+            fprintf(stderr,
+                    "ERROR: Partial write of read bytes from temp file to "
+                    "output file!\n");
+            return SDAS_FAILED_TO_WRITE;
+          }
+        }
+      }
+
+      // Cleanup and remove temp_fd.
+      simple_archiver_helper_cleanup_FILE(&temp_fd);
     } else {
       // Is NOT compressing.
       if (!non_c_chunk_size) {
@@ -3355,22 +3534,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDAS_INTERNAL_ERROR;
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
-        // Unable to set non-blocking on into-write-pipe.
-        close(pipe_into_cmd[0]);
-        close(pipe_into_cmd[1]);
-        close(pipe_outof_cmd[0]);
-        close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
       }
-      // else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
-      //   // Unable to set non-blocking on outof-read-pipe.
-      //   close(pipe_into_cmd[0]);
-      //   close(pipe_into_cmd[1]);
-      //   close(pipe_outof_cmd[0]);
-      //   close(pipe_outof_cmd[1]);
-      //   return SDAS_INTERNAL_ERROR;
-      // }
 
       if (state && state->parsed && state->parsed->decompressor) {
         if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -3450,7 +3614,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           } else if (write_ret == -1) {
             fprintf(stderr,
                     "WARNING: Failed to write chunk data into decompressor! "
-                    "Invalid decompressor cmd?\n");
+                    "Invalid decompressor cmd? (errno %d)\n",
+                    errno);
             return SDAS_INTERNAL_ERROR;
           } else {
             fprintf(stderr,

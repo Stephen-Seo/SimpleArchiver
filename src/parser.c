@@ -195,7 +195,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.working_files = NULL;
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
-  parsed.write_version = 0;
+  parsed.write_version = 1;
   parsed.minimum_chunk_size = 4194304;
 
   return parsed;
