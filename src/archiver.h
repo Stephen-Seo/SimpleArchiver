@@ -92,4 +92,10 @@ int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
 char *simple_archiver_filenames_to_relative_path(const char *from_abs,
                                                  const char *to_abs);
 
+/// Gets the absolute path to a file given a path to a file.
+/// Should also work on symlinks such that the returned string is the path to
+/// the link itself, not what it points to.
+/// Non-NULL on success, and must be free'd if non-NULL.
+char *simple_archiver_file_abs_path(const char *filename);
+
 #endif

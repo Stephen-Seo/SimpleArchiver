@@ -99,49 +99,6 @@ void cleanup_temp_filename_delete(void ***ptrs_array) {
 #endif
 }
 
-char *filename_to_absolute_path(const char *filename) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-  __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void *path =
-      malloc(strlen(filename) + 1);
-  strncpy(path, filename, strlen(filename) + 1);
-
-  char *path_dir = dirname(path);
-  if (!path_dir) {
-    return NULL;
-  }
-
-  __attribute__((
-      cleanup(simple_archiver_helper_cleanup_malloced))) void *dir_realpath =
-      realpath(path_dir, NULL);
-  if (!dir_realpath) {
-    return NULL;
-  }
-
-  // Recreate "path" since it may have been modified by dirname().
-  simple_archiver_helper_cleanup_malloced(&path);
-  path = malloc(strlen(filename) + 1);
-  strncpy(path, filename, strlen(filename) + 1);
-
-  char *filename_basename = basename(path);
-  if (!filename_basename) {
-    return NULL;
-  }
-
-  // Get combined full path to file.
-  char *fullpath =
-      malloc(strlen(dir_realpath) + 1 + strlen(filename_basename) + 1);
-  strncpy(fullpath, dir_realpath, strlen(dir_realpath) + 1);
-  fullpath[strlen(dir_realpath)] = '/';
-  strncpy(fullpath + strlen(dir_realpath) + 1, filename_basename,
-          strlen(filename_basename) + 1);
-
-  return fullpath;
-#endif
-  return NULL;
-}
-
 int write_files_fn(void *data, void *ud) {
   const SDArchiverFileInfo *file_info = data;
   SDArchiverState *state = ud;
@@ -760,7 +717,7 @@ int write_files_fn(void *data, void *ud) {
       // First get absolute path of link.
       __attribute__((cleanup(
           simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-          filename_to_absolute_path(file_info->filename);
+          simple_archiver_file_abs_path(file_info->filename);
       if (!link_abs_path) {
         fprintf(stderr, "WARNING: Failed to get absolute path of link!\n");
       } else {
@@ -895,7 +852,7 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   }
 
   // Get combined full path to file.
-  char *fullpath = filename_to_absolute_path(file_info->filename);
+  char *fullpath = simple_archiver_file_abs_path(file_info->filename);
   if (!fullpath) {
     return 1;
   }
@@ -3276,4 +3233,47 @@ char *simple_archiver_filenames_to_relative_path(const char *from_abs,
   } while (has_slash);
 
   return rel_path;
+}
+
+char *simple_archiver_file_abs_path(const char *filename) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+  __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void *path =
+      malloc(strlen(filename) + 1);
+  strncpy(path, filename, strlen(filename) + 1);
+
+  char *path_dir = dirname(path);
+  if (!path_dir) {
+    return NULL;
+  }
+
+  __attribute__((
+      cleanup(simple_archiver_helper_cleanup_malloced))) void *dir_realpath =
+      realpath(path_dir, NULL);
+  if (!dir_realpath) {
+    return NULL;
+  }
+
+  // Recreate "path" since it may have been modified by dirname().
+  simple_archiver_helper_cleanup_malloced(&path);
+  path = malloc(strlen(filename) + 1);
+  strncpy(path, filename, strlen(filename) + 1);
+
+  char *filename_basename = basename(path);
+  if (!filename_basename) {
+    return NULL;
+  }
+
+  // Get combined full path to file.
+  char *fullpath =
+      malloc(strlen(dir_realpath) + 1 + strlen(filename_basename) + 1);
+  strncpy(fullpath, dir_realpath, strlen(dir_realpath) + 1);
+  fullpath[strlen(dir_realpath)] = '/';
+  strncpy(fullpath + strlen(dir_realpath) + 1, filename_basename,
+          strlen(filename_basename) + 1);
+
+  return fullpath;
+#endif
+  return NULL;
 }
