@@ -1325,6 +1325,27 @@ void simple_archiver_internal_cleanup_decomp(pid_t *decomp_pid) {
 }
 #endif
 
+int symlinks_and_files_from_files(void *data, void *ud) {
+  SDArchiverFileInfo *file_info = data;
+  void **ptr_array = ud;
+  SDArchiverLinkedList *symlinks_list = ptr_array[0];
+  SDArchiverLinkedList *files_list = ptr_array[1];
+
+  if (file_info->filename) {
+    if (file_info->link_dest) {
+      simple_archiver_list_add(
+          symlinks_list, file_info->filename,
+          simple_archiver_helper_datastructure_cleanup_nop);
+    } else {
+      simple_archiver_list_add(
+          files_list, file_info->filename,
+          simple_archiver_helper_datastructure_cleanup_nop);
+    }
+  }
+
+  return 0;
+}
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -1548,6 +1569,266 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     return SDAS_FAILED_TO_CREATE_MAP;
   }
   free(ptr_array);
+
+  // Get a list of symlinks and a list of files.
+  __attribute__((cleanup(simple_archiver_list_free)))
+  SDArchiverLinkedList *symlinks_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_list_free)))
+  SDArchiverLinkedList *files_list = simple_archiver_list_init();
+
+  ptr_array = malloc(sizeof(void *) * 2);
+  ptr_array[0] = symlinks_list;
+  ptr_array[1] = files_list;
+
+  if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
+                               ptr_array)) {
+    free(ptr_array);
+    return SDAS_INTERNAL_ERROR;
+  }
+  free(ptr_array);
+
+  if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
+    return SDAS_FAILED_TO_WRITE;
+  }
+
+  char buf[1024];
+  uint16_t u16 = 1;
+
+  simple_archiver_helper_16_bit_be(&u16);
+
+  if (fwrite(&u16, 2, 1, out_f) != 1) {
+    return SDAS_FAILED_TO_WRITE;
+  }
+
+  if (state->parsed->compressor && !state->parsed->decompressor) {
+    return SDAS_NO_DECOMPRESSOR;
+  } else if (!state->parsed->compressor && state->parsed->decompressor) {
+    return SDAS_NO_COMPRESSOR;
+  } else if (state->parsed->compressor && state->parsed->decompressor) {
+    // 4 bytes flags, using de/compressor.
+    memset(buf, 0, 4);
+    buf[0] |= 1;
+    if (fwrite(buf, 1, 4, out_f) != 4) {
+      return SDAS_FAILED_TO_WRITE;
+    }
+
+    size_t len = strlen(state->parsed->compressor);
+    if (len >= 0xFFFF) {
+      fprintf(stderr, "ERROR: Compressor cmd is too long!\n");
+      return SDAS_INVALID_PARSED_STATE;
+    }
+
+    u16 = (uint16_t)len;
+    simple_archiver_helper_16_bit_be(&u16);
+    if (fwrite(&u16, 1, 2, out_f) != 2) {
+      return SDAS_FAILED_TO_WRITE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+
+    if (fwrite(state->parsed->compressor, 1, u16 + 1, out_f) !=
+        (size_t)u16 + 1) {
+      return SDAS_FAILED_TO_WRITE;
+    }
+
+    len = strlen(state->parsed->decompressor);
+    if (len >= 0xFFFF) {
+      fprintf(stderr, "ERROR: Decompressor cmd is too long!\n");
+      return SDAS_INVALID_PARSED_STATE;
+    }
+
+    u16 = (uint16_t)len;
+    simple_archiver_helper_16_bit_be(&u16);
+    if (fwrite(&u16, 1, 2, out_f) != 2) {
+      return SDAS_FAILED_TO_WRITE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+
+    if (fwrite(state->parsed->decompressor, 1, u16 + 1, out_f) !=
+        (size_t)u16 + 1) {
+      return SDAS_FAILED_TO_WRITE;
+    }
+  } else {
+    // 4 bytes flags, not using de/compressor.
+    memset(buf, 0, 4);
+    if (fwrite(buf, 1, 4, out_f) != 4) {
+      return SDAS_FAILED_TO_WRITE;
+    }
+  }
+
+  if (symlinks_list->count > 0xFFFFFFFF) {
+    fprintf(stderr, "ERROR: Too many symlinks!\n");
+    return SDAS_INVALID_PARSED_STATE;
+  }
+
+  uint32_t u32 = (uint32_t)symlinks_list->count;
+  simple_archiver_helper_32_bit_be(&u32);
+  if (fwrite(&u32, 4, 1, out_f) != 1) {
+    return SDAS_FAILED_TO_WRITE;
+  }
+  simple_archiver_helper_32_bit_be(&u32);
+
+  {
+    __attribute__((cleanup(
+        simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
+    if (state->parsed->user_cwd) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      original_cwd = realpath(".", NULL);
+      if (chdir(state->parsed->user_cwd)) {
+        return SDAS_INTERNAL_ERROR;
+      }
+#endif
+    }
+    const SDArchiverLLNode *node = symlinks_list->head;
+    for (u32 = 0;
+         u32 < (uint32_t)symlinks_list->count && node != symlinks_list->tail;) {
+      node = node->next;
+      ++u32;
+      u16 = 0;
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      // Check if symlink points to thing to be stored into archive.
+      __attribute__((
+          cleanup(simple_archiver_helper_cleanup_malloced))) void *abs_path =
+          realpath(node->data, NULL);
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_malloced))) void *rel_path = NULL;
+      if (abs_path) {
+        __attribute__((cleanup(
+            simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
+            simple_archiver_file_abs_path(node->data);
+        if (!link_abs_path) {
+          fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
+        } else {
+          rel_path = simple_archiver_filenames_to_relative_path(link_abs_path,
+                                                                abs_path);
+        }
+      }
+      if (abs_path && (state->parsed->flags & 0x20) == 0 &&
+          !simple_archiver_hash_map_get(abs_filenames, abs_path,
+                                        strlen(abs_path) + 1)) {
+        // Is not a filename being archived, set preference to absolute path.
+        u16 |= 1;
+      }
+
+      // Get symlink stats for permissions.
+      struct stat stat_buf;
+      memset(&stat_buf, 0, sizeof(struct stat));
+      int stat_status =
+          fstatat(AT_FDCWD, node->data, &stat_buf, AT_SYMLINK_NOFOLLOW);
+      if (stat_status != 0) {
+        return SDAS_INTERNAL_ERROR;
+      }
+
+      if ((stat_buf.st_mode & S_IRUSR) != 0) {
+        u16 |= 2;
+      }
+      if ((stat_buf.st_mode & S_IWUSR) != 0) {
+        u16 |= 4;
+      }
+      if ((stat_buf.st_mode & S_IXUSR) != 0) {
+        u16 |= 8;
+      }
+      if ((stat_buf.st_mode & S_IRGRP) != 0) {
+        u16 |= 0x10;
+      }
+      if ((stat_buf.st_mode & S_IWGRP) != 0) {
+        u16 |= 0x20;
+      }
+      if ((stat_buf.st_mode & S_IXGRP) != 0) {
+        u16 |= 0x40;
+      }
+      if ((stat_buf.st_mode & S_IROTH) != 0) {
+        u16 |= 0x80;
+      }
+      if ((stat_buf.st_mode & S_IWOTH) != 0) {
+        u16 |= 0x100;
+      }
+      if ((stat_buf.st_mode & S_IXOTH) != 0) {
+        u16 |= 0x200;
+      }
+#else
+      u16 |= 0x3FE;
+#endif
+      simple_archiver_helper_16_bit_be(&u16);
+      if (fwrite(&u16, 2, 1, out_f) != 1) {
+        return SDAS_FAILED_TO_WRITE;
+      }
+
+      size_t len = strlen(node->data);
+      if (len >= 0xFFFF) {
+        fprintf(stderr, "ERROR: Link name is too long!\n");
+        return SDAS_INVALID_PARSED_STATE;
+      }
+
+      u16 = (uint16_t)len;
+      simple_archiver_helper_16_bit_be(&u16);
+      if (fwrite(&u16, 2, 1, out_f) != 1) {
+        return SDAS_FAILED_TO_WRITE;
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+      if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+        return SDAS_FAILED_TO_WRITE;
+      }
+
+      if (abs_path) {
+        len = strlen(abs_path);
+        if (len >= 0xFFFF) {
+          fprintf(stderr,
+                  "ERROR: Symlink destination absolute path is too long!\n");
+          return SDAS_INVALID_PARSED_STATE;
+        }
+
+        u16 = (uint16_t)len;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else {
+        u16 = 0;
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      }
+
+      if (rel_path) {
+        len = strlen(rel_path);
+        if (len >= 0xFFFF) {
+          fprintf(stderr,
+                  "ERROR: Symlink destination relative path is too long!\n");
+          return SDAS_INVALID_PARSED_STATE;
+        }
+
+        u16 = (uint16_t)len;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else {
+        u16 = 0;
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      }
+    }
+    if (u32 != (uint32_t)symlinks_list->count) {
+      fprintf(stderr, "ERROR: Iterated through %u symlinks out of %u total!\n",
+              u32, (uint32_t)symlinks_list->count);
+      return SDAS_INTERNAL_ERROR;
+    }
+  }
+
+  // TODO Chunk count.
 
   // TODO Impl.
   fprintf(stderr, "Writing v1 unimplemented\n");
