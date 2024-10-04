@@ -2734,7 +2734,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           int_fast8_t write_again = 0;
           int_fast8_t write_pipe_done = 0;
           int_fast8_t read_pipe_done = 0;
-          size_t fread_ret;
+          size_t fread_ret = 0;
           char recv_buf[1024];
           size_t amount_to_read;
           while (!write_pipe_done || !read_pipe_done) {
@@ -3933,11 +3933,12 @@ char *simple_archiver_filenames_to_relative_path(const char *from_abs,
       has_slash = 0;
     } else {
       has_slash = 1;
-      char *new_rel_path = malloc(strlen(rel_path) + 1 + 3);
+      size_t new_rel_path_size = strlen(rel_path) + 1 + 3;
+      char *new_rel_path = malloc(new_rel_path_size);
       new_rel_path[0] = '.';
       new_rel_path[1] = '.';
       new_rel_path[2] = '/';
-      strncpy(new_rel_path + 3, rel_path, strlen(rel_path) + 1);
+      strncpy(new_rel_path + 3, rel_path, new_rel_path_size - 3);
       free(rel_path);
       rel_path = new_rel_path;
       ++idx;
@@ -3978,12 +3979,13 @@ char *simple_archiver_file_abs_path(const char *filename) {
   }
 
   // Get combined full path to file.
-  char *fullpath =
-      malloc(strlen(dir_realpath) + 1 + strlen(filename_basename) + 1);
-  strncpy(fullpath, dir_realpath, strlen(dir_realpath) + 1);
-  fullpath[strlen(dir_realpath)] = '/';
-  strncpy(fullpath + strlen(dir_realpath) + 1, filename_basename,
-          strlen(filename_basename) + 1);
+  const size_t realpath_size = strlen(dir_realpath) + 1;
+  const size_t basename_size = strlen(filename_basename) + 1;
+  const size_t fullpath_size = realpath_size + basename_size;
+  char *fullpath = malloc(fullpath_size);
+  strncpy(fullpath, dir_realpath, realpath_size);
+  fullpath[realpath_size - 1] = '/';
+  strcpy(fullpath + realpath_size, filename_basename);
 
   return fullpath;
 #endif
