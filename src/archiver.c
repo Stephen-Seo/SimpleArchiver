@@ -2974,13 +2974,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
   for (uint32_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     fprintf(stderr, "CHUNK %3u of %3u\n", chunk_idx + 1, chunk_count);
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(buf, 1, 4, in_f) != 4) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
-    simple_archiver_helper_16_bit_be(&u16);
+    memcpy(&u32, buf, 4);
+    simple_archiver_helper_32_bit_be(&u32);
 
-    const uint16_t file_count = u16;
+    const uint32_t file_count = u32;
 
     __attribute__((cleanup(simple_archiver_list_free)))
     SDArchiverLinkedList *file_info_list = simple_archiver_list_init();
@@ -2988,7 +2988,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     __attribute__((cleanup(cleanup_internal_file_info)))
     SDArchiverInternalFileInfo *file_info = NULL;
 
-    for (uint16_t file_idx = 0; file_idx < file_count; ++file_idx) {
+    for (uint32_t file_idx = 0; file_idx < file_count; ++file_idx) {
       file_info = malloc(sizeof(SDArchiverInternalFileInfo));
       memset(file_info, 0, sizeof(SDArchiverInternalFileInfo));
 
