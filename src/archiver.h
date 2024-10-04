@@ -98,4 +98,14 @@ char *simple_archiver_filenames_to_relative_path(const char *from_abs,
 /// Non-NULL on success, and must be free'd if non-NULL.
 char *simple_archiver_file_abs_path(const char *filename);
 
+/// Used to validate a file in a ".simplearchive" file to avoid writing outside
+/// of current working directory.
+/// Returns zero if file is OK.
+/// Returns 1 if file starts with '/'.
+/// Returns 2 if file contains '../' at the start.
+/// Returns 3 if file contains '/../' in the middle.
+/// Returns 4 if file contains '/..' at the end.
+/// Returns 5 if "filepath" is NULL.
+int simple_archiver_validate_file_path(const char *filepath);
+
 #endif

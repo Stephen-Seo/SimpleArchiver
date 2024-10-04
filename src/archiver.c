@@ -66,6 +66,8 @@ typedef struct SDArchiverInternalFileInfo {
   uint32_t uid;
   uint32_t gid;
   uint64_t file_size;
+  /// xxxx xxx1 - is invalid.
+  int_fast8_t other_flags;
 } SDArchiverInternalFileInfo;
 
 void free_internal_to_write(void *data) {
@@ -2403,7 +2405,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
   const size_t digits = simple_archiver_helper_num_digits(size);
   char format_str[128];
   snprintf(format_str, 128, FILE_COUNTS_OUTPUT_FORMAT_STR_0, digits, digits);
-  int_fast8_t skip = 0;
+  int_fast8_t skip;
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *hash_map = NULL;
   if (state && state->parsed->working_files &&
@@ -2421,6 +2423,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     }
   }
   for (uint32_t idx = 0; idx < size; ++idx) {
+    skip = 0;
     fprintf(stderr, format_str, idx + 1, size);
     if (feof(in_f) || ferror(in_f)) {
       return SDAS_INVALID_FILE;
@@ -2438,7 +2441,12 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       }
       buf[1023] = 0;
       fprintf(stderr, "  Filename: %s\n", buf);
-      if (do_extract) {
+      if (simple_archiver_validate_file_path((char*)buf)) {
+        fprintf(stderr, "  ERROR: Invalid filename!\n");
+        skip = 1;
+      }
+
+      if (do_extract && !skip) {
         if ((state->parsed->flags & 0x8) == 0) {
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
           FILE *test_fd = fopen((const char *)buf, "rb");
@@ -2479,7 +2487,13 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       }
       uc_heap_buf[u16] = 0;
       fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
-      if (do_extract) {
+
+      if (simple_archiver_validate_file_path((char*)uc_heap_buf)) {
+        fprintf(stderr, "  ERROR: Invalid filename!\n");
+        skip = 1;
+      }
+
+      if (do_extract && !skip) {
         if ((state->parsed->flags & 0x8) == 0) {
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
           FILE *test_fd = fopen((const char *)uc_heap_buf, "rb");
@@ -3229,6 +3243,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
     uint_fast8_t link_extracted = 0;
     uint_fast8_t skip_due_to_map = 0;
+    uint_fast8_t skip_due_to_invalid = 0;
 
     if (fread(buf, 1, 2, in_f) != 2) {
       return SDAS_INVALID_FILE;
@@ -3257,6 +3272,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 #endif
     }
 
+    if (simple_archiver_validate_file_path(link_name)) {
+      fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
+      skip_due_to_invalid = 1;
+    }
+
     if (working_files_map &&
         simple_archiver_hash_map_get(working_files_map, link_name, u16 + 1) ==
             NULL) {
@@ -3278,7 +3298,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         return ret;
       }
       path[u16] = 0;
-      if (do_extract && !skip_due_to_map && absolute_preferred) {
+      if (do_extract && !skip_due_to_map && !skip_due_to_invalid && absolute_preferred) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -3348,7 +3368,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         return ret;
       }
       path[u16] = 0;
-      if (do_extract && !skip_due_to_map && !absolute_preferred) {
+      if (do_extract && !skip_due_to_map && !skip_due_to_invalid && !absolute_preferred) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -3404,8 +3424,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       fprintf(stderr, "  No Relative path.\n");
     }
 
-    if (do_extract && !link_extracted && !skip_due_to_map) {
-      fprintf(stderr, "WARNING Symlink \"%s\" was not created!\n", link_name);
+    if (do_extract && !link_extracted && !skip_due_to_map && !skip_due_to_invalid) {
+      fprintf(stderr, "  WARNING: Symlink \"%s\" was not created!\n", link_name);
     }
   }
 
@@ -3450,6 +3470,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         return ret;
       }
       file_info->filename[u16] = 0;
+
+      if (simple_archiver_validate_file_path(file_info->filename)) {
+        fprintf(stderr, "ERROR: File idx %u: Invalid filename!\n", file_idx);
+        file_info->other_flags |= 1;
+      }
 
       if (state && state->parsed && (state->parsed->flags & 8) != 0) {
         int fd = open((const char *)buf, O_RDONLY | O_NOFOLLOW);
@@ -3665,9 +3690,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                                      strlen(file_info->filename) + 1) == NULL) {
           skip_due_to_map = 1;
           fprintf(stderr, "    Skipping not specified in args...\n");
+        } else if ((file_info->other_flags & 1) != 0) {
+          fprintf(stderr, "    Skipping invalid filename...\n");
         }
 
-        if (do_extract && !skip_due_to_map) {
+        if (do_extract && !skip_due_to_map && (file_info->other_flags & 1) == 0) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -3709,7 +3736,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             return SDAS_INTERNAL_ERROR;
           }
 #endif
-        } else if (!skip_due_to_map) {
+        } else if (!skip_due_to_map && (file_info->other_flags & 1) == 0) {
           fprintf(stderr, "    Permissions: ");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
           fprintf(stderr, "\n    UID: %u\n    GID: %u\n", file_info->uid,
@@ -3761,9 +3788,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                                      strlen(file_info->filename) + 1) == NULL) {
           skip_due_to_map = 1;
           fprintf(stderr, "    Skipping not specified in args...\n");
+        } else if (file_info->other_flags & 1) {
+          fprintf(stderr, "    Skipping invalid filename...\n");
         }
 
-        if (do_extract && !skip_due_to_map) {
+        if (do_extract && !skip_due_to_map && (file_info->other_flags & 1) == 0) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -3809,7 +3838,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             return SDAS_INTERNAL_ERROR;
           }
 #endif
-        } else if (!skip_due_to_map) {
+        } else if (!skip_due_to_map && (file_info->other_flags & 1) == 0) {
           fprintf(stderr, "    Permissions: ");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
           fprintf(stderr, "\n    UID: %u\n    GID: %u\n", file_info->uid,
@@ -3990,4 +4019,30 @@ char *simple_archiver_file_abs_path(const char *filename) {
   return fullpath;
 #endif
   return NULL;
+}
+
+int simple_archiver_validate_file_path(const char *filepath) {
+  if (!filepath) {
+    return 5;
+  }
+
+  const size_t len = strlen(filepath);
+
+  if (len >= 1 && filepath[0] == '/') {
+    return 1;
+  } else if (len >= 3 && filepath[0] == '.' && filepath[1] == '.' && filepath[2] == '/') {
+    return 2;
+  } else if (len >= 3 && filepath[len - 1] == '.' && filepath[len - 2] == '.' && filepath[len - 3] == '/') {
+    return 4;
+  }
+
+  for (size_t idx = 0; idx < len; ++idx) {
+    if (len - idx < 4) {
+      break;
+    } else if (strncmp(filepath + idx, "/../", 4) == 0) {
+      return 3;
+    }
+  }
+
+  return 0;
 }

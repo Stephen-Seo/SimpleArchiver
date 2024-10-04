@@ -255,6 +255,12 @@ int main(void) {
         "/one/two/three/four/five", "/one/two/three/other/dir/");
     CHECK_STREQ(rel_path, "../other/dir/");
     simple_archiver_helper_cleanup_c_string(&rel_path);
+
+    CHECK_FALSE(simple_archiver_validate_file_path("Local/Path"));
+    CHECK_TRUE(simple_archiver_validate_file_path("/Abs/Path"));
+    CHECK_TRUE(simple_archiver_validate_file_path("Local/../../not/really"));
+    CHECK_TRUE(simple_archiver_validate_file_path("./../almost"));
+    CHECK_TRUE(simple_archiver_validate_file_path("strange/.."));
   }
 
   printf("Checks checked: %u\n", checks_checked);
