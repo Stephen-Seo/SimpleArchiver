@@ -1389,7 +1389,7 @@ void simple_archiver_internal_cleanup_int_fd(int *fd) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-void simple_archiver_internal_cleanup_decomp(pid_t *decomp_pid) {
+void simple_archiver_internal_cleanup_decomp_pid(pid_t *decomp_pid) {
   if (decomp_pid && *decomp_pid >= 0) {
     int decompressor_status;
     int decompressor_return_val;
@@ -2215,7 +2215,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
-      pid_t compressor_pid;
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_decomp_pid))) pid_t compressor_pid =
+          -1;
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
@@ -2224,6 +2226,20 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
+        return SDAS_INTERNAL_ERROR;
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+        // Unable to set non-blocking on into-write-pipe.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        close(pipe_outof_cmd[0]);
+        close(pipe_outof_cmd[1]);
+        return SDAS_INTERNAL_ERROR;
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+        // Unable to set non-blocking on outof-read-pipe.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        close(pipe_outof_cmd[0]);
+        close(pipe_outof_cmd[1]);
         return SDAS_INTERNAL_ERROR;
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                              state->parsed->compressor,
@@ -2242,12 +2258,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
 
       // Set up cleanup so that remaining open pipes in this side is cleaned up.
       __attribute__((cleanup(
-          simple_archiver_internal_cleanup_int_fd))) int pipe_into_write =
-          pipe_into_cmd[1];
-      __attribute__((cleanup(
           simple_archiver_internal_cleanup_int_fd))) int pipe_outof_read =
           pipe_outof_cmd[0];
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_int_fd))) int pipe_into_write =
+          pipe_into_cmd[1];
 
+      int_fast8_t to_temp_finished = 0;
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         file_node = file_node->next;
@@ -2257,55 +2274,92 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
             fopen(file_info_struct->filename, "rb");
-        while (!feof(fd)) {
-          if (ferror(fd)) {
-            fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-            return SDAS_INTERNAL_ERROR;
+
+        int_fast8_t to_comp_finished = 0;
+        while (!to_comp_finished) {
+          if (!to_comp_finished) {
+            // Write to compressor.
+            if (ferror(fd)) {
+              fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
+              return SDAS_INTERNAL_ERROR;
+            }
+            size_t fread_ret = fread(buf, 1, 1024, fd);
+            if (fread_ret > 0) {
+              ssize_t write_ret = write(pipe_into_write, buf, fread_ret);
+              if (write_ret < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                  // Non-blocking write.
+                } else {
+                  fprintf(stderr,
+                          "ERROR: Writing to compressor, pipe write error!\n");
+                  return SDAS_FAILED_TO_WRITE;
+                }
+              } else if ((size_t)write_ret != fread_ret) {
+                fprintf(
+                    stderr,
+                    "ERROR: Writing to compressor, unable to write bytes!\n");
+                return SDAS_FAILED_TO_WRITE;
+              }
+            }
+
+            if (feof(fd)) {
+              to_comp_finished = 1;
+            }
           }
-          size_t fread_ret = fread(buf, 1, 1024, fd);
-          if (fread_ret > 0) {
-            ssize_t write_ret = write(pipe_into_write, buf, fread_ret);
-            if (write_ret < 0) {
+
+          // Write compressed data to temp file.
+          ssize_t read_ret = read(pipe_outof_read, buf, 1024);
+          if (read_ret < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+              // Non-blocking read.
+            } else {
               fprintf(stderr,
-                      "ERROR: Writing to compressor, pipe write error!\n");
-              return SDAS_FAILED_TO_WRITE;
-            } else if ((size_t)write_ret != fread_ret) {
+                      "ERROR: Reading from compressor, pipe read error!\n");
+              return SDAS_INTERNAL_ERROR;
+            }
+          } else if (read_ret == 0) {
+            // EOF.
+            to_temp_finished = 1;
+          } else {
+            size_t fwrite_ret = fwrite(buf, 1, (size_t)read_ret, temp_fd);
+            if (fwrite_ret != (size_t)read_ret) {
               fprintf(stderr,
-                      "ERROR: Writing to compressor, unable to write bytes!\n");
-              return SDAS_FAILED_TO_WRITE;
+                      "ERROR: Reading from compressor, failed to write to "
+                      "temporary file!\n");
+              return SDAS_INTERNAL_ERROR;
             }
           }
         }
       }
 
-      // Close write to pipe to compressor as the chunk is written.
       simple_archiver_internal_cleanup_int_fd(&pipe_into_write);
 
-      // Read compressed data into temporary file.
-      do {
-        ssize_t read_ret = read(pipe_outof_read, buf, 1024);
-        if (read_ret < 0) {
-          fprintf(stderr, "ERROR: Reading from compressor, pipe read error!\n");
-          return SDAS_INTERNAL_ERROR;
-        } else if (read_ret == 0) {
-          // EOF.
-          break;
-        } else {
-          size_t fwrite_ret = fwrite(buf, 1, (size_t)read_ret, temp_fd);
-          if (fwrite_ret != (size_t)read_ret) {
-            fprintf(stderr,
-                    "ERROR: Reading from compressor, failed to write to "
-                    "temporary file!\n");
-            return SDAS_INTERNAL_ERROR;
+      // Finish writing.
+      if (!to_temp_finished) {
+        while (1) {
+          ssize_t read_ret = read(pipe_outof_read, buf, 1024);
+          if (read_ret < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+              // Non-blocking read.
+            } else {
+              fprintf(stderr,
+                      "ERROR: Reading from compressor, pipe read error!\n");
+              return SDAS_INTERNAL_ERROR;
+            }
+          } else if (read_ret == 0) {
+            // EOF.
+            break;
+          } else {
+            size_t fwrite_ret = fwrite(buf, 1, (size_t)read_ret, temp_fd);
+            if (fwrite_ret != (size_t)read_ret) {
+              fprintf(stderr,
+                      "ERROR: Reading from compressor, failed to write to "
+                      "temporary file!\n");
+              return SDAS_INTERNAL_ERROR;
+            }
           }
         }
-      } while (1);
-
-      // Close read from pipe from compressor as chunk is fully compressed.
-      simple_archiver_internal_cleanup_int_fd(&pipe_outof_read);
-
-      // Wait on compressor to stop.
-      waitpid(compressor_pid, NULL, 0);
+      }
 
       long comp_chunk_size = ftell(temp_fd);
       if (comp_chunk_size < 0) {
@@ -3661,7 +3715,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
       __attribute__((cleanup(
-          simple_archiver_internal_cleanup_decomp))) pid_t decompressor_pid;
+          simple_archiver_internal_cleanup_decomp_pid))) pid_t decompressor_pid;
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
         break;
