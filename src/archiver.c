@@ -2282,13 +2282,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       int_fast8_t to_temp_finished = 0;
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
-        fprintf(stderr, "  FILE %3lu of %3lu\n", file_idx + 1,
-                *(uint64_t *)chunk_c_node->data);
         file_node = file_node->next;
         if (file_node == files_list->tail) {
           return SDAS_INTERNAL_ERROR;
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
+        fprintf(stderr, "  FILE %3lu of %3lu: %s\n", file_idx + 1,
+                *(uint64_t *)chunk_c_node->data, file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
             fopen(file_info_struct->filename, "rb");
 
@@ -2454,13 +2454,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       fwrite(non_c_chunk_size, 8, 1, out_f);
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
-        fprintf(stderr, "  FILE %3lu of %3lu\n", file_idx + 1,
-                *(uint64_t *)chunk_c_node->data);
         file_node = file_node->next;
         if (file_node == files_list->tail) {
           return SDAS_INTERNAL_ERROR;
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
+        fprintf(stderr, "  FILE %3lu of %3lu: %s\n", file_idx + 1,
+                *(uint64_t *)chunk_c_node->data, file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
             fopen(file_info_struct->filename, "rb");
         while (!feof(fd)) {
@@ -3854,8 +3854,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       while (node->next != file_info_list->tail) {
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        fprintf(stderr, "  FILE %3u of %3u\n", ++file_idx, file_count);
-        fprintf(stderr, "    Filename: %s\n", file_info->filename);
+        fprintf(stderr, "  FILE %3u of %3u: %s\n", ++file_idx, file_count,
+                file_info->filename);
 
         uint_fast8_t skip_due_to_map = 0;
         if (working_files_map && simple_archiver_hash_map_get(
@@ -3953,8 +3953,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       while (node->next != file_info_list->tail) {
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        fprintf(stderr, "  FILE %3u of %3u\n", ++file_idx, file_count);
-        fprintf(stderr, "    Filename: %s\n", file_info->filename);
+        fprintf(stderr, "  FILE %3u of %3u: %s\n", ++file_idx, file_count,
+                file_info->filename);
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");

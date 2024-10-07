@@ -347,6 +347,10 @@ int simple_archiver_parse_args(int argc, const char **argv,
       } else if (argv[0][0] != '-') {
         is_remaining_args = 1;
         continue;
+      } else {
+        fprintf(stderr, "ERROR: Got invalid arg \"%s\"!\n", argv[0]);
+        simple_archiver_print_usage();
+        return 1;
       }
     } else {
       if (out->working_files == NULL) {
