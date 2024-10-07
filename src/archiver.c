@@ -957,74 +957,82 @@ int read_fd_to_out_fd(FILE *in_fd, FILE *out_fd, char *read_buf,
 }
 
 int try_write_to_decomp(int *to_dec_pipe, uint64_t *chunk_remaining, FILE *in_f,
-                        char *buf, const size_t buf_size) {
+                        char *buf, const size_t buf_size, char *hold_buf,
+                        int *has_hold) {
   if (*to_dec_pipe >= 0) {
-    uint_fast32_t loop_count = 0;
     if (*chunk_remaining > 0) {
       if (*chunk_remaining > buf_size) {
-        size_t fread_ret = fread(buf, 1, 1024, in_f);
-        if (fread_ret == 0) {
-          goto TRY_WRITE_TO_DECOMP_END;
-        } else {
-          ssize_t write_ret;
-        TRY_WRITE_TO_DECOMP_AGAIN_0:
-          write_ret = write(*to_dec_pipe, buf, fread_ret);
-          if (write_ret < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-              // Non-blocking write.
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-              struct timespec sleep_time;
-              sleep_time.tv_sec = 0;
-              sleep_time.tv_nsec = 100000000;
-              nanosleep(&sleep_time, NULL);
-#endif
-              if (++loop_count > 10) {
+        if (*has_hold < 0) {
+          size_t fread_ret = fread(buf, 1, 1024, in_f);
+          if (fread_ret == 0) {
+            goto TRY_WRITE_TO_DECOMP_END;
+          } else {
+            ssize_t write_ret = write(*to_dec_pipe, buf, fread_ret);
+            if (write_ret < 0) {
+              if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                *has_hold = (int)fread_ret;
+                memcpy(hold_buf, buf, fread_ret);
+                return SDAS_SUCCESS;
+              } else {
                 return SDAS_INTERNAL_ERROR;
               }
-              goto TRY_WRITE_TO_DECOMP_AGAIN_0;
+            } else if (write_ret == 0) {
+              return SDAS_INTERNAL_ERROR;
+            } else {
+              *chunk_remaining -= (size_t)write_ret;
+            }
+          }
+        } else {
+          ssize_t write_ret = write(*to_dec_pipe, hold_buf, (size_t)*has_hold);
+          if (write_ret < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+              return SDAS_SUCCESS;
             } else {
               return SDAS_INTERNAL_ERROR;
             }
           } else if (write_ret == 0) {
             return SDAS_INTERNAL_ERROR;
           } else {
-            *chunk_remaining -= (size_t)write_ret;
+            *chunk_remaining -= (size_t)*has_hold;
+            *has_hold = -1;
           }
         }
       } else {
-        size_t fread_ret = fread(buf, 1, *chunk_remaining, in_f);
-        if (fread_ret == 0) {
-          goto TRY_WRITE_TO_DECOMP_END;
-        } else {
-          ssize_t write_ret;
-        TRY_WRITE_TO_DECOMP_AGAIN_1:
-          write_ret = write(*to_dec_pipe, buf, fread_ret);
-          if (write_ret < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-              // Non-blocking write.
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-              struct timespec sleep_time;
-              sleep_time.tv_sec = 0;
-              sleep_time.tv_nsec = 100000000;
-              nanosleep(&sleep_time, NULL);
-#endif
-              if (++loop_count > 10) {
+        if (*has_hold < 0) {
+          size_t fread_ret = fread(buf, 1, *chunk_remaining, in_f);
+          if (fread_ret == 0) {
+            goto TRY_WRITE_TO_DECOMP_END;
+          } else {
+            ssize_t write_ret = write(*to_dec_pipe, buf, fread_ret);
+            if (write_ret < 0) {
+              if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                *has_hold = (int)fread_ret;
+                memcpy(hold_buf, buf, fread_ret);
+                return SDAS_SUCCESS;
+              } else {
                 return SDAS_INTERNAL_ERROR;
               }
-              goto TRY_WRITE_TO_DECOMP_AGAIN_1;
+            } else if (write_ret == 0) {
+              return SDAS_INTERNAL_ERROR;
+            } else if ((size_t)write_ret <= *chunk_remaining) {
+              *chunk_remaining -= (size_t)write_ret;
+            } else {
+              return SDAS_INTERNAL_ERROR;
+            }
+          }
+        } else {
+          ssize_t write_ret = write(*to_dec_pipe, hold_buf, (size_t)*has_hold);
+          if (write_ret < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+              return SDAS_SUCCESS;
             } else {
               return SDAS_INTERNAL_ERROR;
             }
           } else if (write_ret == 0) {
             return SDAS_INTERNAL_ERROR;
-          } else if ((size_t)write_ret <= *chunk_remaining) {
-            *chunk_remaining -= (size_t)write_ret;
           } else {
-            return SDAS_INTERNAL_ERROR;
+            *chunk_remaining -= (size_t)*has_hold;
+            *has_hold = -1;
           }
         }
       }
@@ -1044,7 +1052,8 @@ TRY_WRITE_TO_DECOMP_END:
 int read_decomp_to_out_file(const char *out_filename, int in_pipe,
                             char *read_buf, const size_t read_buf_size,
                             const uint64_t file_size, int *to_dec_pipe,
-                            uint64_t *chunk_remaining, FILE *in_f) {
+                            uint64_t *chunk_remaining, FILE *in_f,
+                            char *hold_buf, int *has_hold) {
   __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *out_fd =
       NULL;
   if (out_filename) {
@@ -1060,8 +1069,11 @@ int read_decomp_to_out_file(const char *out_filename, int in_pipe,
   ssize_t read_ret;
   size_t fwrite_ret;
   while (written_amt < file_size) {
-    try_write_to_decomp(to_dec_pipe, chunk_remaining, in_f, read_buf,
-                        read_buf_size);
+    int ret = try_write_to_decomp(to_dec_pipe, chunk_remaining, in_f, read_buf,
+                                  read_buf_size, hold_buf, has_hold);
+    if (ret != SDAS_SUCCESS) {
+      return ret;
+    }
     if (file_size - written_amt >= read_buf_size) {
       read_ret = read(in_pipe, read_buf, read_buf_size);
       if (read_ret > 0) {
@@ -2100,12 +2112,15 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   uint64_t *non_c_chunk_size = non_compressing_chunk_size;
 
   SDArchiverLLNode *file_node = files_list->head;
+  uint64_t chunk_count = 0;
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail; chunk_c_node = chunk_c_node->next) {
+    fprintf(stderr, "CHUNK %3lu of %3lu\n", ++chunk_count, chunk_counts->count);
     // Write file count before iterating through files.
     if (non_c_chunk_size) {
       *non_c_chunk_size = 0;
     }
+
     u32 = (uint32_t)(*((uint64_t *)chunk_c_node->data));
     simple_archiver_helper_32_bit_be(&u32);
     if (fwrite(&u32, 4, 1, out_f) != 1) {
@@ -2267,6 +2282,8 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       int_fast8_t to_temp_finished = 0;
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
+        fprintf(stderr, "  FILE %3lu of %3lu\n", file_idx + 1,
+                *(uint64_t *)chunk_c_node->data);
         file_node = file_node->next;
         if (file_node == files_list->tail) {
           return SDAS_INTERNAL_ERROR;
@@ -2276,6 +2293,8 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
             fopen(file_info_struct->filename, "rb");
 
         int_fast8_t to_comp_finished = 0;
+        char hold_buf[1024];
+        int has_hold = -1;
         while (!to_comp_finished) {
           if (!to_comp_finished) {
             // Write to compressor.
@@ -2283,27 +2302,46 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
               fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
               return SDAS_INTERNAL_ERROR;
             }
-            size_t fread_ret = fread(buf, 1, 1024, fd);
-            if (fread_ret > 0) {
-              ssize_t write_ret = write(pipe_into_write, buf, fread_ret);
+            if (has_hold < 0) {
+              size_t fread_ret = fread(buf, 1, 1024, fd);
+              if (fread_ret > 0) {
+                ssize_t write_ret = write(pipe_into_write, buf, fread_ret);
+                if (write_ret < 0) {
+                  if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    // Non-blocking write.
+                    has_hold = (int)fread_ret;
+                    memcpy(hold_buf, buf, fread_ret);
+                  } else {
+                    fprintf(
+                        stderr,
+                        "ERROR: Writing to compressor, pipe write error!\n");
+                    return SDAS_FAILED_TO_WRITE;
+                  }
+                } else if ((size_t)write_ret != fread_ret) {
+                  fprintf(
+                      stderr,
+                      "ERROR: Writing to compressor, unable to write bytes!\n");
+                  return SDAS_FAILED_TO_WRITE;
+                }
+              }
+
+              if (feof(fd)) {
+                to_comp_finished = 1;
+              }
+            } else {
+              ssize_t write_ret =
+                  write(pipe_into_write, hold_buf, (size_t)has_hold);
               if (write_ret < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                   // Non-blocking write.
                 } else {
-                  fprintf(stderr,
-                          "ERROR: Writing to compressor, pipe write error!\n");
-                  return SDAS_FAILED_TO_WRITE;
+                  return SDAS_INTERNAL_ERROR;
                 }
-              } else if ((size_t)write_ret != fread_ret) {
-                fprintf(
-                    stderr,
-                    "ERROR: Writing to compressor, unable to write bytes!\n");
-                return SDAS_FAILED_TO_WRITE;
+              } else if (write_ret != has_hold) {
+                return SDAS_INTERNAL_ERROR;
+              } else {
+                has_hold = -1;
               }
-            }
-
-            if (feof(fd)) {
-              to_comp_finished = 1;
             }
           }
 
@@ -2379,6 +2417,8 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         return SDAS_INTERNAL_ERROR;
       }
 
+      size_t written_size = 0;
+
       // Write compressed chunk.
       while (!feof(temp_fd)) {
         if (ferror(temp_fd)) {
@@ -2387,6 +2427,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         size_t fread_ret = fread(buf, 1, 1024, temp_fd);
         if (fread_ret > 0) {
           size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
+          written_size += fread_ret;
           if (fwrite_ret != fread_ret) {
             fprintf(stderr,
                     "ERROR: Partial write of read bytes from temp file to "
@@ -2394,6 +2435,12 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
             return SDAS_FAILED_TO_WRITE;
           }
         }
+      }
+
+      if (written_size != (size_t)comp_chunk_size) {
+        fprintf(stderr,
+                "ERROR: Written chunk size is not actual chunk size!\n");
+        return SDAS_FAILED_TO_WRITE;
       }
 
       // Cleanup and remove temp_fd.
@@ -2407,6 +2454,8 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       fwrite(non_c_chunk_size, 8, 1, out_f);
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
+        fprintf(stderr, "  FILE %3lu of %3lu\n", file_idx + 1,
+                *(uint64_t *)chunk_c_node->data);
         file_node = file_node->next;
         if (file_node == files_list->tail) {
           return SDAS_INTERNAL_ERROR;
@@ -3799,6 +3848,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         return SDAS_INTERNAL_ERROR;
       }
 
+      char hold_buf[1024];
+      int has_hold = -1;
+
       while (node->next != file_info_list->tail) {
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
@@ -3833,7 +3885,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                       "\"--overwrite-extract\" is not specified, skipping!\n");
               read_decomp_to_out_file(NULL, pipe_outof_read, (char *)buf, 1024,
                                       file_info->file_size, &pipe_into_write,
-                                      &chunk_remaining, in_f);
+                                      &chunk_remaining, in_f, hold_buf,
+                                      &has_hold);
               continue;
             }
           }
@@ -3841,7 +3894,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           simple_archiver_helper_make_dirs(file_info->filename);
           int ret = read_decomp_to_out_file(
               file_info->filename, pipe_outof_read, (char *)buf, 1024,
-              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f);
+              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
+              hold_buf, &has_hold);
           if (ret != SDAS_SUCCESS) {
             return ret;
           }
@@ -3872,14 +3926,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           }
           int ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, 1024, file_info->file_size,
-              &pipe_into_write, &chunk_remaining, in_f);
+              &pipe_into_write, &chunk_remaining, in_f, hold_buf, &has_hold);
           if (ret != SDAS_SUCCESS) {
             return ret;
           }
         } else {
           int ret = read_decomp_to_out_file(
-              NULL, pipe_outof_cmd[0], (char *)buf, 1024, file_info->file_size,
-              &pipe_into_write, &chunk_remaining, in_f);
+              NULL, pipe_outof_read, (char *)buf, 1024, file_info->file_size,
+              &pipe_into_write, &chunk_remaining, in_f, hold_buf, &has_hold);
           if (ret != SDAS_SUCCESS) {
             return ret;
           }
@@ -3887,8 +3941,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       }
 
       // Ensure EOF is left from pipe.
-      ssize_t read_ret = read(pipe_outof_cmd[0], buf, 1024);
-      if (read_ret != 0) {
+      ssize_t read_ret = read(pipe_outof_read, buf, 1024);
+      if (read_ret > 0) {
         fprintf(stderr, "WARNING decompressor didn't reach EOF!\n");
       }
     } else {
