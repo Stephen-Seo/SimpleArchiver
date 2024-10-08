@@ -156,9 +156,11 @@ void simple_archiver_print_usage(void) {
           "-C <dir> : Change current working directory before "
           "archiving/extracting\n");
   fprintf(stderr,
-          "--compressor <full_compress_cmd> : requires --decompressor\n");
+          "--compressor <full_compress_cmd> : requires --decompressor and cmd "
+          "must use stdin/stdout\n");
   fprintf(stderr,
-          "--decompressor <full_decompress_cmd> : requires --compressor\n");
+          "--decompressor <full_decompress_cmd> : requires --compressor and "
+          "cmd must use stdin/stdout\n");
   fprintf(stderr,
           "  Specifying \"--decompressor\" when extracting overrides archive "
           "file's stored decompressor cmd\n");

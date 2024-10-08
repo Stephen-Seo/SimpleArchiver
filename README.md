@@ -20,8 +20,8 @@ API calls.
       Use "-f -" to work on stdout when creating archive or stdin when reading archive
       NOTICE: "-f" is not affected by "-C"!
     -C <dir> : Change current working directory before archiving/extracting
-    --compressor <full_compress_cmd> : requires --decompressor
-    --decompressor <full_decompress_cmd> : requires --compressor
+    --compressor <full_compress_cmd> : requires --decompressor and cmd must use stdin/stdout
+    --decompressor <full_decompress_cmd> : requires --compressor and cmd must use stdin/stdout
       Specifying "--decompressor" when extracting overrides archive file's stored decompressor cmd
     --overwrite-create : allows overwriting an archive file
     --overwrite-extract : allows overwriting when extracting
