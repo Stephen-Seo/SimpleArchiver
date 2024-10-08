@@ -1,7 +1,8 @@
 # Simple Archiver
 
-This program ~~is not yet~~ almost finished! Basic functionality is implemented
-and only some advanced features are missing. You can track progress
+This program ~~is not yet~~ ~~almost~~ basically finished! ~~Basic~~ Necessary
+functionality is implemented and only ~~some advanced features are missing~~
+some extra features are not yet implemented. You can track progress
 [here](https://git.seodisparate.com/stephenseo/SimpleArchiver/projects/3).
 
 This program exists because I could not get `tar` or `ar` to compile with
