@@ -1,0 +1,251 @@
+name: Build for Releases
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  ensure-release-exists:
+    runs-on: any_archLinux
+    steps:
+      - name: Check release and create if it doesn't exist
+        run: |
+          THE_ACTION_WORKING_DIRECTORY="$(pwd)"
+          curl -X GET "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/tags/$GITHUB_REF_NAME" \
+          -H "Authorization: token ${GITHUB_TOKEN}" \
+          -H 'accept: application/json' -o "${THE_ACTION_WORKING_DIRECTORY}/release_${GITHUB_REF_NAME}_check.json" \
+          -w '%{http_code}' 2>/dev/null > release_${GITHUB_REF_NAME}_check_code
+          if [[ "404" == "$(cat release_${GITHUB_REF_NAME}_check_code)" ]]; then
+            curl --fail-with-body -X POST \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases" \
+            -H 'accept: application/json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "{
+            \"body\": \"    SHA256SUMS\",
+            \"name\": \"SimpleArchiver version ${GITHUB_REF_NAME}\",
+            \"tag_name\": \"${GITHUB_REF_NAME}\" }" 2>/dev/null > "${THE_ACTION_WORKING_DIRECTORY}/release_${GITHUB_REF_NAME}_create.json"
+          fi
+
+  push-build-x86_64:
+    needs: ensure-release-exists
+    concurrency:
+      group: push-build-group
+    runs-on: x86_64_archLinux
+    steps:
+      - name: Check release assets and build for x86_64
+        run: |
+          THE_ACTION_WORKING_DIRECTORY="$(pwd)"
+          BUILD_ASSET_NAME="simplearchiver_x86_64_${GITHUB_REF_NAME}.zst"
+          curl -X GET \
+          "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/tags/${GITHUB_REF_NAME}" \
+          -H 'accept: application/json' -o "${THE_ACTION_WORKING_DIRECTORY}/release_info.json" 2>/dev/null
+          BUILD_ASSET_EXISTS=0
+          for asset in $(jq '.assets.[].name' < "${THE_ACTION_WORKING_DIRECTORY}/release_info.json" | tr -d '"'); do
+            if [[ "$asset" == "$BUILD_ASSET_NAME" ]]; then
+              BUILD_ASSET_EXISTS=1
+              break
+            fi
+          done
+          if ! (( BUILD_ASSET_EXISTS )); then
+            if ! [[ -d "SimpleArchiver_clone" ]]; then
+              git clone --depth=1 --no-single-branch https://git.seodisparate.com/stephenseo/SimpleArchiver.git SimpleArchiver_clone
+            fi
+            pushd SimpleArchiver_clone >&/dev/null
+            git clean -xfd && git restore . && git checkout "${GITHUB_REF_NAME}"
+            cmake -S . -B buildRelease -DCMAKE_BUILD_TYPE=Release
+            make -C buildRelease simplearchiver
+            strip --strip-unneeded buildRelease/simplearchiver
+            zstd --ultra -20 buildRelease/simplearchiver -o "${THE_ACTION_WORKING_DIRECTORY}/${BUILD_ASSET_NAME}"
+            curl --fail-with-body -X GET \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < "${THE_ACTION_WORKING_DIRECTORY}/release_info.json")" \
+            -H 'accept: application/json' -o "${THE_ACTION_WORKING_DIRECTORY}/current_release_info.json" 2>/dev/null
+            curl --fail-with-body -X PATCH \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < "${THE_ACTION_WORKING_DIRECTORY}/release_info.json")" \
+            -H 'accept: application/json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"body\": \"$(jq .body < "${THE_ACTION_WORKING_DIRECTORY}/current_release_info.json" | sed -e 's/^"//' -e 's/"$//')
+              $(find "${THE_ACTION_WORKING_DIRECTORY}" -maxdepth 1 -name "*${BUILD_ASSET_NAME}" -execdir sha256sum '{}' ';' | sed -e 's|\./simple|simple|')\"
+            }" >&/dev/null
+            curl --fail-with-body -X POST \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < "${THE_ACTION_WORKING_DIRECTORY}/release_info.json")/assets" \
+            -H 'accept: application/json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H 'Content-Type: multipart/form-data' \
+            -F "attachment=@${THE_ACTION_WORKING_DIRECTORY}/${BUILD_ASSET_NAME};type=application/zstd" > "${THE_ACTION_WORKING_DIRECTORY}/attach_${GITHUB_REF_NAME}.json" 2>/dev/null
+            popd >&/dev/null
+          fi
+
+  push-build-aarch64:
+    if: ${{ always() }}
+    needs: push-build-x86_64
+    concurrency:
+      group: push-build-group
+    runs-on: aarch64_archLinux
+    steps:
+      - name: Check release assets and build for aarch64
+        run: |
+          THE_ACTION_WORKING_DIRECTORY="$(pwd)"
+          BUILD_ASSET_NAME="simplearchiver_aarch64_${GITHUB_REF_NAME}.zst"
+          curl -X GET \
+          "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/tags/${GITHUB_REF_NAME}" \
+          -H 'accept: application/json' -o "${THE_ACTION_WORKING_DIRECTORY}/release_info.json" 2>/dev/null
+          BUILD_ASSET_EXISTS=0
+          for asset in $(jq '.assets.[].name' < "${THE_ACTION_WORKING_DIRECTORY}/release_info.json" | tr -d '"'); do
+            if [[ "$asset" == "$BUILD_ASSET_NAME" ]]; then
+              BUILD_ASSET_EXISTS=1
+              break
+            fi
+          done
+          if ! (( BUILD_ASSET_EXISTS )); then
+            if ! [[ -d "SimpleArchiver_clone" ]]; then
+              git clone --depth=1 --no-single-branch https://git.seodisparate.com/stephenseo/SimpleArchiver.git SimpleArchiver_clone
+            fi
+            pushd SimpleArchiver_clone >&/dev/null
+            git clean -xfd && git restore . && git checkout "${GITHUB_REF_NAME}"
+            cmake -S . -B buildRelease -DCMAKE_BUILD_TYPE=Release
+            make -C buildRelease simplearchiver
+            strip --strip-unneeded buildRelease/simplearchiver
+            zstd --ultra -20 buildRelease/simplearchiver -o "${THE_ACTION_WORKING_DIRECTORY}/${BUILD_ASSET_NAME}"
+            curl --fail-with-body -X GET \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < "${THE_ACTION_WORKING_DIRECTORY}/release_info.json")" \
+            -H 'accept: application/json' -o "${THE_ACTION_WORKING_DIRECTORY}/current_release_info.json" 2>/dev/null
+            curl --fail-with-body -X PATCH \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < "${THE_ACTION_WORKING_DIRECTORY}/release_info.json")" \
+            -H 'accept: application/json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"body\": \"$(jq .body < "${THE_ACTION_WORKING_DIRECTORY}/current_release_info.json" | sed -e 's/^"//' -e 's/"$//')
+              $(find "${THE_ACTION_WORKING_DIRECTORY}" -maxdepth 1 -name "*${BUILD_ASSET_NAME}" -execdir sha256sum '{}' ';' | sed -e 's|\./simple|simple|')\"
+            }" >&/dev/null
+            curl --fail-with-body -X POST \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < "${THE_ACTION_WORKING_DIRECTORY}/release_info.json")/assets" \
+            -H 'accept: application/json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H 'Content-Type: multipart/form-data' \
+            -F "attachment=@${THE_ACTION_WORKING_DIRECTORY}/${BUILD_ASSET_NAME};type=application/zstd" > "${THE_ACTION_WORKING_DIRECTORY}/attach_${GITHUB_REF_NAME}.json" 2>/dev/null
+            popd >&/dev/null
+          fi
+  push-build-x86_64_debian:
+    if: ${{ always() }}
+    needs: push-build-aarch64
+    concurrency:
+      group: push-build-group
+    runs-on: docker_debian_bookworm
+    env:
+      BUILD_ASSET_NAME: "simplearchiver_x86_64_debian_${{ github.ref_name }}.zst"
+    steps:
+      - name: Update and upgrade with apt
+        run: apt-get --yes update && apt-get --yes upgrade
+      - name: Get necessary packages
+        run: apt-get --yes install gcc g++ jq curl cmake make zstd sed git
+      - name: Get release info
+        run: |
+          curl -X GET \
+          "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/tags/${GITHUB_REF_NAME}" \
+          -H 'accept: application/json' -o release_info.json
+      - name: Check if asset exists
+        run: |
+          for asset in $(jq '.assets[].name' < release_info.json | tr -d '"'); do
+            if [[ "$asset" == "$BUILD_ASSET_NAME" ]]; then
+              touch asset_exists
+              break
+            fi
+          done
+      - name: Build and publish if asset does not exist
+        run: |
+          if ! [[ -e ./asset_exists ]]; then
+            git clone --depth=1 --no-single-branch https://git.seodisparate.com/stephenseo/SimpleArchiver.git SimpleArchiver_clone
+            pushd SimpleArchiver_clone >&/dev/null
+
+            git checkout "${GITHUB_REF_NAME}"
+
+            # Patch CMakeLists.txt as some flags aren't yet supported by Debian's GCC.
+            sed -i -e 's/-fstrict-flex-arrays=3//g' CMakeLists.txt
+
+            cmake -S . -B buildRelease -DCMAKE_BUILD_TYPE=Release
+            make -C buildRelease simplearchiver
+
+            popd >&/dev/null
+            zstd --ultra -20 SimpleArchiver_clone/buildRelease/simplearchiver -o "${BUILD_ASSET_NAME}"
+
+            curl --fail-with-body -X PATCH \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < release_info.json)" \
+            -H 'accept: application/json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"body\": \"$(jq .body < release_info.json | sed -e 's/^"//' -e 's/"$//')
+              $(sha256sum "${BUILD_ASSET_NAME}")\"
+            }" >&/dev/null
+
+            curl --fail-with-body -X POST \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < release_info.json)/assets" \
+            -H 'accept: application/json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H 'Content-Type: multipart/form-data' \
+            -F "attachment=@${BUILD_ASSET_NAME};type=application/zstd" > attach.json 2>/dev/null
+          fi
+  push-build-aarch64_debian:
+    if: ${{ always() }}
+    needs: push-build-x86_64_debian
+    concurrency:
+      group: push-build-group
+    runs-on: aarch64_docker_debian_bookworm
+    env:
+      BUILD_ASSET_NAME: "simplearchiver_aarch64_debian_${{ github.ref_name }}.zst"
+    steps:
+      - name: Update and upgrade with apt
+        run: apt-get --yes update && apt-get --yes upgrade
+      - name: Get necessary packages
+        run: apt-get --yes install gcc g++ jq curl cmake make zstd sed git
+      - name: Get release info
+        run: |
+          curl -X GET \
+          "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/tags/${GITHUB_REF_NAME}" \
+          -H 'accept: application/json' -o release_info.json
+      - name: Check if asset exists
+        run: |
+          for asset in $(jq '.assets[].name' < release_info.json | tr -d '"'); do
+            if [[ "$asset" == "$BUILD_ASSET_NAME" ]]; then
+              touch asset_exists
+              break
+            fi
+          done
+      - name: Build and publish if asset does not exist
+        run: |
+          if ! [[ -e ./asset_exists ]]; then
+            git clone --depth=1 --no-single-branch https://git.seodisparate.com/stephenseo/SimpleArchiver.git SimpleArchiver_clone
+            pushd SimpleArchiver_clone >&/dev/null
+
+            git checkout "${GITHUB_REF_NAME}"
+
+            # Patch CMakeLists.txt as some flags aren't yet supported by Debian's GCC.
+            sed -i -e 's/-fstrict-flex-arrays=3//g' CMakeLists.txt
+
+            cmake -S . -B buildRelease -DCMAKE_BUILD_TYPE=Release
+            make -C buildRelease simplearchiver
+
+            popd >&/dev/null
+            zstd --ultra -20 SimpleArchiver_clone/buildRelease/simplearchiver -o "${BUILD_ASSET_NAME}"
+
+            curl --fail-with-body -X PATCH \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < release_info.json)" \
+            -H 'accept: application/json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"body\": \"$(jq .body < release_info.json | sed -e 's/^"//' -e 's/"$//')
+              $(sha256sum "${BUILD_ASSET_NAME}")\"
+            }" >&/dev/null
+
+            curl --fail-with-body -X POST \
+            "https://git.seodisparate.com/api/v1/repos/stephenseo/SimpleArchiver/releases/$(jq .id < release_info.json)/assets" \
+            -H 'accept: application/json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H 'Content-Type: multipart/form-data' \
+            -F "attachment=@${BUILD_ASSET_NAME};type=application/zstd" > attach.json 2>/dev/null
+          fi
