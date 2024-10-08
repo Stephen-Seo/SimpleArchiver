@@ -37,6 +37,10 @@ API calls.
 Note that `--compressor` and `--decompressor` cmds must accept data from stdin
 and return processed data to stdout.
 
+## Changes
+
+See the [Changelog](https://git.seodisparate.com/stephenseo/SimpleArchiver/src/branch/main/Changelog.md).
+
 ## LICENSE Information
 
 Uses the [ISC License](https://choosealicense.com/licenses/isc/).
