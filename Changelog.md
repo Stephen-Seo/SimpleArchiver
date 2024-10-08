@@ -4,8 +4,8 @@
 
 More robust handling of de/compression process (handling SIGPIPE).
 
-Add option to pre-sort files by size so that the first files put in chunks are
-the largest.
+By default files are pre-sorted by size before placed into chunks.  
+Add option to NOT pre-sort files by size.
 
 ## Version 1.0
 
