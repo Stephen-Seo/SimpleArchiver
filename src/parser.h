@@ -35,6 +35,7 @@ typedef struct SDArchiverParsed {
   /// 0b xxxx 1xxx - Allow extract overwrite.
   /// 0b xxx1 xxxx - Create archive to stdout or read archive from stdin.
   /// 0b xx1x xxxx - Do not save absolute paths for symlinks.
+  /// 0b x1xx xxxx - Sort files by size before archiving.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;

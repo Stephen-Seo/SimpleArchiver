@@ -87,4 +87,5 @@ add_executable(test_simplearchiver
     src/algorithms/linear_congruential_gen.c
     src/data_structures/linked_list.c
     src/data_structures/hash_map.c
+    src/data_structures/priority_heap.c
 )

@@ -4,6 +4,9 @@
 
 More robust handling of de/compression process (handling SIGPIPE).
 
+Add option to pre-sort files by size so that the first files put in chunks are
+the largest.
+
 ## Version 1.0
 
 First release.

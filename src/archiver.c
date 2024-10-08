@@ -38,6 +38,7 @@
 #include <unistd.h>
 #endif
 
+#include "data_structures/priority_heap.h"
 #include "helpers.h"
 
 #define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%lu.tmp"
@@ -1475,6 +1476,7 @@ int symlinks_and_files_from_files(void *data, void *ud) {
   SDArchiverLinkedList *symlinks_list = ptr_array[0];
   SDArchiverLinkedList *files_list = ptr_array[1];
   const char *user_cwd = ptr_array[2];
+  SDArchiverPHeap *pheap = ptr_array[3];
 
   if (file_info->filename) {
     if (file_info->link_dest) {
@@ -1561,8 +1563,14 @@ int symlinks_and_files_from_files(void *data, void *ud) {
         return 1;
       }
       file_info_struct->file_size = (uint64_t)ftell_ret;
-      simple_archiver_list_add(files_list, file_info_struct,
-                               free_internal_file_info);
+      if (pheap) {
+        simple_archiver_priority_heap_insert(
+            pheap, (int64_t)file_info_struct->file_size, file_info_struct,
+            free_internal_file_info);
+      } else {
+        simple_archiver_list_add(files_list, file_info_struct,
+                                 free_internal_file_info);
+      }
     }
   }
 
@@ -1593,6 +1601,8 @@ int files_to_chunk_count(void *data, void *ud) {
 
   return 0;
 }
+
+int greater_fn(int64_t a, int64_t b) { return a > b; }
 
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
@@ -1823,11 +1833,17 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   SDArchiverLinkedList *symlinks_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_priority_heap_free)))
+  SDArchiverPHeap *files_pheap =
+      (state->parsed->flags & 0x40)
+          ? simple_archiver_priority_heap_init_less_fn(greater_fn)
+          : NULL;
 
-  ptr_array = malloc(sizeof(void *) * 3);
+  ptr_array = malloc(sizeof(void *) * 4);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
+  ptr_array[3] = files_pheap;
 
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
@@ -1835,6 +1851,15 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     return SDAS_INTERNAL_ERROR;
   }
   free(ptr_array);
+
+  if (files_pheap) {
+    while (files_pheap->size > 0) {
+      simple_archiver_list_add(files_list,
+                               simple_archiver_priority_heap_pop(files_pheap),
+                               free_internal_file_info);
+    }
+    simple_archiver_priority_heap_free(&files_pheap);
+  }
 
   if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
     return SDAS_FAILED_TO_WRITE;
