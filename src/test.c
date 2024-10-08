@@ -109,7 +109,7 @@ int main(void) {
     CHECK_TRUE(strcmp("doop", parsed.working_files[1]) == 0);
     CHECK_TRUE(parsed.working_files[2] == NULL);
     CHECK_TRUE(parsed.filename == NULL);
-    CHECK_TRUE(parsed.flags == 0);
+    CHECK_TRUE(parsed.flags == 0x40);
 
     simple_archiver_free_parsed(&parsed);
 
@@ -126,7 +126,7 @@ int main(void) {
     CHECK_TRUE(strcmp("../../.prev_dir_file", parsed.working_files[2]) == 0);
     CHECK_TRUE(parsed.working_files[3] == NULL);
     CHECK_TRUE(strcmp("the_filename", parsed.filename) == 0);
-    CHECK_TRUE(parsed.flags == 1);
+    CHECK_TRUE(parsed.flags == 0x41);
 
     simple_archiver_free_parsed(&parsed);
   }
