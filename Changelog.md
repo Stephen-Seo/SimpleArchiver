@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+More robust handling of de/compression process (handling SIGPIPE).
+
 ## Version 1.0
 
 First release.
