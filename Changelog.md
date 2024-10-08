@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 1.1
+
 More robust handling of de/compression process (handling SIGPIPE).
 
 By default files are now pre-sorted by size before placed into chunks.  
