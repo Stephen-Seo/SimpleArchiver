@@ -1538,6 +1538,7 @@ int symlinks_and_files_from_files(void *data, void *ud) {
       }
       file_info_struct->uid = stat_buf.st_uid;
       file_info_struct->gid = stat_buf.st_gid;
+#endif
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
           fopen(file_info_struct->filename, "rb");
       if (!fd) {
@@ -1556,7 +1557,6 @@ int symlinks_and_files_from_files(void *data, void *ud) {
       file_info_struct->file_size = (uint64_t)ftell_ret;
       simple_archiver_list_add(files_list, file_info_struct,
                                free_internal_file_info);
-#endif
     }
   }
 
