@@ -1094,12 +1094,18 @@ int read_decomp_to_out_file(const char *out_filename, int in_pipe,
   ssize_t read_ret;
   size_t fwrite_ret;
   while (written_amt < file_size) {
+    if (is_sig_pipe_occurred) {
+      fprintf(stderr, "ERROR: SIGPIPE while decompressing!\n");
+      return SDAS_INTERNAL_ERROR;
+    }
     int ret = try_write_to_decomp(to_dec_pipe, chunk_remaining, in_f, read_buf,
                                   read_buf_size, hold_buf, has_hold);
     if (ret != SDAS_SUCCESS) {
       return ret;
-    }
-    if (file_size - written_amt >= read_buf_size) {
+    } else if (is_sig_pipe_occurred) {
+      fprintf(stderr, "ERROR: SIGPIPE while decompressing!\n");
+      return SDAS_INTERNAL_ERROR;
+    } else if (file_size - written_amt >= read_buf_size) {
       read_ret = read(in_pipe, read_buf, read_buf_size);
       if (read_ret > 0) {
         if (out_fd) {
@@ -2321,6 +2327,10 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
         ssize_t has_hold = -1;
         while (!to_comp_finished) {
+          if (is_sig_pipe_occurred) {
+            fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
           if (!to_comp_finished) {
             // Write to compressor.
             if (ferror(fd)) {
@@ -2409,6 +2419,10 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       // Finish writing.
       if (!to_temp_finished) {
         while (1) {
+          if (is_sig_pipe_occurred) {
+            fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
           ssize_t read_ret =
               read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
           if (read_ret < 0) {
@@ -3921,11 +3935,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              read_decomp_to_out_file(NULL, pipe_outof_read, (char *)buf,
-                                      SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                      file_info->file_size, &pipe_into_write,
-                                      &chunk_remaining, in_f, hold_buf,
-                                      &has_hold);
+              int ret = read_decomp_to_out_file(
+                  NULL, pipe_outof_read, (char *)buf,
+                  SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
+                  &pipe_into_write, &chunk_remaining, in_f, hold_buf,
+                  &has_hold);
+              if (ret != SDAS_SUCCESS) {
+                return ret;
+              }
               continue;
             }
           }
@@ -3989,7 +4006,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       }
     } else {
 #else
-    // } (This comment exists so that vim can correctly match curly-braces.
+    // } (This comment exists so that vim can correctly match curly-braces).
     if (!is_compressed) {
 #endif
       while (node->next != file_info_list->tail) {
