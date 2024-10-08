@@ -40,7 +40,7 @@ typedef struct SDArchiverState {
   size_t digits;
 } SDArchiverState;
 
-enum SDArchiverStateReturns {
+typedef enum SDArchiverStateReturns {
   SDAS_SUCCESS = 0,
   SDAS_HEADER_ALREADY_WRITTEN = 1,
   SDAS_FAILED_TO_WRITE,
@@ -51,8 +51,9 @@ enum SDArchiverStateReturns {
   SDAS_INTERNAL_ERROR,
   SDAS_FAILED_TO_CREATE_MAP,
   SDAS_FAILED_TO_EXTRACT_SYMLINK,
-  SDAS_FAILED_TO_CHANGE_CWD
-};
+  SDAS_FAILED_TO_CHANGE_CWD,
+  SDAS_INVALID_WRITE_VERSION
+} SDArchiverStateReturns;
 
 /// Returned pointer must not be freed.
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error);
@@ -65,12 +66,46 @@ void simple_archiver_free_state(SDArchiverState **state);
 int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
                               const SDArchiverLinkedList *filenames);
 
+int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
+                             const SDArchiverLinkedList *filenames);
+
+int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
+                             const SDArchiverLinkedList *filenames);
+
 /// Returns zero on success.
 int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                                        const SDArchiverState *state);
 
 /// Returns zero on success.
+int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
+                                            const SDArchiverState *state);
+
+/// Returns zero on success.
+int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
+                                            const SDArchiverState *state);
+
+/// Returns zero on success.
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
                                 const char *cmd, void *pid_out);
+
+/// If returns non-NULL, must be free'd.
+char *simple_archiver_filenames_to_relative_path(const char *from_abs,
+                                                 const char *to_abs);
+
+/// Gets the absolute path to a file given a path to a file.
+/// Should also work on symlinks such that the returned string is the path to
+/// the link itself, not what it points to.
+/// Non-NULL on success, and must be free'd if non-NULL.
+char *simple_archiver_file_abs_path(const char *filename);
+
+/// Used to validate a file in a ".simplearchive" file to avoid writing outside
+/// of current working directory.
+/// Returns zero if file is OK.
+/// Returns 1 if file starts with '/'.
+/// Returns 2 if file contains '../' at the start.
+/// Returns 3 if file contains '/../' in the middle.
+/// Returns 4 if file contains '/..' at the end.
+/// Returns 5 if "filepath" is NULL.
+int simple_archiver_validate_file_path(const char *filepath);
 
 #endif

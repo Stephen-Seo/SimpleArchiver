@@ -51,6 +51,10 @@ typedef struct SDArchiverParsed {
   const char *temp_dir;
   /// Dir specified by "-C".
   const char *user_cwd;
+  /// Currently only 0 and 1 is supported.
+  uint32_t write_version;
+  /// The minimum size of a chunk in bytes (the last chunk may be less).
+  uint64_t minimum_chunk_size;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {
@@ -58,6 +62,14 @@ typedef struct SDArchiverFileInfo {
   /// Is NULL if not a symbolic link.
   char *link_dest;
 } SDArchiverFileInfo;
+
+typedef enum SDArchiverParsedStatus {
+  SDAPS_SUCCESS,
+  SDAPS_NO_USER_CWD,
+} SDArchiverParsedStatus;
+
+/// Returned c-string does not need to be free'd.
+char *simple_archiver_parsed_status_to_str(SDArchiverParsedStatus status);
 
 void simple_archiver_print_usage(void);
 
@@ -74,6 +86,6 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed);
 
 /// Each entry in the linked list is an SDArchiverFileInfo object.
 SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
-    const SDArchiverParsed *parsed);
+    const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out);
 
 #endif

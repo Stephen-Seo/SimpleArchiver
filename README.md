@@ -20,13 +20,15 @@ API calls.
       Use "-f -" to work on stdout when creating archive or stdin when reading archive
       NOTICE: "-f" is not affected by "-C"!
     -C <dir> : Change current working directory before archiving/extracting
-    --compressor <full_compress_cmd> : requires --decompressor
-    --decompressor <full_decompress_cmd> : requires --compressor
+    --compressor <full_compress_cmd> : requires --decompressor and cmd must use stdin/stdout
+    --decompressor <full_decompress_cmd> : requires --compressor and cmd must use stdin/stdout
       Specifying "--decompressor" when extracting overrides archive file's stored decompressor cmd
     --overwrite-create : allows overwriting an archive file
     --overwrite-extract : allows overwriting when extracting
     --no-abs-symlink : do not store absolute paths for symlinks
     --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to current working directory)
+    --write-version <version> : Force write version file format (default 1)
+    --chunk-min-size <bytes> : v1 file format minimum chunk size (default 4194304 or 4MiB)
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
     If extracting archive file, remaining args specify files to extract.

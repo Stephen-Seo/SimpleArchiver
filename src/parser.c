@@ -131,6 +131,17 @@ int list_remove_same_str_fn(void *data, void *ud) {
   return 0;
 }
 
+char *simple_archiver_parsed_status_to_str(SDArchiverParsedStatus status) {
+  switch (status) {
+    case SDAPS_SUCCESS:
+      return "Success";
+    case SDAPS_NO_USER_CWD:
+      return "No user current working directory (-C <dir>)";
+    default:
+      return "Unknown error";
+  }
+}
+
 void simple_archiver_print_usage(void) {
   fprintf(stderr, "Usage flags:\n");
   fprintf(stderr, "-c : create archive file\n");
@@ -145,9 +156,11 @@ void simple_archiver_print_usage(void) {
           "-C <dir> : Change current working directory before "
           "archiving/extracting\n");
   fprintf(stderr,
-          "--compressor <full_compress_cmd> : requires --decompressor\n");
+          "--compressor <full_compress_cmd> : requires --decompressor and cmd "
+          "must use stdin/stdout\n");
   fprintf(stderr,
-          "--decompressor <full_decompress_cmd> : requires --compressor\n");
+          "--decompressor <full_decompress_cmd> : requires --compressor and "
+          "cmd must use stdin/stdout\n");
   fprintf(stderr,
           "  Specifying \"--decompressor\" when extracting overrides archive "
           "file's stored decompressor cmd\n");
@@ -158,6 +171,12 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--temp-files-dir <dir> : where to store temporary files created "
           "when compressing (defaults to current working directory)\n");
+  fprintf(stderr,
+          "--write-version <version> : Force write version file format "
+          "(default 1)\n");
+  fprintf(stderr,
+          "--chunk-min-size <bytes> : v1 file format minimum chunk size "
+          "(default 4194304 or 4MiB)\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
   fprintf(
@@ -178,6 +197,8 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.working_files = NULL;
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
+  parsed.write_version = 1;
+  parsed.minimum_chunk_size = 4194304;
 
   return parsed;
 }
@@ -288,11 +309,50 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->temp_dir = argv[1];
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--write-version") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --write-version expects an integer argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        int version = atoi(argv[1]);
+        if (version < 0) {
+          fprintf(stderr, "ERROR: --write-version cannot be negative!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (version > 1) {
+          fprintf(stderr, "ERROR: --write-version must be 0 or 1!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->write_version = (uint32_t)version;
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--chunk-min-size") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --chunk-min-size expects an integer argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->minimum_chunk_size = strtoull(argv[1], NULL, 10);
+        if (out->minimum_chunk_size == 0) {
+          fprintf(stderr, "ERROR: --chunk-min-size cannot be zero!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        --argc;
+        ++argv;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;
       } else if (argv[0][0] != '-') {
         is_remaining_args = 1;
         continue;
+      } else {
+        fprintf(stderr, "ERROR: Got invalid arg \"%s\"!\n", argv[0]);
+        simple_archiver_print_usage();
+        return 1;
       }
     } else {
       if (out->working_files == NULL) {
@@ -367,7 +427,7 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
 }
 
 SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
-    const SDArchiverParsed *parsed) {
+    const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out) {
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *hash_map = simple_archiver_hash_map_init();
@@ -381,6 +441,9 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     original_cwd = realpath(".", NULL);
     if (chdir(parsed->user_cwd)) {
       simple_archiver_list_free(&files_list);
+      if (status_out) {
+        *status_out = SDAPS_NO_USER_CWD;
+      }
       return NULL;
     }
   }
@@ -607,5 +670,8 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     }
   }
 
+  if (status_out) {
+    *status_out = SDAPS_SUCCESS;
+  }
   return files_list;
 }
