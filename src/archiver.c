@@ -1861,6 +1861,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     simple_archiver_priority_heap_free(&files_pheap);
   }
 
+  if (symlinks_list->count + files_list->count != filenames->count) {
+    fprintf(stderr,
+            "ERROR: Count mismatch between files and symlinks and files from "
+            "parser!\n");
+    return SDAS_INTERNAL_ERROR;
+  }
+
   if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
     return SDAS_FAILED_TO_WRITE;
   }
