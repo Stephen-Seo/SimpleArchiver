@@ -178,8 +178,8 @@ void simple_archiver_print_usage(void) {
           "--chunk-min-size <bytes> : v1 file format minimum chunk size "
           "(default 4194304 or 4MiB)\n");
   fprintf(stderr,
-          "--pre-sort-files : pre-sorts files by size so that the first file "
-          "is the largest\n");
+          "--no-pre-sort-files : do NOT pre-sort files by size (by default "
+          "enabled so that the first file is the largest)\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
   fprintf(
@@ -193,7 +193,7 @@ void simple_archiver_print_usage(void) {
 SDArchiverParsed simple_archiver_create_parsed(void) {
   SDArchiverParsed parsed;
 
-  parsed.flags = 0;
+  parsed.flags = 0x40;
   parsed.filename = NULL;
   parsed.compressor = NULL;
   parsed.decompressor = NULL;
@@ -347,8 +347,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
         --argc;
         ++argv;
-      } else if (strcmp(argv[0], "--pre-sort-files") == 0) {
-        out->flags |= 0x40;
+      } else if (strcmp(argv[0], "--no-pre-sort-files") == 0) {
+        out->flags &= 0xFFFFFFBF;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;
       } else if (argv[0][0] != '-') {
