@@ -51,10 +51,17 @@
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 volatile int is_sig_pipe_occurred = 0;
+volatile int is_sig_int_occurred = 0;
 
 void handle_sig_pipe(int sig) {
   if (sig == SIGPIPE) {
     is_sig_pipe_occurred = 1;
+  }
+}
+
+void handle_sig_int(int sig) {
+  if (sig == SIGINT) {
+    is_sig_int_occurred = 1;
   }
 }
 #endif
@@ -106,6 +113,10 @@ void cleanup_temp_filename_delete(void ***ptrs_array) {
 }
 
 int write_files_fn(void *data, void *ud) {
+  if (is_sig_int_occurred) {
+    return 1;
+  }
+
   const SDArchiverFileInfo *file_info = data;
   SDArchiverState *state = ud;
 
@@ -258,6 +269,17 @@ int write_files_fn(void *data, void *ud) {
       size_t read_count;
       ssize_t ret;
       while (!write_done || !read_done) {
+        if (is_sig_int_occurred) {
+          if (pipe_into_cmd[1] >= 0) {
+            close(pipe_into_cmd[1]);
+            pipe_into_cmd[1] = -1;
+          }
+          if (pipe_outof_cmd[0] >= 0) {
+            close(pipe_outof_cmd[0]);
+            pipe_outof_cmd[0] = -1;
+          }
+          return 1;
+        }
         if (is_sig_pipe_occurred) {
           fprintf(stderr,
                   "WARNING: Failed to write to compressor (SIGPIPE)! Invalid "
@@ -298,6 +320,7 @@ int write_files_fn(void *data, void *ud) {
               simple_archiver_helper_cleanup_FILE(&file_fd);
               write_done = 1;
               close(pipe_into_cmd[1]);
+              pipe_into_cmd[1] = -1;
               // fprintf(stderr, "write_done\n");
             } else if (ferror(file_fd)) {
               // Error during read file.
@@ -327,6 +350,7 @@ int write_files_fn(void *data, void *ud) {
             read_done = 1;
             simple_archiver_helper_cleanup_FILE(&tmp_fd);
             close(pipe_outof_cmd[0]);
+            pipe_outof_cmd[0] = -1;
             // fprintf(stderr, "read_done\n");
           } else if (ret == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -348,6 +372,8 @@ int write_files_fn(void *data, void *ud) {
         fprintf(stderr,
                 "WARNING: Failed to write to compressor (SIGPIPE)! Invalid "
                 "compressor cmd?\n");
+        return 1;
+      } else if (is_sig_int_occurred) {
         return 1;
       }
 
@@ -606,6 +632,10 @@ int write_files_fn(void *data, void *ud) {
 
       simple_archiver_list_free(&to_write);
 
+      if (is_sig_int_occurred) {
+        return 1;
+      }
+
       // Write file.
       fprintf(stderr, "Writing file: %s\n", file_info->filename);
       char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -837,6 +867,10 @@ int write_files_fn(void *data, void *ud) {
   snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
            state->digits);
   fprintf(stderr, format_str, ++(state->count), state->max);
+
+  if (is_sig_int_occurred) {
+    return 1;
+  }
   return 0;
 }
 
@@ -1630,6 +1664,8 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
       return "Failed to change current working directory";
     case SDAS_INVALID_WRITE_VERSION:
       return "Unsupported write version file format";
+    case SDAS_SIGINT:
+      return "Interrupt signal SIGINT recieved";
     default:
       return "Unknown error";
   }
@@ -1661,6 +1697,11 @@ void simple_archiver_free_state(SDArchiverState **state) {
 
 int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
                               const SDArchiverLinkedList *filenames) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+  signal(SIGINT, handle_sig_int);
+#endif
   switch (state->parsed->write_version) {
     case 0:
       return simple_archiver_write_v0(out_f, state, filenames);
@@ -1780,6 +1821,10 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
     }
   }
 
+  if (is_sig_int_occurred) {
+    return SDAS_SIGINT;
+  }
+
   // Iterate over files in list to write.
   state->count = 0;
   state->max = filenames->count;
@@ -1804,6 +1849,9 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
            state->digits);
   fprintf(stderr, format_str, state->count, state->max);
   if (simple_archiver_list_get(filenames, write_files_fn, state)) {
+    if (is_sig_int_occurred) {
+      return SDAS_SIGINT;
+    }
     // Error occurred.
     fprintf(stderr, "Error ocurred writing file(s) to archive.\n");
     return SDAS_FAILED_TO_WRITE;
@@ -2111,6 +2159,10 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     }
   }
 
+  if (is_sig_int_occurred) {
+    return SDAS_SIGINT;
+  }
+
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *chunk_counts = simple_archiver_list_init();
 
@@ -2178,6 +2230,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   uint64_t chunk_count = 0;
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail; chunk_c_node = chunk_c_node->next) {
+    if (is_sig_int_occurred) {
+      return SDAS_SIGINT;
+    }
     fprintf(stderr, "CHUNK %3lu of %3lu\n", ++chunk_count, chunk_counts->count);
     // Write file count before iterating through files.
     if (non_c_chunk_size) {
@@ -2345,6 +2400,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       int_fast8_t to_temp_finished = 0;
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
+        if (is_sig_int_occurred) {
+          return SDAS_SIGINT;
+        }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
           return SDAS_INTERNAL_ERROR;
@@ -2502,7 +2560,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
 
       // Write compressed chunk.
       while (!feof(temp_fd)) {
-        if (ferror(temp_fd)) {
+        if (is_sig_int_occurred) {
+          return SDAS_SIGINT;
+        } else if (ferror(temp_fd)) {
           return SDAS_INTERNAL_ERROR;
         }
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
@@ -2535,6 +2595,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       fwrite(non_c_chunk_size, 8, 1, out_f);
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
+        if (is_sig_int_occurred) {
+          return SDAS_SIGINT;
+        }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
           return SDAS_INTERNAL_ERROR;
@@ -2567,6 +2630,12 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
 
 int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                                        const SDArchiverState *state) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+  signal(SIGINT, handle_sig_int);
+#endif
+
   uint8_t buf[32];
   memset(buf, 0, 32);
   uint16_t u16;
@@ -2683,6 +2752,10 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
   simple_archiver_helper_32_bit_be(&u32);
   fprintf(stderr, "File count is %u\n", u32);
 
+  if (is_sig_int_occurred) {
+    return SDAS_SIGINT;
+  }
+
   const uint32_t size = u32;
   const size_t digits = simple_archiver_helper_num_digits(size);
   char format_str[128];
@@ -2705,6 +2778,9 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     }
   }
   for (uint32_t idx = 0; idx < size; ++idx) {
+    if (is_sig_int_occurred) {
+      return SDAS_SIGINT;
+    }
     skip = 0;
     fprintf(stderr, format_str, idx + 1, size);
     if (feof(in_f) || ferror(in_f)) {
@@ -3034,11 +3110,21 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           char recv_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
           size_t amount_to_read;
           while (!write_pipe_done || !read_pipe_done) {
-            if (is_sig_pipe_occurred) {
+            if (is_sig_int_occurred) {
+              if (pipe_into_cmd[1] >= 0) {
+                close(pipe_into_cmd[1]);
+                pipe_into_cmd[1] = -1;
+              }
+              if (pipe_outof_cmd[0] >= 0) {
+                close(pipe_outof_cmd[0]);
+                pipe_outof_cmd[0] = -1;
+              }
+              return SDAS_SIGINT;
+            } else if (is_sig_pipe_occurred) {
               fprintf(stderr,
                       "WARNING: Failed to write to decompressor (SIGPIPE)! "
                       "Invalid decompressor cmd?\n");
-              return 1;
+              return SDAS_INTERNAL_ERROR;
             }
 
             // Read from file.
@@ -3063,6 +3149,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                   write_again = 0;
                   if (compressed_file_size == 0) {
                     close(pipe_into_cmd[1]);
+                    pipe_into_cmd[1] = -1;
                     write_pipe_done = 1;
                   }
                 } else if (write_ret == -1) {
@@ -3121,6 +3208,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                 // EOF.
                 read_pipe_done = 1;
                 close(pipe_outof_cmd[0]);
+                pipe_outof_cmd[0] = -1;
                 simple_archiver_helper_cleanup_FILE(&out_f);
               } else {
                 // Invalid state (unreachable?), error.
@@ -3420,6 +3508,10 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     }
   }
 
+  if (is_sig_int_occurred) {
+    return SDAS_SIGINT;
+  }
+
   return SDAS_SUCCESS;
 }
 
@@ -3504,6 +3596,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     }
   }
 
+  if (is_sig_int_occurred) {
+    return SDAS_SIGINT;
+  }
+
   // Link count.
   if (fread(buf, 1, 4, in_f) != 4) {
     return SDAS_INVALID_FILE;
@@ -3512,6 +3608,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
   simple_archiver_helper_32_bit_be(&u32);
 
   for (uint32_t idx = 0; idx < u32; ++idx) {
+    if (is_sig_int_occurred) {
+      return SDAS_SIGINT;
+    }
     fprintf(stderr, "SYMLINK %3u of %3u\n", idx + 1, u32);
     if (fread(buf, 1, 2, in_f) != 2) {
       return SDAS_INVALID_FILE;
@@ -3731,6 +3830,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
   const uint32_t chunk_count = u32;
   for (uint32_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
+    if (is_sig_int_occurred) {
+      return SDAS_SIGINT;
+    }
     fprintf(stderr, "CHUNK %3u of %3u\n", chunk_idx + 1, chunk_count);
 
     if (fread(buf, 1, 4, in_f) != 4) {
@@ -3936,6 +4038,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       ssize_t has_hold = -1;
 
       while (node->next != file_info_list->tail) {
+        if (is_sig_int_occurred) {
+          return SDAS_SIGINT;
+        }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         fprintf(stderr, "  FILE %3u of %3u: %s\n", ++file_idx, file_count,
@@ -4042,6 +4147,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     if (!is_compressed) {
 #endif
       while (node->next != file_info_list->tail) {
+        if (is_sig_int_occurred) {
+          return SDAS_SIGINT;
+        }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         fprintf(stderr, "  FILE %3u of %3u: %s\n", ++file_idx, file_count,

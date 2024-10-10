@@ -52,7 +52,8 @@ typedef enum SDArchiverStateReturns {
   SDAS_FAILED_TO_CREATE_MAP,
   SDAS_FAILED_TO_EXTRACT_SYMLINK,
   SDAS_FAILED_TO_CHANGE_CWD,
-  SDAS_INVALID_WRITE_VERSION
+  SDAS_INVALID_WRITE_VERSION,
+  SDAS_SIGINT
 } SDArchiverStateReturns;
 
 /// Returned pointer must not be freed.
