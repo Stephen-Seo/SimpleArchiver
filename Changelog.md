@@ -2,6 +2,9 @@
 
 ## Upcoming Changes
 
+Proper handling of Ctrl+C (SIGINT). This prevents temporary files from
+persisting by doing a proper cleanup before stopping the program.
+
 ## Version 1.1
 
 More robust handling of de/compression process (handling SIGPIPE).
