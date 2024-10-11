@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 1.2
+
 Proper handling of Ctrl+C (SIGINT). This prevents temporary files from
 persisting by doing a proper cleanup before stopping the program.
 
