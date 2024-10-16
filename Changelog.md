@@ -2,6 +2,12 @@
 
 ## Upcoming Changes
 
+## Version 1.3
+
+Prevent `simplearchiver` from busy-waiting during non-blocking IO by sleeping
+in "EWOULDBLOCK" conditions. This results in less consumed cpu time by the
+process, especially during compression.
+
 ## Version 1.2
 
 Proper handling of Ctrl+C (SIGINT). This prevents temporary files from
