@@ -64,6 +64,8 @@ void handle_sig_int(int sig) {
     is_sig_int_occurred = 1;
   }
 }
+
+const struct timespec nonblock_sleep = {.tv_sec = 0, .tv_nsec = 1000000};
 #endif
 
 typedef struct SDArchiverInternalToWrite {
@@ -297,6 +299,7 @@ int write_files_fn(void *data, void *ud) {
             ret = write(pipe_into_cmd[1], write_buf, write_count);
             if (ret == -1) {
               if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                nanosleep(&nonblock_sleep, NULL);
                 write_again = 1;
               } else {
                 // Error during write.
@@ -354,7 +357,7 @@ int write_files_fn(void *data, void *ud) {
             // fprintf(stderr, "read_done\n");
           } else if (ret == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-              // Nop.
+              nanosleep(&nonblock_sleep, NULL);
             } else {
               // Read error.
               fprintf(stderr,
@@ -1171,6 +1174,7 @@ int read_decomp_to_out_file(const char *out_filename, int in_pipe,
       } else {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
           // Non-blocking read from pipe.
+          nanosleep(&nonblock_sleep, NULL);
           continue;
         } else {
           // Error.
@@ -1210,6 +1214,7 @@ int read_decomp_to_out_file(const char *out_filename, int in_pipe,
       } else {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
           // Non-blocking read from pipe.
+          nanosleep(&nonblock_sleep, NULL);
           continue;
         } else {
           // Error.
@@ -2436,6 +2441,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
                     // Non-blocking write.
                     has_hold = (int)fread_ret;
                     memcpy(hold_buf, buf, fread_ret);
+                    nanosleep(&nonblock_sleep, NULL);
                   } else {
                     fprintf(
                         stderr,
@@ -2462,6 +2468,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
               if (write_ret < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                   // Non-blocking write.
+                  nanosleep(&nonblock_sleep, NULL);
                 } else {
                   return SDAS_INTERNAL_ERROR;
                 }
@@ -2484,6 +2491,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           if (read_ret < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
               // Non-blocking read.
+              nanosleep(&nonblock_sleep, NULL);
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
@@ -2518,6 +2526,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           if (read_ret < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
               // Non-blocking read.
+              nanosleep(&nonblock_sleep, NULL);
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
@@ -3154,6 +3163,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                   }
                 } else if (write_ret == -1) {
                   if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    nanosleep(&nonblock_sleep, NULL);
                     write_again = 1;
                   } else {
                     // Error.
@@ -3197,6 +3207,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
               } else if (read_ret == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                   // No bytes to read yet.
+                  nanosleep(&nonblock_sleep, NULL);
                 } else {
                   // Error.
                   fprintf(stderr,
