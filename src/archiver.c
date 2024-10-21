@@ -3717,7 +3717,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
     uint_fast8_t link_extracted = 0;
     uint_fast8_t skip_due_to_map = 0;
-    uint_fast8_t skip_due_to_invalid = 0;
+    uint_fast8_t skip_due_to_invalid = is_invalid ? 1 : 0;
 
     if (fread(buf, 1, 2, in_f) != 2) {
       return SDAS_INVALID_FILE;
