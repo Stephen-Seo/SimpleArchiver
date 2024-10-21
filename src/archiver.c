@@ -2079,11 +2079,25 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
                                                                 abs_path);
         }
       }
+
+      uint_fast8_t is_invalid = 0;
+
       if (abs_path && (state->parsed->flags & 0x20) == 0 &&
           !simple_archiver_hash_map_get(abs_filenames, abs_path,
                                         strlen(abs_path) + 1)) {
-        // Is not a filename being archived, set preference to absolute path.
-        buf[0] |= 1;
+        // Is not a filename being archived.
+        if ((state->parsed->flags & 0x80) == 0) {
+          // Not a "safe link", mark invalid and continue.
+          is_invalid = 1;
+          fprintf(stderr,
+                  "WARNING: \"%s\" points to outside of archived files (or is "
+                  "invalid) and \"--no-safe-links\" not specified, will not "
+                  "store abs/rel-links to this entry!\n",
+                  (const char *)node->data);
+        } else {
+          // Safe links disabled, set preference to absolute path.
+          buf[0] |= 1;
+        }
       }
 
       // Get symlink stats for permissions.
@@ -2126,6 +2140,11 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       buf[0] = 0xFE;
       buf[1] = 3;
 #endif
+
+      if (is_invalid) {
+        buf[1] |= 4;
+      }
+
       if (fwrite(buf, 1, 2, out_f) != 2) {
         return SDAS_FAILED_TO_WRITE;
       }
@@ -2146,7 +2165,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
 
-      if (abs_path && (state->parsed->flags & 0x20) == 0) {
+      if (abs_path && (state->parsed->flags & 0x20) == 0 && !is_invalid) {
         len = strlen(abs_path);
         if (len >= 0xFFFF) {
           fprintf(stderr,
@@ -2170,7 +2189,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         }
       }
 
-      if (rel_path) {
+      if (rel_path && !is_invalid) {
         len = strlen(rel_path);
         if (len >= 0xFFFF) {
           fprintf(stderr,
@@ -3682,6 +3701,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       return SDAS_INVALID_FILE;
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
+    const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
+
+    if (is_invalid) {
+      fprintf(stderr,
+              "  WARNING: This symlink entry was marked invalid (not a safe "
+              "link)!\n");
+    }
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \

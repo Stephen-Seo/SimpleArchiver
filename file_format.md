@@ -133,6 +133,9 @@ Following the link-count bytes, the following bytes are added for each symlink:
     2. The second byte.
         1. The first bit is "other write permission".
         2. The second bit is "other execute permission".
+        3. If this bit is set, then this entry is marked invalid. The link name
+           will be preserved in this entry, but the following link target paths
+           will be set to zero-length and will not be stored.
 2. 2 bytes 16-bit unsigned integer "link name" in big-endian. This does not
    include the NULL at the end of the string. Must not be zero.
 3. X bytes of link-name (length defined by previous value). Is a NULL-terminated
