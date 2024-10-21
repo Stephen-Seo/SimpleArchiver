@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 1.4
+
 Do "safe links" behavior by default: symlinks pointing to outside of archived
 files (or invalid symlinks) should not be included in the archive, unless if the
 option "--no-safe-links" is specified. This is supported in both v0 and v1 file
