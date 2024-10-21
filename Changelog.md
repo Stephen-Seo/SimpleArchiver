@@ -2,6 +2,13 @@
 
 ## Upcoming Changes
 
+## Version 1.5
+
+Previous file-format-v1 implementation of "safe links" still created a symlink
+if a relative or absolute link existed in the file. This version fixes this, and
+prevents invalid symlinks from being created. (This check is only done if the
+bit-flag is set in the file as mentioned in the file-format spec for v1 files.)
+
 ## Version 1.4
 
 Do "safe links" behavior by default: symlinks pointing to outside of archived
