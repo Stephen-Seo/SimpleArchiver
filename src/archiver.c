@@ -114,6 +114,20 @@ void cleanup_temp_filename_delete(void ***ptrs_array) {
 #endif
 }
 
+void cleanup_overwrite_filename_delete_simple(char **filename) {
+  if (filename && *filename) {
+    if ((*filename)[0] != 0) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      unlink(*filename);
+#endif
+    }
+    free(*filename);
+    *filename = NULL;
+  }
+}
+
 int write_files_fn(void *data, void *ud) {
   if (is_sig_int_occurred) {
     return 1;
@@ -773,15 +787,38 @@ int write_files_fn(void *data, void *ud) {
     if (abs_path && (state->parsed->flags & 0x20) == 0 &&
         !simple_archiver_hash_map_get(state->map, abs_path,
                                       strlen(abs_path) + 1)) {
-      // Is not a filename being archived, set preference to absolute path.
-      fprintf(stderr,
-              "NOTICE: abs_path exists, \"--no-abs-symlink\" not specified, "
-              "and link refers to file NOT in archive; preferring abs_path.\n");
-      ((uint8_t *)temp_to_write->buf)[1] |= 0x4;
+      // Is not a filename being archived.
+      if ((state->parsed->flags & 0x80) != 0) {
+        // No safe links, set preference to absolute path.
+        fprintf(
+            stderr,
+            "NOTICE: abs_path exists, \"--no-abs-symlink\" not specified, "
+            "and link refers to file NOT in archive; preferring abs_path.\n");
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x4;
+      } else {
+        // Safe links, do not store symlink!
+        fprintf(stderr,
+                "WARNING: Symlink \"%s\" points to outside archive contents, "
+                "will not be stored! (Use \"--no-safe-links\" to disable this "
+                "behavior)\n",
+                file_info->filename);
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
+      }
     }
 
     // Store the 4 byte bit-flags for file.
     simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
+
+    if ((((uint8_t *)temp_to_write->buf)[1] & 0x8) != 0) {
+      // Skipped symlink.
+      simple_archiver_list_get(to_write, write_list_datas_fn, state->out_f);
+      simple_archiver_list_free(&to_write);
+      char format_str[64];
+      snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
+               state->digits);
+      fprintf(stderr, format_str, ++(state->count), state->max);
+      return 0;
+    }
 
     // Store the absolute and relative paths.
     if (!abs_path) {
@@ -2802,6 +2839,9 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
         simple_archiver_helper_cleanup_malloced))) void *out_f_name = NULL;
     __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *out_f =
         NULL;
+    __attribute__((cleanup(
+        cleanup_overwrite_filename_delete_simple))) char *to_overwrite_dest =
+        NULL;
     if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
@@ -2831,12 +2871,14 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           if (fd == -1) {
             if (errno == ELOOP) {
               // Is an existing symbolic file.
-              unlink((const char *)buf);
+              // Defer deletion to after "is invalid" check.
+              to_overwrite_dest = strdup((const char *)buf);
             }
           } else {
             close(fd);
             // Is an existing file.
-            unlink((const char *)buf);
+            // Defer deletion to after "is invalid" check.
+            to_overwrite_dest = strdup((const char *)buf);
           }
         }
         if (!skip) {
@@ -2878,12 +2920,14 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           if (fd == -1) {
             if (errno == ELOOP) {
               // Is an existing symbolic file.
-              unlink((const char *)uc_heap_buf);
+              // Defer deletion to after "is invalid" check.
+              to_overwrite_dest = strdup((const char *)uc_heap_buf);
             }
           } else {
             close(fd);
             // Is an existing file.
-            unlink((const char *)uc_heap_buf);
+            // Defer deletion to after "is invalid" check.
+            to_overwrite_dest = strdup((const char *)uc_heap_buf);
           }
         }
         if (!skip) {
@@ -2896,6 +2940,17 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 
     if (fread(buf, 1, 4, in_f) != 4) {
       return SDAS_INVALID_FILE;
+    }
+
+    // Check for "invalid entry" flag.
+    if ((buf[1] & 0x8) != 0) {
+      free(to_overwrite_dest);
+      to_overwrite_dest = NULL;
+      fprintf(stderr, "  This file entry was marked invalid, skipping...\n");
+      continue;
+    } else {
+      // Do deferred overwrite action: remove existing file/symlink.
+      cleanup_overwrite_filename_delete_simple(&to_overwrite_dest);
     }
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \

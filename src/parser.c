@@ -169,6 +169,9 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--no-abs-symlink : do not store absolute paths for symlinks\n");
   fprintf(stderr,
+          "--no-safe-links : keep symlinks that link to outside archive "
+          "contents\n");
+  fprintf(stderr,
           "--temp-files-dir <dir> : where to store temporary files created "
           "when compressing (defaults to current working directory)\n");
   fprintf(stderr,
@@ -303,6 +306,11 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x8;
       } else if (strcmp(argv[0], "--no-abs-symlink") == 0) {
         out->flags |= 0x20;
+      } else if (strcmp(argv[0], "--no-safe-links") == 0) {
+        out->flags |= 0x80;
+        fprintf(stderr,
+                "NOTICE: Disabling safe-links, symlinks that point to outside "
+                "archived files will be preserved!\n");
       } else if (strcmp(argv[0], "--temp-files-dir") == 0) {
         if (argc < 2) {
           fprintf(stderr, "ERROR: --temp-files-dir is missing an argument!\n");

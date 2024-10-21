@@ -57,6 +57,11 @@ Following the file-count bytes, the following bytes are added for each file:
         2. The second bit is "other execute permission".
         3. The third bit is UNSET if relative links are preferred, and is SET
            if absolute links are preferred.
+        4. The fourth bit is set if this file/symlink-entry is invalid and must
+           be skipped. Ignore following bytes after these 4 bytes bit-flags in
+           this specification and skip to the next entry; if marked invalid,
+           the following specification bytes for this file/symlink entry must
+           not exist.
     3. The third byte.
         1. Currently unused.
     4. The fourth byte.
