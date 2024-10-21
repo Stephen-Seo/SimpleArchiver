@@ -27,6 +27,7 @@ API calls.
     --overwrite-create : allows overwriting an archive file
     --overwrite-extract : allows overwriting when extracting
     --no-abs-symlink : do not store absolute paths for symlinks
+    --no-safe-links : keep symlinks that link to outside archive contents
     --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to current working directory)
     --write-version <version> : Force write version file format (default 1)
     --chunk-min-size <bytes> : v1 file format minimum chunk size (default 4194304 or 4MiB)
