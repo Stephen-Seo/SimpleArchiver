@@ -806,6 +806,15 @@ int write_files_fn(void *data, void *ud) {
       }
     }
 
+    if (!abs_path && !rel_path) {
+      // No valid paths, set as invalid.
+      fprintf(stderr,
+              "WARNING: Could not get valid abs/rel path for symlink \"%s\" "
+              "(invalid symlink)!\n",
+              file_info->filename);
+      ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
+    }
+
     // Store the 4 byte bit-flags for file.
     simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
@@ -2100,6 +2109,15 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         }
       }
 
+      if (!abs_path && !rel_path) {
+        // No valid paths, mark as invalid.
+        fprintf(stderr,
+                "WARNING: \"%s\" is an invalid symlink, will not store rel/abs "
+                "link paths!\n",
+                (const char *)node->data);
+        is_invalid = 1;
+      }
+
       // Get symlink stats for permissions.
       struct stat stat_buf;
       memset(&stat_buf, 0, sizeof(struct stat));
@@ -2842,6 +2860,18 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       // fprintf(stderr, "\"%s\" put in map\n", key);
     }
   }
+
+  __attribute__((cleanup(simple_archiver_list_free)))
+  SDArchiverLinkedList *links_list =
+      state && state->parsed && state->parsed->flags & 0x80
+          ? NULL
+          : simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_hash_map_free)))
+  SDArchiverHashMap *files_map =
+      state && state->parsed && state->parsed->flags & 0x80
+          ? NULL
+          : simple_archiver_hash_map_init();
+
   for (uint32_t idx = 0; idx < size; ++idx) {
     if (is_sig_int_occurred) {
       return SDAS_SIGINT;
@@ -2970,6 +3000,28 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     } else {
       // Do deferred overwrite action: remove existing file/symlink.
       cleanup_overwrite_filename_delete_simple(&to_overwrite_dest);
+    }
+
+    if (files_map && !skip && out_f_name) {
+      simple_archiver_hash_map_insert(
+          files_map, (void *)1, strdup((const char *)out_f_name),
+          strlen((const char *)out_f_name) + 1,
+          simple_archiver_helper_datastructure_cleanup_nop, NULL);
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_c_string))) char *filename_copy =
+          strdup(out_f_name);
+      char *filename_dirname = dirname(filename_copy);
+
+      while (strcmp(filename_dirname, ".") != 0) {
+        if (!simple_archiver_hash_map_get(files_map, filename_dirname,
+                                          strlen(filename_dirname) + 1)) {
+          simple_archiver_hash_map_insert(
+              files_map, (void *)1, strdup(filename_dirname),
+              strlen(filename_dirname) + 1,
+              simple_archiver_helper_datastructure_cleanup_nop, NULL);
+        }
+        filename_dirname = dirname(filename_dirname);
+      }
     }
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
@@ -3450,19 +3502,19 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             if (ret == -1) {
               if (retry_symlink) {
                 fprintf(stderr,
-                        "WARNING: Failed to create symlink after removing "
+                        "  WARNING: Failed to create symlink after removing "
                         "existing symlink!\n");
                 goto V0_SYMLINK_CREATE_AFTER_0;
               } else if (errno == EEXIST) {
                 if ((state->parsed->flags & 8) == 0) {
                   fprintf(
                       stderr,
-                      "WARNING: Symlink already exists and "
+                      "  WARNING: Symlink already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
                   goto V0_SYMLINK_CREATE_AFTER_0;
                 } else {
                   fprintf(stderr,
-                          "NOTICE: Symlink already exists and "
+                          "  NOTICE: Symlink already exists and "
                           "\"--overwrite-extract\" specified, attempting to "
                           "overwrite...\n");
                   unlink(out_f_name);
@@ -3473,17 +3525,21 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                 return SDAS_FAILED_TO_EXTRACT_SYMLINK;
               }
             }
+            if (links_list) {
+              simple_archiver_list_add(links_list, strdup(out_f_name), NULL);
+            }
             ret = fchmodat(AT_FDCWD, out_f_name, permissions,
                            AT_SYMLINK_NOFOLLOW);
             if (ret == -1) {
               if (errno == EOPNOTSUPP) {
                 fprintf(stderr,
-                        "NOTICE: Setting permissions of symlink is not "
+                        "  NOTICE: Setting permissions of symlink is not "
                         "supported by FS/OS!\n");
               } else {
-                fprintf(stderr,
-                        "WARNING: Failed to set permissions of symlink (%d)!\n",
-                        errno);
+                fprintf(
+                    stderr,
+                    "  WARNING: Failed to set permissions of symlink (%d)!\n",
+                    errno);
               }
             }
           V0_SYMLINK_CREATE_AFTER_0:
@@ -3500,19 +3556,19 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             if (ret == -1) {
               if (retry_symlink) {
                 fprintf(stderr,
-                        "WARNING: Failed to create symlink after removing "
+                        "  WARNING: Failed to create symlink after removing "
                         "existing symlink!\n");
                 goto V0_SYMLINK_CREATE_AFTER_1;
               } else if (errno == EEXIST) {
                 if ((state->parsed->flags & 8) == 0) {
                   fprintf(
                       stderr,
-                      "WARNING: Symlink already exists and "
+                      "  WARNING: Symlink already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
                   goto V0_SYMLINK_CREATE_AFTER_1;
                 } else {
                   fprintf(stderr,
-                          "NOTICE: Symlink already exists and "
+                          "  NOTICE: Symlink already exists and "
                           "\"--overwrite-extract\" specified, attempting to "
                           "overwrite...\n");
                   unlink(out_f_name);
@@ -3523,17 +3579,21 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                 return SDAS_FAILED_TO_EXTRACT_SYMLINK;
               }
             }
+            if (links_list) {
+              simple_archiver_list_add(links_list, strdup(out_f_name), NULL);
+            }
             ret = fchmodat(AT_FDCWD, out_f_name, permissions,
                            AT_SYMLINK_NOFOLLOW);
             if (ret == -1) {
               if (errno == EOPNOTSUPP) {
                 fprintf(stderr,
-                        "NOTICE: Setting permissions of symlink is not "
+                        "  NOTICE: Setting permissions of symlink is not "
                         "supported by FS/OS!\n");
               } else {
-                fprintf(stderr,
-                        "WARNING: Failed to set permissions of symlink (%d)!\n",
-                        errno);
+                fprintf(
+                    stderr,
+                    "  WARNING: Failed to set permissions of symlink (%d)!\n",
+                    errno);
               }
             }
           V0_SYMLINK_CREATE_AFTER_1:
@@ -3548,16 +3608,20 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           if (ret == -1) {
             return SDAS_FAILED_TO_EXTRACT_SYMLINK;
           }
+          if (links_list) {
+            simple_archiver_list_add(links_list, strdup(out_f_name), NULL);
+          }
           ret =
               fchmodat(AT_FDCWD, out_f_name, permissions, AT_SYMLINK_NOFOLLOW);
           if (ret == -1) {
             if (errno == EOPNOTSUPP) {
-              fprintf(stderr,
-                      "NOTICE: Setting permissions of symlink is not supported "
-                      "by FS/OS!\n");
+              fprintf(
+                  stderr,
+                  "  NOTICE: Setting permissions of symlink is not supported "
+                  "by FS/OS!\n");
             } else {
               fprintf(stderr,
-                      "WARNING: Failed to set permissions of symlink (%d)!\n",
+                      "  WARNING: Failed to set permissions of symlink (%d)!\n",
                       errno);
             }
           }
@@ -3570,16 +3634,20 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           if (ret == -1) {
             return SDAS_FAILED_TO_EXTRACT_SYMLINK;
           }
+          if (links_list) {
+            simple_archiver_list_add(links_list, strdup(out_f_name), NULL);
+          }
           ret =
               fchmodat(AT_FDCWD, out_f_name, permissions, AT_SYMLINK_NOFOLLOW);
           if (ret == -1) {
             if (errno == EOPNOTSUPP) {
-              fprintf(stderr,
-                      "NOTICE: Setting permissions of symlink is not supported "
-                      "by FS/OS!\n");
+              fprintf(
+                  stderr,
+                  "  NOTICE: Setting permissions of symlink is not supported "
+                  "by FS/OS!\n");
             } else {
               fprintf(stderr,
-                      "WARNING: Failed to set permissions of symlink (%d)!\n",
+                      "  WARNING: Failed to set permissions of symlink (%d)!\n",
                       errno);
             }
           }
@@ -3587,10 +3655,14 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
         } else {
           fprintf(
               stderr,
-              "WARNING: Symlink entry in archive has no paths to link to!\n");
+              "  WARNING: Symlink entry in archive has no paths to link to!\n");
         }
       }
     }
+  }
+
+  if (do_extract && links_list && files_map) {
+    simple_archiver_safe_links_enforce(links_list, files_map);
   }
 
   if (is_sig_int_occurred) {
@@ -3636,6 +3708,21 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     }
 #endif
   }
+
+  __attribute__((cleanup(simple_archiver_list_free)))
+  SDArchiverLinkedList *links_list =
+      state && state->parsed && state->parsed->flags & 0x80
+          ? NULL
+          : simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_hash_map_free)))
+  SDArchiverHashMap *files_map =
+      state && state->parsed && state->parsed->flags & 0x80
+          ? NULL
+          : simple_archiver_hash_map_init();
+
+  __attribute__((
+      cleanup(simple_archiver_helper_cleanup_c_string))) char *cwd_realpath =
+      realpath(".", NULL);
 
   const int_fast8_t is_compressed = (buf[0] & 1) ? 1 : 0;
 
@@ -3704,9 +3791,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
 
     if (is_invalid) {
-      fprintf(stderr,
-              "  WARNING: This symlink entry was marked invalid (not a safe "
-              "link)!\n");
+      fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
     }
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
@@ -3789,21 +3874,22 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         ret = symlink(path, link_name);
         if (ret == -1) {
           if (link_create_retry) {
-            fprintf(stderr,
-                    "WARNING: Failed to create symlink after removing existing "
-                    "symlink!\n");
+            fprintf(
+                stderr,
+                "  WARNING: Failed to create symlink after removing existing "
+                "symlink!\n");
             goto V1_SYMLINK_CREATE_AFTER_0;
           } else if (errno == EEXIST) {
             if ((state->parsed->flags & 8) == 0) {
               fprintf(stderr,
-                      "WARNING: Symlink already exists and "
+                      "  WARNING: Symlink already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
               goto V1_SYMLINK_CREATE_AFTER_0;
             } else {
-              fprintf(
-                  stderr,
-                  "NOTICE: Symlink already exists and \"--overwrite-extract\" "
-                  "specified, attempting to overwrite...\n");
+              fprintf(stderr,
+                      "  NOTICE: Symlink already exists and "
+                      "\"--overwrite-extract\" specified, attempting to "
+                      "overwrite...\n");
               unlink(link_name);
               link_create_retry = 1;
               goto V1_SYMLINK_CREATE_RETRY_0;
@@ -3815,11 +3901,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         if (ret == -1) {
           if (errno == EOPNOTSUPP) {
             fprintf(stderr,
-                    "NOTICE: Setting permissions of symlink is not supported "
+                    "  NOTICE: Setting permissions of symlink is not supported "
                     "by FS/OS!\n");
           } else {
             fprintf(stderr,
-                    "WARNING: Failed to set permissions of symlink (%d)!\n",
+                    "  WARNING: Failed to set permissions of symlink (%d)!\n",
                     errno);
           }
         }
@@ -3828,7 +3914,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       V1_SYMLINK_CREATE_AFTER_0:
         link_create_retry = 1;
 #endif
-      } else {
+      } else if (!do_extract) {
         fprintf(stderr, "  Abs path: %s\n", path);
       }
     } else if (!do_extract) {
@@ -3861,21 +3947,22 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         ret = symlink(path, link_name);
         if (ret == -1) {
           if (link_create_retry) {
-            fprintf(stderr,
-                    "WARNING: Failed to create symlink after removing existing "
-                    "symlink!\n");
+            fprintf(
+                stderr,
+                "  WARNING: Failed to create symlink after removing existing "
+                "symlink!\n");
             goto V1_SYMLINK_CREATE_AFTER_1;
           } else if (errno == EEXIST) {
             if ((state->parsed->flags & 8) == 0) {
               fprintf(stderr,
-                      "WARNING: Symlink already exists and "
+                      "  WARNING: Symlink already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
               goto V1_SYMLINK_CREATE_AFTER_1;
             } else {
-              fprintf(
-                  stderr,
-                  "NOTICE: Symlink already exists and \"--overwrite-extract\" "
-                  "specified, attempting to overwrite...\n");
+              fprintf(stderr,
+                      "  NOTICE: Symlink already exists and "
+                      "\"--overwrite-extract\" specified, attempting to "
+                      "overwrite...\n");
               unlink(link_name);
               link_create_retry = 1;
               goto V1_SYMLINK_CREATE_RETRY_1;
@@ -3887,11 +3974,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         if (ret == -1) {
           if (errno == EOPNOTSUPP) {
             fprintf(stderr,
-                    "NOTICE: Setting permissions of symlink is not supported "
+                    "  NOTICE: Setting permissions of symlink is not supported "
                     "by FS/OS!\n");
           } else {
             fprintf(stderr,
-                    "WARNING: Failed to set permissions of symlink (%d)!\n",
+                    "  WARNING: Failed to set permissions of symlink (%d)!\n",
                     errno);
           }
         }
@@ -3900,7 +3987,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       V1_SYMLINK_CREATE_AFTER_1:
         link_create_retry = 1;
 #endif
-      } else {
+      } else if (!do_extract) {
         fprintf(stderr, "  Rel path: %s\n", path);
       }
     } else if (!do_extract) {
@@ -3911,6 +3998,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         !skip_due_to_invalid) {
       fprintf(stderr, "  WARNING: Symlink \"%s\" was not created!\n",
               link_name);
+    } else if (do_extract && link_extracted && !skip_due_to_map &&
+               !skip_due_to_invalid && links_list) {
+      simple_archiver_list_add(links_list, strdup(link_name), NULL);
     }
   }
 
@@ -4010,6 +4100,28 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       memcpy(&u64, buf, 8);
       simple_archiver_helper_64_bit_be(&u64);
       file_info->file_size = u64;
+
+      if (files_map) {
+        simple_archiver_hash_map_insert(
+            files_map, (void *)1, strdup(file_info->filename),
+            strlen(file_info->filename) + 1,
+            simple_archiver_helper_datastructure_cleanup_nop, NULL);
+        __attribute__((cleanup(
+            simple_archiver_helper_cleanup_c_string))) char *filename_copy =
+            strdup(file_info->filename);
+        char *filename_dirname = dirname(filename_copy);
+
+        while (strcmp(filename_dirname, ".") != 0) {
+          if (!simple_archiver_hash_map_get(files_map, filename_dirname,
+                                            strlen(filename_dirname) + 1)) {
+            simple_archiver_hash_map_insert(
+                files_map, (void *)1, strdup(filename_dirname),
+                strlen(filename_dirname) + 1,
+                simple_archiver_helper_datastructure_cleanup_nop, NULL);
+          }
+          filename_dirname = dirname(filename_dirname);
+        }
+      }
 
       simple_archiver_list_add(file_info_list, file_info,
                                free_internal_file_info);
@@ -4340,6 +4452,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     }
   }
 
+  if (do_extract && links_list && files_map) {
+    simple_archiver_safe_links_enforce(links_list, files_map);
+  }
+
   return SDAS_SUCCESS;
 }
 
@@ -4522,4 +4638,70 @@ int simple_archiver_validate_file_path(const char *filepath) {
   }
 
   return 0;
+}
+
+void simple_archiver_safe_links_enforce(SDArchiverLinkedList *links_list,
+                                        SDArchiverHashMap *files_map) {
+  uint_fast8_t need_to_print_note = 1;
+  // safe-links: Check that every link maps to a file in the files_map.
+  __attribute__((
+      cleanup(simple_archiver_helper_cleanup_c_string))) char *path_to_cwd =
+      realpath(".", NULL);
+
+  // Ensure path_to_cwd ends with '/'.
+  uint32_t idx = 0;
+  while (path_to_cwd[idx] != 0) {
+    ++idx;
+  }
+  if (path_to_cwd[idx - 1] != '/') {
+    char *temp = malloc(idx + 2);
+    memcpy(temp, path_to_cwd, idx);
+    temp[idx] = '/';
+    temp[idx + 1] = 0;
+    free(path_to_cwd);
+    path_to_cwd = temp;
+  }
+
+  // Check every link to make sure it points to an existing file.
+  SDArchiverLLNode *links_node = links_list->head;
+  while (links_node->next != links_list->tail) {
+    links_node = links_node->next;
+    __attribute__((
+        cleanup(simple_archiver_helper_cleanup_c_string))) char *link_realpath =
+        realpath(links_node->data, NULL);
+    if (link_realpath) {
+      // Get local path.
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_c_string))) char *link_localpath =
+          simple_archiver_filenames_to_relative_path(path_to_cwd,
+                                                     link_realpath);
+      if (!simple_archiver_hash_map_get(files_map, link_localpath,
+                                        strlen(link_localpath) + 1)) {
+        // Invalid symlink.
+        fprintf(stderr,
+                "Symlink \"%s\" is invalid (not pointing to archived file), "
+                "removing...\n",
+                (const char *)links_node->data);
+        unlink(links_node->data);
+        if (need_to_print_note) {
+          fprintf(stderr,
+                  "NOTE: Disable this behavior with \"--no-safe-links\" if "
+                  "needed.\n");
+          need_to_print_note = 0;
+        }
+      }
+    } else {
+      // Invalid symlink.
+      fprintf(stderr,
+              "Symlink \"%s\" is invalid (failed to resolve), removing...\n",
+              (const char *)links_node->data);
+      unlink(links_node->data);
+      if (need_to_print_note) {
+        fprintf(stderr,
+                "NOTE: Disable this behavior with \"--no-safe-links\" if "
+                "needed.\n");
+        need_to_print_note = 0;
+      }
+    }
+  }
 }

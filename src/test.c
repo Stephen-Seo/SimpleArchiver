@@ -256,6 +256,11 @@ int main(void) {
     CHECK_STREQ(rel_path, "../other/dir/");
     simple_archiver_helper_cleanup_c_string(&rel_path);
 
+    rel_path = simple_archiver_filenames_to_relative_path(
+        "/one/two/three/", "/one/two/three/four");
+    CHECK_STREQ(rel_path, "four");
+    simple_archiver_helper_cleanup_c_string(&rel_path);
+
     CHECK_FALSE(simple_archiver_validate_file_path("Local/Path"));
     CHECK_TRUE(simple_archiver_validate_file_path("/Abs/Path"));
     CHECK_TRUE(simple_archiver_validate_file_path("Local/../../not/really"));

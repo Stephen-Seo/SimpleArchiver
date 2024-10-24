@@ -109,4 +109,9 @@ char *simple_archiver_file_abs_path(const char *filename);
 /// Returns 5 if "filepath" is NULL.
 int simple_archiver_validate_file_path(const char *filepath);
 
+/// Removes links from "links_list" in cwd if it is not valid or does not point
+/// to a file in "files_map".
+void simple_archiver_safe_links_enforce(SDArchiverLinkedList *links_list,
+                                        SDArchiverHashMap *files_map);
+
 #endif
