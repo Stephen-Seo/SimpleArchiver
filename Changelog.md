@@ -7,6 +7,11 @@ points to a file in the archive. Additionally any extracted symlinks that don't
 point to a valid destination is removed. This "enforce safe-links on extract"
 can be disabled with the "--no-safe-links" option.
 
+Add "--preserve-symlinks" option that will verbatim store the symlinks' target.
+Not recommended if symlinks are pointing to absolute paths, which will be
+clobbered on extraction to a different directory unless if "--no-safe-links" is
+specified on extraction.
+
 ## Version 1.5
 
 Previous file-format-v1 implementation of "safe links" still created a symlink
