@@ -168,6 +168,12 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr, "--overwrite-extract : allows overwriting when extracting\n");
   fprintf(stderr,
           "--no-abs-symlink : do not store absolute paths for symlinks\n");
+  fprintf(
+      stderr,
+      "--preserve-symlinks : preserve the symlink's path on archive creation "
+      "instead of deriving abs/relative paths, ignores \"--no-abs-symlink\" "
+      "(It is not recommended to use this option, as absolute-path-symlinks "
+      "may be clobbered on extraction)\n");
   fprintf(stderr,
           "--no-safe-links : keep symlinks that link to outside archive "
           "contents\n");
@@ -306,6 +312,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x8;
       } else if (strcmp(argv[0], "--no-abs-symlink") == 0) {
         out->flags |= 0x20;
+      } else if (strcmp(argv[0], "--preserve-symlinks") == 0) {
+        out->flags |= 0x100;
       } else if (strcmp(argv[0], "--no-safe-links") == 0) {
         out->flags |= 0x80;
         fprintf(stderr,

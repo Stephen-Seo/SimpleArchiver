@@ -37,6 +37,7 @@ typedef struct SDArchiverParsed {
   /// 0b xx1x xxxx - Do not save absolute paths for symlinks.
   /// 0b x1xx xxxx - Sort files by size before archiving.
   /// 0b 1xxx xxxx - No safe links.
+  /// 0b xxxx xxx1 xxxx xxxx - Preserve symlink target.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;

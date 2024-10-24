@@ -759,32 +759,49 @@ int write_files_fn(void *data, void *ud) {
     // Get absolute path.
     __attribute__((cleanup(
         simple_archiver_helper_cleanup_malloced))) void *abs_path = NULL;
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-    abs_path = realpath(file_info->filename, NULL);
-#endif
     __attribute__((cleanup(
         simple_archiver_helper_cleanup_malloced))) void *rel_path = NULL;
-    if (abs_path) {
-      // Get relative path.
-      // First get absolute path of link.
-      __attribute__((cleanup(
-          simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-          simple_archiver_file_abs_path(file_info->filename);
-      if (!link_abs_path) {
-        fprintf(stderr, "WARNING: Failed to get absolute path of link!\n");
-      } else {
-        // fprintf(stderr, "DEBUG: abs_path: %s\nDEBUG: link_abs_path: %s\n",
-        //                 (char*)abs_path, (char*)link_abs_path);
 
-        rel_path =
-            simple_archiver_filenames_to_relative_path(link_abs_path, abs_path);
+    if ((state->parsed->flags & 0x100) != 0) {
+      // Preserve symlink target.
+      char *path_buf = malloc(1024);
+      ssize_t ret = readlink(file_info->filename, path_buf, 1023);
+      if (ret == -1) {
+        fprintf(stderr, "WARNING: Failed to get symlink's target!\n");
+        free(path_buf);
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
+      } else {
+        path_buf[ret] = 0;
+        if (path_buf[0] == '/') {
+          abs_path = path_buf;
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x4;
+        } else {
+          rel_path = path_buf;
+        }
+      }
+    } else {
+      abs_path = realpath(file_info->filename, NULL);
+      if (abs_path) {
+        // Get relative path.
+        // First get absolute path of link.
+        __attribute__((cleanup(
+            simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
+            simple_archiver_file_abs_path(file_info->filename);
+        if (!link_abs_path) {
+          fprintf(stderr, "WARNING: Failed to get absolute path of link!\n");
+        } else {
+          // fprintf(stderr, "DEBUG: abs_path: %s\nDEBUG: link_abs_path: %s\n",
+          //                 (char*)abs_path, (char*)link_abs_path);
+
+          rel_path = simple_archiver_filenames_to_relative_path(link_abs_path,
+                                                                abs_path);
+        }
       }
     }
 
     // Check if absolute path refers to one of the filenames.
     if (abs_path && (state->parsed->flags & 0x20) == 0 &&
+        (state->parsed->flags & 0x100) == 0 &&
         !simple_archiver_hash_map_get(state->map, abs_path,
                                       strlen(abs_path) + 1)) {
       // Is not a filename being archived.
@@ -801,6 +818,34 @@ int write_files_fn(void *data, void *ud) {
                 "WARNING: Symlink \"%s\" points to outside archive contents, "
                 "will not be stored! (Use \"--no-safe-links\" to disable this "
                 "behavior)\n",
+                file_info->filename);
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
+      }
+    } else if ((state->parsed->flags & 0x100) != 0 &&
+               (state->parsed->flags & 0x80) == 0 &&
+               (((uint8_t *)temp_to_write->buf)[1] & 0x8) == 0) {
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_c_string))) char *resolved_path = NULL;
+      if (abs_path || rel_path) {
+        resolved_path = realpath(file_info->filename, NULL);
+        if (!resolved_path) {
+          fprintf(stderr,
+                  "WARNING: Symlink \"%s\" is invalid, will not be stored!  "
+                  "(Use \"--no-safe-links\" to disable this behavior)\n",
+                  file_info->filename);
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
+        } else if (!simple_archiver_hash_map_get(state->map, resolved_path,
+                                                 strlen(resolved_path) + 1)) {
+          fprintf(stderr,
+                  "WARNING: Symlink \"%s\" points to outside archive contents, "
+                  "will not be stored! (Use \"--no-safe-links\" to disable "
+                  "this behavior)\n",
+                  file_info->filename);
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
+        }
+      } else {
+        fprintf(stderr,
+                "WARNING: Unable to get target path from symlink \"%s\"!\n",
                 file_info->filename);
         ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
       }
@@ -831,8 +876,10 @@ int write_files_fn(void *data, void *ud) {
 
     // Store the absolute and relative paths.
     if (!abs_path) {
-      fprintf(stderr,
-              "WARNING: Failed to get absolute path of link destination!\n");
+      if ((state->parsed->flags & 0x100) == 0) {
+        fprintf(stderr,
+                "WARNING: Failed to get absolute path of link destination!\n");
+      }
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(2);
       temp_to_write->size = 2;
@@ -905,9 +952,17 @@ int write_files_fn(void *data, void *ud) {
     // Write all previously set data.
     fprintf(stderr, "Writing symlink info: %s\n", file_info->filename);
     if ((state->parsed->flags & 0x20) == 0) {
-      fprintf(stderr, "  abs path: %s\n", (char *)abs_path);
+      if (abs_path) {
+        fprintf(stderr, "  abs path: %s\n", (char *)abs_path);
+      } else {
+        fprintf(stderr, "  abs path is NOT set\n");
+      }
     }
-    fprintf(stderr, "  rel path: %s\n", (char *)rel_path);
+    if (rel_path) {
+      fprintf(stderr, "  rel path: %s\n", (char *)rel_path);
+    } else {
+      fprintf(stderr, "  rel path is NOT set\n");
+    }
     simple_archiver_list_get(to_write, write_list_datas_fn, state->out_f);
     simple_archiver_list_free(&to_write);
   }
@@ -983,10 +1038,15 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
       char *fullpath_dirname_copy = malloc(strlen(fullpath_dirname) + 1);
       strncpy(fullpath_dirname_copy, fullpath_dirname,
               strlen(fullpath_dirname) + 1);
-      simple_archiver_hash_map_insert(
-          abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy,
-          strlen(fullpath_dirname_copy) + 1,
-          simple_archiver_helper_datastructure_cleanup_nop, NULL);
+      if (!simple_archiver_hash_map_get(abs_filenames, fullpath_dirname_copy,
+                                        strlen(fullpath_dirname_copy) + 1)) {
+        simple_archiver_hash_map_insert(
+            abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy,
+            strlen(fullpath_dirname_copy) + 1,
+            simple_archiver_helper_datastructure_cleanup_nop, NULL);
+      } else {
+        free(fullpath_dirname_copy);
+      }
     }
     prev = fullpath_dirname;
   }
@@ -2091,30 +2151,51 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       node = node->next;
       ++u32;
       memset(buf, 0, 2);
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-      // Check if symlink points to thing to be stored into archive.
-      __attribute__((
-          cleanup(simple_archiver_helper_cleanup_malloced))) void *abs_path =
-          realpath(node->data, NULL);
-      __attribute__((cleanup(
-          simple_archiver_helper_cleanup_malloced))) void *rel_path = NULL;
-      if (abs_path) {
-        __attribute__((cleanup(
-            simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-            simple_archiver_file_abs_path(node->data);
-        if (!link_abs_path) {
-          fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
-        } else {
-          rel_path = simple_archiver_filenames_to_relative_path(link_abs_path,
-                                                                abs_path);
-        }
-      }
 
       uint_fast8_t is_invalid = 0;
 
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_malloced))) void *abs_path = NULL;
+      __attribute__((cleanup(
+          simple_archiver_helper_cleanup_malloced))) void *rel_path = NULL;
+      if ((state->parsed->flags & 0x100) != 0) {
+        // Preserve symlink target.
+        char *path_buf = malloc(1024);
+        ssize_t ret = readlink(node->data, path_buf, 1023);
+        if (ret == -1) {
+          fprintf(stderr, "WARNING: Failed to get symlink's target!\n");
+          free(path_buf);
+          is_invalid = 1;
+        } else {
+          path_buf[ret] = 0;
+          if (path_buf[0] == '/') {
+            abs_path = path_buf;
+            buf[0] |= 1;
+          } else {
+            rel_path = path_buf;
+          }
+        }
+      } else {
+        abs_path = realpath(node->data, NULL);
+        // Check if symlink points to thing to be stored into archive.
+        if (abs_path) {
+          __attribute__((cleanup(
+              simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
+              simple_archiver_file_abs_path(node->data);
+          if (!link_abs_path) {
+            fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
+          } else {
+            rel_path = simple_archiver_filenames_to_relative_path(link_abs_path,
+                                                                  abs_path);
+          }
+        }
+      }
+
       if (abs_path && (state->parsed->flags & 0x20) == 0 &&
+          (state->parsed->flags & 0x100) == 0 &&
           !simple_archiver_hash_map_get(abs_filenames, abs_path,
                                         strlen(abs_path) + 1)) {
         // Is not a filename being archived.
@@ -2129,6 +2210,27 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         } else {
           // Safe links disabled, set preference to absolute path.
           buf[0] |= 1;
+        }
+      } else if ((state->parsed->flags & 0x100) != 0 &&
+                 (state->parsed->flags & 0x80) == 0 && !is_invalid) {
+        __attribute__((cleanup(
+            simple_archiver_helper_cleanup_c_string))) char *target_realpath =
+            realpath(node->data, NULL);
+        if (!target_realpath) {
+          fprintf(
+              stderr,
+              "WARNING: \"%s\" is an invalid symlink and \"--no-safe-links\" "
+              "not specified, will skip this symlink!\n",
+              (const char *)node->data);
+          is_invalid = 1;
+        } else if (!simple_archiver_hash_map_get(abs_filenames, target_realpath,
+                                                 strlen(target_realpath) + 1)) {
+          fprintf(
+              stderr,
+              "WARNING: \"%s\" points to outside of archived files and "
+              "\"--no-safe-links\" not specified, will skip this symlink!\n",
+              (const char *)node->data);
+          is_invalid = 1;
         }
       }
 
