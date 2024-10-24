@@ -1689,6 +1689,29 @@ int files_to_chunk_count(void *data, void *ud) {
 
 int greater_fn(int64_t a, int64_t b) { return a > b; }
 
+void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
+                                                 const char *filename) {
+  simple_archiver_hash_map_insert(
+      files_map, (void *)1, strdup((const char *)filename),
+      strlen((const char *)filename) + 1,
+      simple_archiver_helper_datastructure_cleanup_nop, NULL);
+  __attribute__((
+      cleanup(simple_archiver_helper_cleanup_c_string))) char *filename_copy =
+      strdup(filename);
+  char *filename_dirname = dirname(filename_copy);
+
+  while (strcmp(filename_dirname, ".") != 0) {
+    if (!simple_archiver_hash_map_get(files_map, filename_dirname,
+                                      strlen(filename_dirname) + 1)) {
+      simple_archiver_hash_map_insert(
+          files_map, (void *)1, strdup(filename_dirname),
+          strlen(filename_dirname) + 1,
+          simple_archiver_helper_datastructure_cleanup_nop, NULL);
+    }
+    filename_dirname = dirname(filename_dirname);
+  }
+}
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -3003,25 +3026,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     }
 
     if (files_map && !skip && out_f_name) {
-      simple_archiver_hash_map_insert(
-          files_map, (void *)1, strdup((const char *)out_f_name),
-          strlen((const char *)out_f_name) + 1,
-          simple_archiver_helper_datastructure_cleanup_nop, NULL);
-      __attribute__((cleanup(
-          simple_archiver_helper_cleanup_c_string))) char *filename_copy =
-          strdup(out_f_name);
-      char *filename_dirname = dirname(filename_copy);
-
-      while (strcmp(filename_dirname, ".") != 0) {
-        if (!simple_archiver_hash_map_get(files_map, filename_dirname,
-                                          strlen(filename_dirname) + 1)) {
-          simple_archiver_hash_map_insert(
-              files_map, (void *)1, strdup(filename_dirname),
-              strlen(filename_dirname) + 1,
-              simple_archiver_helper_datastructure_cleanup_nop, NULL);
-        }
-        filename_dirname = dirname(filename_dirname);
-      }
+      simple_archiver_internal_paths_to_files_map(files_map, out_f_name);
     }
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
@@ -4102,25 +4107,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       file_info->file_size = u64;
 
       if (files_map) {
-        simple_archiver_hash_map_insert(
-            files_map, (void *)1, strdup(file_info->filename),
-            strlen(file_info->filename) + 1,
-            simple_archiver_helper_datastructure_cleanup_nop, NULL);
-        __attribute__((cleanup(
-            simple_archiver_helper_cleanup_c_string))) char *filename_copy =
-            strdup(file_info->filename);
-        char *filename_dirname = dirname(filename_copy);
-
-        while (strcmp(filename_dirname, ".") != 0) {
-          if (!simple_archiver_hash_map_get(files_map, filename_dirname,
-                                            strlen(filename_dirname) + 1)) {
-            simple_archiver_hash_map_insert(
-                files_map, (void *)1, strdup(filename_dirname),
-                strlen(filename_dirname) + 1,
-                simple_archiver_helper_datastructure_cleanup_nop, NULL);
-          }
-          filename_dirname = dirname(filename_dirname);
-        }
+        simple_archiver_internal_paths_to_files_map(files_map,
+                                                    file_info->filename);
       }
 
       simple_archiver_list_add(file_info_list, file_info,
