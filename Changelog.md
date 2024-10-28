@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 1.6
+
 Enforce "safe-links" on extraction by ensuring every extracted symlink actually
 points to a file in the archive. Additionally any extracted symlinks that don't
 point to a valid destination is removed. This "enforce safe-links on extract"
