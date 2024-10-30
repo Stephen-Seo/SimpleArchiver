@@ -40,6 +40,11 @@ API calls.
 Note that `--compressor` and `--decompressor` cmds must accept data from stdin
 and return processed data to stdout.
 
+## Using the Cosmopolitan-Compiled Version
+
+Note that on Linux, the `actually_portable_simplearchiver` binaries may attempt
+to open via Wine (if Wine is installed). [A workaround is mentioned here.](https://github.com/jart/cosmopolitan/blob/master/README.md#linux)
+
 ## Changes
 
 See the [Changelog](https://git.seodisparate.com/stephenseo/SimpleArchiver/src/branch/main/Changelog.md).
