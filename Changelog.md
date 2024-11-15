@@ -6,6 +6,8 @@
 
 Refactor the internal hash-map data structure.
 
+Minor update to CMakeLists.txt.
+
 ## Version 1.6
 
 Enforce "safe-links" on extraction by ensuring every extracted symlink actually
