@@ -2,6 +2,10 @@
 
 ## Upcoming Changes
 
+## Version 1.7
+
+Refactor the internal hash-map data structure.
+
 ## Version 1.6
 
 Enforce "safe-links" on extraction by ensuring every extracted symlink actually
