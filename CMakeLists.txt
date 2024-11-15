@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.7)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 1.0)
+set(SimpleArchiver_VERSION 1.7)
 
 set(SimpleArchiver_SOURCES
     src/main.c
