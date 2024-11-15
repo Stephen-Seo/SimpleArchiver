@@ -219,6 +219,59 @@ int main(void) {
     simple_archiver_hash_map_free(&hash_map);
   }
 
+  // Test hashing.
+  //{
+  //  printf("Distribution of 13 over 33...\n");
+  //  unsigned int counts[33];
+  //  memset(counts, 0, sizeof(unsigned int) * 33);
+
+  //  uint64_t hash;
+
+  //  hash = simple_archiver_hash_default_fn("/", 2);
+  //  printf("%s in bucket %lu (%lu)\n", "/", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/faq", 5);
+  //  printf("%s in bucket %lu (%lu)\n", "/faq", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/FAQ", 5);
+  //  printf("%s in bucket %lu (%lu)\n", "/FAQ", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/url", 5);
+  //  printf("%s in bucket %lu (%lu)\n", "/url", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/home", 6);
+  //  printf("%s in bucket %lu (%lu)\n", "/home", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/blog", 6);
+  //  printf("%s in bucket %lu (%lu)\n", "/blog", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/test", 6);
+  //  printf("%s in bucket %lu (%lu)\n", "/test", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/menu", 6);
+  //  printf("%s in bucket %lu (%lu)\n", "/menu", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/posts", 7);
+  //  printf("%s in bucket %lu (%lu)\n", "/posts", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/about", 7);
+  //  printf("%s in bucket %lu (%lu)\n", "/about", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/media", 7);
+  //  printf("%s in bucket %lu (%lu)\n", "/media", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/social", 8);
+  //  printf("%s in bucket %lu (%lu)\n", "/social", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+  //  hash = simple_archiver_hash_default_fn("/projects", 10);
+  //  printf("%s in bucket %lu (%lu)\n", "/projects", hash % 33, hash);
+  //  counts[hash % 33] += 1;
+
+  //  for (unsigned int idx = 0; idx < 33; ++idx) {
+  //    printf("Bucket %u: %u\n", idx, counts[idx]);
+  //  }
+  //}
+
   // Test PriorityHeap.
   {
     SDArchiverPHeap *priority_heap = simple_archiver_priority_heap_init();

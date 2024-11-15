@@ -76,19 +76,17 @@ int simple_archiver_hash_map_internal_pick_in_list(void *data, void *ud) {
 
 uint64_t simple_archiver_hash_default_fn(const void *key, size_t key_size) {
   uint64_t seed = 0;
-  uint64_t temp = 0;
-  size_t count = 0;
+  uint64_t temp;
   for (size_t idx = 0; idx < key_size; ++idx) {
-    temp |= ((uint64_t) * ((uint8_t *)key + idx)) << (8 * count);
-    ++count;
-    if (count >= 8) {
-      count = 0;
-      seed += temp;
-      temp = 0;
+    temp = (uint64_t)(((uint8_t*)key)[idx]) + seed;
+    if (idx % 3 == 0) {
+      temp ^= 0xA5A538A5A9B5A5A5;
+    } else if (idx % 3 == 1) {
+      temp ^= 0xD7A58BD7A58BD7AA;
+    } else {
+      temp ^= 0x8B7A8B8B87CB8B84;
     }
-  }
-  if (temp != 0) {
-    seed += temp;
+    seed += simple_archiver_algo_lcg_defaults(temp);
   }
 
   return simple_archiver_algo_lcg_defaults(seed);
@@ -106,7 +104,7 @@ int simple_archiver_hash_map_internal_rehash(SDArchiverHashMap *hash_map) {
   }
   SDArchiverHashMap new_hash_map;
   new_hash_map.hash_fn = hash_map->hash_fn;
-  new_hash_map.buckets_size = hash_map->buckets_size * 2;
+  new_hash_map.buckets_size = (hash_map->buckets_size - 1) * 2 + 1;
   // Pointers have the same size (at least on the same machine), so
   // sizeof(void*) should be ok.
   new_hash_map.buckets = malloc(sizeof(void *) * new_hash_map.buckets_size);
@@ -154,7 +152,7 @@ SDArchiverHashMap *simple_archiver_hash_map_init_custom_hasher(
     uint64_t (*hash_fn)(const void *, size_t)) {
   SDArchiverHashMap *hash_map = malloc(sizeof(SDArchiverHashMap));
   hash_map->hash_fn = hash_fn;
-  hash_map->buckets_size = SC_SA_DS_HASH_MAP_START_BUCKET_SIZE;
+  hash_map->buckets_size = SC_SA_DS_HASH_MAP_START_BUCKET_SIZE + 1;
   // Pointers have the same size (at least on the same machine), so
   // sizeof(void*) should be ok.
   hash_map->buckets = malloc(sizeof(void *) * hash_map->buckets_size);
