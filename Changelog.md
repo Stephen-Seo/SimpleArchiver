@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Minor refactorings related to `printf` and `uintX_t`/`size_t` types.
+
 ## Version 1.7
 
 Refactor the internal hash-map data structure.
