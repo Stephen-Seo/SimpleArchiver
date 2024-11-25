@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 // Local includes.
 #include "../algorithms/linear_congruential_gen.h"
@@ -289,12 +290,12 @@ int main(void) {
       uint32_t *data = simple_archiver_priority_heap_top(priority_heap);
       CHECK_TRUE(*data == idx);
       if (*data != idx) {
-        printf("idx is %u, data is %u\n", idx, *data);
+        printf("idx is %" PRIu32 ", data is %" PRIu32 "\n", idx, *data);
       }
       data = simple_archiver_priority_heap_pop(priority_heap);
       CHECK_TRUE(*data == idx);
       if (*data != idx) {
-        printf("idx is %u, data is %u\n", idx, *data);
+        printf("idx is %" PRIu32 ", data is %" PRIu32 "\n", idx, *data);
       }
       free(data);
     }
@@ -358,12 +359,12 @@ int main(void) {
       uint32_t *data = simple_archiver_priority_heap_top(priority_heap);
       CHECK_TRUE(*data == idx);
       if (*data != idx) {
-        printf("idx is %u, data is %u\n", idx, *data);
+        printf("idx is %" PRIu32 ", data is %" PRIu32 "\n", idx, *data);
       }
       data = simple_archiver_priority_heap_pop(priority_heap);
       CHECK_TRUE(*data == idx);
       if (*data != idx) {
-        printf("idx is %u, data is %u\n", idx, *data);
+        printf("idx is %" PRIu32 ", data is %" PRIu32 "\n", idx, *data);
       }
     }
     free(array);
@@ -426,12 +427,12 @@ int main(void) {
       uint32_t *data = simple_archiver_priority_heap_top(priority_heap);
       CHECK_TRUE(*data == idx);
       if (*data != idx) {
-        printf("idx is %u, data is %u\n", idx, *data);
+        printf("idx is %" PRIu32 ", data is %" PRIu32 "\n", idx, *data);
       }
       data = simple_archiver_priority_heap_pop(priority_heap);
       CHECK_TRUE(*data == idx);
       if (*data != idx) {
-        printf("idx is %u, data is %u\n", idx, *data);
+        printf("idx is %" PRIu32 ", data is %" PRIu32 "\n", idx, *data);
       }
     }
     free(array);
@@ -439,7 +440,7 @@ int main(void) {
     simple_archiver_priority_heap_free(&priority_heap);
   }
 
-  printf("Checks checked: %u\n", checks_checked);
-  printf("Checks passed:  %u\n", checks_passed);
+  printf("Checks checked: %" PRId32 "\n", checks_checked);
+  printf("Checks passed:  %" PRId32 "\n", checks_passed);
   return checks_passed == checks_checked ? 0 : 1;
 }

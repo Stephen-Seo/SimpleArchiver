@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 // Local includes.
 #include "archiver.h"
@@ -268,7 +269,7 @@ int main(void) {
     CHECK_TRUE(simple_archiver_validate_file_path("strange/.."));
   }
 
-  printf("Checks checked: %u\n", checks_checked);
-  printf("Checks passed:  %u\n", checks_passed);
+  printf("Checks checked: %" PRId32 "\n", checks_checked);
+  printf("Checks passed:  %" PRId32 "\n", checks_passed);
   return checks_passed == checks_checked ? 0 : 1;
 }

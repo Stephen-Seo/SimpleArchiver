@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "platforms.h"
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
@@ -41,9 +42,10 @@
 #include "data_structures/priority_heap.h"
 #include "helpers.h"
 
-#define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%lu.tmp"
-#define FILE_COUNTS_OUTPUT_FORMAT_STR_0 "\nFile %%%lulu of %%%lulu.\n"
-#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 "[%%%lulu/%%%lulu]\n"
+#define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%zu.tmp"
+#define FILE_COUNTS_OUTPUT_FORMAT_STR_0 \
+  "\nFile %%%zu" PRIu32 " of %%%zu" PRIu32 ".\n"
+#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 "[%%%zuzu/%%%zuzu]\n"
 
 #define SIMPLE_ARCHIVER_BUFFER_SIZE (1024 * 32)
 
@@ -1284,7 +1286,7 @@ int read_decomp_to_out_file(const char *out_filename, int in_pipe,
           continue;
         } else {
           // Error.
-          fprintf(stderr, "ERROR Failed to read from decompressor! (%lu)\n",
+          fprintf(stderr, "ERROR Failed to read from decompressor! (%zu)\n",
                   read_ret);
           return SDAS_INTERNAL_ERROR;
         }
@@ -1842,7 +1844,7 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
     case 1:
       return simple_archiver_write_v1(out_f, state, filenames);
     default:
-      fprintf(stderr, "ERROR: Unsupported write version %u!\n",
+      fprintf(stderr, "ERROR: Unsupported write version %" PRIu32 "!\n",
               state->parsed->write_version);
       return SDAS_INVALID_WRITE_VERSION;
   }
@@ -2357,8 +2359,10 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       }
     }
     if (u32 != (uint32_t)symlinks_list->count) {
-      fprintf(stderr, "ERROR: Iterated through %u symlinks out of %u total!\n",
-              u32, (uint32_t)symlinks_list->count);
+      fprintf(stderr,
+              "ERROR: Iterated through %" PRIu32 " symlinks out of %zu total!"
+                "\n",
+              u32, symlinks_list->count);
       return SDAS_INTERNAL_ERROR;
     }
   }
@@ -2437,7 +2441,10 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     if (is_sig_int_occurred) {
       return SDAS_SIGINT;
     }
-    fprintf(stderr, "CHUNK %3lu of %3lu\n", ++chunk_count, chunk_counts->count);
+    fprintf(stderr,
+            "CHUNK %3" PRIu64 " of %3zu\n",
+            ++chunk_count,
+            chunk_counts->count);
     // Write file count before iterating through files.
     if (non_c_chunk_size) {
       *non_c_chunk_size = 0;
@@ -2612,8 +2619,11 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           return SDAS_INTERNAL_ERROR;
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
-        fprintf(stderr, "  FILE %3lu of %3lu: %s\n", file_idx + 1,
-                *(uint64_t *)chunk_c_node->data, file_info_struct->filename);
+        fprintf(stderr,
+                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                file_idx + 1,
+                *(uint64_t *)chunk_c_node->data,
+                file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
             fopen(file_info_struct->filename, "rb");
 
@@ -2811,8 +2821,11 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           return SDAS_INTERNAL_ERROR;
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
-        fprintf(stderr, "  FILE %3lu of %3lu: %s\n", file_idx + 1,
-                *(uint64_t *)chunk_c_node->data, file_info_struct->filename);
+        fprintf(stderr,
+                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                file_idx + 1,
+                *(uint64_t *)chunk_c_node->data,
+                file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
             fopen(file_info_struct->filename, "rb");
         while (!feof(fd)) {
@@ -2864,7 +2877,7 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
   } else if (u16 == 1) {
     return simple_archiver_parse_archive_version_1(in_f, do_extract, state);
   } else {
-    fprintf(stderr, "ERROR Unsupported archive version %u!\n", u16);
+    fprintf(stderr, "ERROR Unsupported archive version %" PRIu16 "!\n", u16);
     return SDAS_INVALID_FILE;
   }
 }
@@ -2903,7 +2916,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       return SDAS_INVALID_FILE;
     }
     simple_archiver_helper_16_bit_be(&u16);
-    fprintf(stderr, "Compressor size is %u\n", u16);
+    fprintf(stderr, "Compressor size is %" PRIu16 "\n", u16);
     if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
@@ -2927,7 +2940,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       return SDAS_INVALID_FILE;
     }
     simple_archiver_helper_16_bit_be(&u16);
-    fprintf(stderr, "Decompressor size is %u\n", u16);
+    fprintf(stderr, "Decompressor size is %" PRIu16 "\n", u16);
     if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
@@ -2958,7 +2971,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     return SDAS_INVALID_FILE;
   }
   simple_archiver_helper_32_bit_be(&u32);
-  fprintf(stderr, "File count is %u\n", u32);
+  fprintf(stderr, "File count is %" PRIu32 "\n", u32);
 
   if (is_sig_int_occurred) {
     return SDAS_SIGINT;
@@ -3226,9 +3239,9 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       }
       simple_archiver_helper_64_bit_be(&u64);
       if (is_compressed) {
-        fprintf(stderr, "  File size (compressed): %lu\n", u64);
+        fprintf(stderr, "  File size (compressed): %" PRIu64 "\n", u64);
       } else {
-        fprintf(stderr, "  File size: %lu\n", u64);
+        fprintf(stderr, "  File size: %" PRIu64 "\n", u64);
       }
 
       int_fast8_t skip_due_to_map = 0;
@@ -3890,7 +3903,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     if (is_sig_int_occurred) {
       return SDAS_SIGINT;
     }
-    fprintf(stderr, "SYMLINK %3u of %3u\n", idx + 1, u32);
+    fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, u32);
     if (fread(buf, 1, 2, in_f) != 2) {
       return SDAS_INVALID_FILE;
     }
@@ -4122,7 +4135,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     if (is_sig_int_occurred) {
       return SDAS_SIGINT;
     }
-    fprintf(stderr, "CHUNK %3u of %3u\n", chunk_idx + 1, chunk_count);
+    fprintf(stderr,
+            "CHUNK %3" PRIu32 " of %3" PRIu32 "\n",
+            chunk_idx + 1,
+            chunk_count);
 
     if (fread(buf, 1, 4, in_f) != 4) {
       return SDAS_INVALID_FILE;
@@ -4158,7 +4174,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       file_info->filename[u16] = 0;
 
       if (simple_archiver_validate_file_path(file_info->filename)) {
-        fprintf(stderr, "ERROR: File idx %u: Invalid filename!\n", file_idx);
+        fprintf(stderr,
+                "ERROR: File idx %" PRIu32 ": Invalid filename!\n",
+                file_idx);
         file_info->other_flags |= 1;
       }
 
@@ -4337,7 +4355,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        fprintf(stderr, "  FILE %3u of %3u: %s\n", ++file_idx, file_count,
+        fprintf(stderr,
+                "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
+                ++file_idx,
+                file_count,
                 file_info->filename);
 
         uint_fast8_t skip_due_to_map = 0;
@@ -4403,13 +4424,18 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         } else if (!skip_due_to_map && (file_info->other_flags & 1) == 0) {
           fprintf(stderr, "    Permissions: ");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
-          fprintf(stderr, "\n    UID: %u\n    GID: %u\n", file_info->uid,
+          fprintf(stderr,
+                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                  file_info->uid,
                   file_info->gid);
           if (is_compressed) {
-            fprintf(stderr, "    File size (uncompressed): %lu\n",
+            fprintf(stderr,
+                    "    File size (uncompressed): %" PRIu64 "\n",
                     file_info->file_size);
           } else {
-            fprintf(stderr, "    File size: %lu\n", file_info->file_size);
+            fprintf(stderr,
+                    "    File size: %" PRIu64 "\n",
+                    file_info->file_size);
           }
           int ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
@@ -4446,7 +4472,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        fprintf(stderr, "  FILE %3u of %3u: %s\n", ++file_idx, file_count,
+        fprintf(stderr,
+                "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
+                ++file_idx,
+                file_count,
                 file_info->filename);
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
@@ -4516,13 +4545,18 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         } else if (!skip_due_to_map && (file_info->other_flags & 1) == 0) {
           fprintf(stderr, "    Permissions: ");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
-          fprintf(stderr, "\n    UID: %u\n    GID: %u\n", file_info->uid,
+          fprintf(stderr,
+                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                  file_info->uid,
                   file_info->gid);
           if (is_compressed) {
-            fprintf(stderr, "    File size (compressed): %lu\n",
+            fprintf(stderr,
+                    "    File size (compressed): %" PRIu64 "\n",
                     file_info->file_size);
           } else {
-            fprintf(stderr, "    File size: %lu\n", file_info->file_size);
+            fprintf(stderr,
+                    "    File size: %" PRIu64 "\n",
+                    file_info->file_size);
           }
           int ret = read_buf_full_from_fd(in_f, (char *)buf,
                                           SIMPLE_ARCHIVER_BUFFER_SIZE,
