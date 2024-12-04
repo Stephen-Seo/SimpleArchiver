@@ -67,4 +67,9 @@ void *simple_archiver_priority_heap_top(SDArchiverPHeap *priority_heap);
 /// ownership of the returned data pointer.
 void *simple_archiver_priority_heap_pop(SDArchiverPHeap *priority_heap);
 
+/// Iterates through all items in the priority heap (breadth-width search not
+/// depth-first search).
+void simple_archiver_priority_heap_iter(SDArchiverPHeap *priority_heap,
+                                        void(*iter_fn)(void*));
+
 #endif

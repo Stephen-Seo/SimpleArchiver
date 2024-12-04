@@ -89,6 +89,10 @@ int hash_map_iter_check_fn2(__attribute__((unused)) const void *key,
   return 2;
 }
 
+void test_iter_fn_priority_heap(void *data) {
+  printf("Got data %" PRIu32 "\n", *((uint32_t*)data));
+}
+
 int main(void) {
   // Test LinkedList.
   {
@@ -437,6 +441,18 @@ int main(void) {
     }
     free(array);
 
+    simple_archiver_priority_heap_free(&priority_heap);
+
+    priority_heap = simple_archiver_priority_heap_init();
+    for (uint32_t idx = 0; idx < 50; ++idx) {
+      uint32_t *data = malloc(sizeof(uint32_t));
+      *data = idx;
+      simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
+    }
+    printf("Begin iteration of 50 elements:\n");
+
+    simple_archiver_priority_heap_iter(priority_heap,
+                                       test_iter_fn_priority_heap);
     simple_archiver_priority_heap_free(&priority_heap);
   }
 
