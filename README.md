@@ -47,7 +47,7 @@ to open via Wine (if Wine is installed). [A workaround is mentioned here.](https
 
 ## Changes
 
-See the [Changelog](https://git.seodisparate.com/stephenseo/SimpleArchiver/src/branch/main/Changelog.md).
+See the [Changelog](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/Changelog.md).
 
 ## LICENSE Information
 
