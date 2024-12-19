@@ -38,6 +38,7 @@ typedef struct SDArchiverParsed {
   /// 0b x1xx xxxx - Sort files by size before archiving.
   /// 0b 1xxx xxxx - No safe links.
   /// 0b xxxx xxx1 xxxx xxxx - Preserve symlink target.
+  /// 0b xxxx xx1x xxxx xxxx - Ignore empty directories if set.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;
@@ -54,7 +55,7 @@ typedef struct SDArchiverParsed {
   const char *temp_dir;
   /// Dir specified by "-C".
   const char *user_cwd;
-  /// Currently only 0 and 1 is supported.
+  /// Currently only 0, 1, and 2 is supported.
   uint32_t write_version;
   /// The minimum size of a chunk in bytes (the last chunk may be less).
   uint64_t minimum_chunk_size;
@@ -64,6 +65,8 @@ typedef struct SDArchiverFileInfo {
   char *filename;
   /// Is NULL if not a symbolic link.
   char *link_dest;
+  // xxxx xxx1 - is a directory.
+  uint32_t flags;
 } SDArchiverFileInfo;
 
 typedef enum SDArchiverParsedStatus {
