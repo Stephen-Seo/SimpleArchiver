@@ -2503,7 +2503,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       return SDAS_INTERNAL_ERROR;
     }
     free(ptrs);
-    if (current_size > 0 && current_count > 0) {
+    if ((chunk_counts->count == 0 || current_size > 0) && current_count > 0) {
       uint64_t *count = malloc(sizeof(uint64_t));
       *count = current_count;
       simple_archiver_list_add(chunk_counts, count, NULL);
@@ -3371,7 +3371,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       return SDAS_INTERNAL_ERROR;
     }
     free(ptrs);
-    if (current_size > 0 && current_count > 0) {
+    if ((chunk_counts->count == 0 || current_size > 0) && current_count > 0) {
       uint64_t *count = malloc(sizeof(uint64_t));
       *count = current_count;
       simple_archiver_list_add(chunk_counts, count, NULL);
