@@ -18,6 +18,7 @@
 
 #include "parser.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -190,6 +191,9 @@ void simple_archiver_print_usage(void) {
           "--no-pre-sort-files : do NOT pre-sort files by size (by default "
           "enabled so that the first file is the largest)\n");
   fprintf(stderr,
+          "--no-preserve-empty-dirs : do NOT preserve empty dirs (only for file"
+          " format 2 and onwards)\n");
+  fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
   fprintf(
       stderr,
@@ -209,7 +213,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.working_files = NULL;
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
-  parsed.write_version = 1;
+  parsed.write_version = 2;
   parsed.minimum_chunk_size = 4194304;
 
   return parsed;
@@ -340,8 +344,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           fprintf(stderr, "ERROR: --write-version cannot be negative!\n");
           simple_archiver_print_usage();
           return 1;
-        } else if (version > 1) {
-          fprintf(stderr, "ERROR: --write-version must be 0 or 1!\n");
+        } else if (version > 2) {
+          fprintf(stderr, "ERROR: --write-version must be 0, 1, or 2!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -365,6 +369,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         ++argv;
       } else if (strcmp(argv[0], "--no-pre-sort-files") == 0) {
         out->flags &= 0xFFFFFFBF;
+      } else if (strcmp(argv[0], "--no-preserve-empty-dirs") == 0) {
+        out->flags |= 0x200;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;
       } else if (argv[0][0] != '-') {
@@ -482,6 +488,8 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
       if (simple_archiver_hash_map_get(hash_map, filename, len - 1) == NULL) {
         SDArchiverFileInfo *file_info = malloc(sizeof(SDArchiverFileInfo));
         file_info->filename = filename;
+        file_info->link_dest = NULL;
+        file_info->flags = 0;
         if ((st.st_mode & S_IFMT) == S_IFLNK) {
           // Is a symlink.
           file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
@@ -547,6 +555,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
         }
         DIR *dir = opendir(next);
         struct dirent *dir_entry;
+        uint_fast8_t is_dir_empty = 1;
         do {
           dir_entry = readdir(dir);
           if (dir_entry) {
@@ -554,6 +563,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
                 strcmp(dir_entry->d_name, "..") == 0) {
               continue;
             }
+            is_dir_empty = 0;
             // fprintf(stderr, "dir entry in %s is %s\n", next,
             // dir_entry->d_name);
             size_t combined_size = strlen(next) + strlen(dir_entry->d_name) + 2;
@@ -581,6 +591,8 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
                 SDArchiverFileInfo *file_info =
                     malloc(sizeof(SDArchiverFileInfo));
                 file_info->filename = combined_path;
+                file_info->link_dest = NULL;
+                file_info->flags = 0;
                 if ((st.st_mode & S_IFMT) == S_IFLNK) {
                   // Is a symlink.
                   file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
@@ -642,6 +654,20 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
           }
         } while (dir_entry != NULL);
         closedir(dir);
+
+        if (is_dir_empty
+            && (parsed->flags & 0x200) == 0
+            && parsed->write_version >= 2) {
+          SDArchiverFileInfo *f_info = malloc(sizeof(SDArchiverFileInfo));
+          f_info->filename = strdup(next);
+          f_info->link_dest = NULL;
+          f_info->flags = 1;
+          simple_archiver_list_add(files_list,
+                                   f_info,
+                                   simple_archiver_internal_free_file_info_fn);
+          fprintf(stderr, "DEBUG: parser added empty dir %s\n", next);
+        }
+
         if (simple_archiver_list_remove(dir_list, list_remove_same_str_fn,
                                         next) == 0) {
           break;

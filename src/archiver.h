@@ -53,7 +53,8 @@ typedef enum SDArchiverStateReturns {
   SDAS_FAILED_TO_EXTRACT_SYMLINK,
   SDAS_FAILED_TO_CHANGE_CWD,
   SDAS_INVALID_WRITE_VERSION,
-  SDAS_SIGINT
+  SDAS_SIGINT,
+  SDAS_TOO_MANY_DIRS
 } SDArchiverStateReturns;
 
 /// Returned pointer must not be freed.
@@ -73,6 +74,9 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
 int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
                              const SDArchiverLinkedList *filenames);
 
+int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
+                             const SDArchiverLinkedList *filenames);
+
 /// Returns zero on success.
 int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                                        const SDArchiverState *state);
@@ -83,6 +87,10 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 
 /// Returns zero on success.
 int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
+                                            const SDArchiverState *state);
+
+/// Returns zero on success.
+int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
                                             const SDArchiverState *state);
 
 /// Returns zero on success.
