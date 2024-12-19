@@ -33,6 +33,7 @@ API calls.
     --write-version <version> : Force write version file format (default 1)
     --chunk-min-size <bytes> : v1 file format minimum chunk size (default 4194304 or 4MiB)
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
+    --no-preserve-empty-dirs : do NOT preserve empty dirs (only for file format 2 and onwards)
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
     If extracting archive file, remaining args specify files to extract.
