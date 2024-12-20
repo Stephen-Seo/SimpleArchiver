@@ -198,3 +198,54 @@ After the files' metadata are the current chunk's data:
    concatenated with each other. If using de/compressor, this section is the
    previously mentioned files concatenated and compressed into a single blob of
    data.
+
+## Format Version 2
+
+This format is nearly identical to `Format Version 1` as it appends data
+required to preserve empty directories. In other words, the previous format did
+not have support for archiving empty directories and this version adds support
+for that.
+
+First 18 bytes of the file will be (in ascii):
+
+    SIMPLE_ARCHIVE_VER
+
+Next 2 bytes is a 16-bit unsigned integer "version" in big-endian. It will be:
+
+    0x00 0x02
+
+The following bytes are exactly the same as `Format Version 1` and will not be
+repeated (please refer to the previous specification), but new data is appended
+as mentioned earlier.
+
+After the similar `Format Version 1` data:
+
+4 bytes (a 32-bit unsigned integer) of "directory count" in big-endian.
+
+After this, for each directory of count "directory count":
+
+1. 2 bytes (16-bit unsigned integer) "directory name length" in big-endian. This
+   does not include the NULL at the end of the string.
+2. X bytes of "directory name" with length of "directory name length". Note that
+   this string is stored as a NULL-terminated string.
+3. 2 bytes permissions flags:
+    1. The first byte's bits:
+        1. User read permission
+        2. User write permission
+        3. User execute permission
+        4. Group read permission
+        5. Group write permission
+        6. Group execute permission
+        7. Other read permission
+        8. Other write permission
+    2. The second byte's bits (unused bits are assumed to be set to 0):
+        1. Other execute permission
+4. Two 4-byte unsigned integers in big-endian for UID and GID.
+    1. A 32-bit unsigned integer in big-endian that is the UID of the directory.
+    2. A 32-bit unsigned integer in big-endian that is the GID of the directory.
+
+Note that it is possible for directory entries to consist of only the "tail end"
+directory and not specify "intermediate" directories. For example, if there is a
+directory structure such as "/a/b/c/", then it is possible for there to be only
+an entry "/a/b/c/" and the directories "/a/b/" and "/a/" may need to be created
+even though they are not specified.

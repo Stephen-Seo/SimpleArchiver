@@ -48,6 +48,12 @@ void simple_archiver_helper_cmd_string_argv_free_ptr(char ***argv_strs);
 /// Returns zero on success.
 int simple_archiver_helper_make_dirs(const char *file_path);
 
+/// Returns zero on success.
+int simple_archiver_helper_make_dirs_perms(const char *file_path,
+                                           uint32_t perms,
+                                           uint32_t uid,
+                                           uint32_t gid);
+
 /// Returns non-NULL on success.
 /// Must be free'd with "free()" if non-NULL.
 /// start_idx is inclusive and end_idx is exclusive.

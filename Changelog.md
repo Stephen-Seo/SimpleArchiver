@@ -2,6 +2,18 @@
 
 ## Upcoming Changes
 
+## Version 1.9
+
+Add `file format 2` to handle archiving empty directories.
+
+Default file format is now `version 2`.
+
+Fix edge case where archiving only empty files breaks.  
+Currently archiving empty files with a compressor is broken. May not fix since
+a compressor is not needed if only empty files are archived.
+
+Add iterator for data structure priority heap.
+
 ## Version 1.8
 
 Minor refactorings related to `printf` and `uintX_t`/`size_t` types.
