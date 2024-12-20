@@ -665,7 +665,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
           simple_archiver_list_add(files_list,
                                    f_info,
                                    simple_archiver_internal_free_file_info_fn);
-          fprintf(stderr, "DEBUG: parser added empty dir %s\n", next);
+          //fprintf(stderr, "DEBUG: parser added empty dir %s\n", next);
         }
 
         if (simple_archiver_list_remove(dir_list, list_remove_same_str_fn,

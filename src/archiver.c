@@ -3835,7 +3835,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   }
 
   // Write directory entries.
-  fprintf(stderr, "DEBUG: Writing directory entries\n");
+  //fprintf(stderr, "DEBUG: Writing directory entries\n");
 
   if (dirs_list->count > 0xFFFFFFFF) {
     return SDAS_TOO_MANY_DIRS;
@@ -5658,7 +5658,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     }
     simple_archiver_helper_32_bit_be(&gid);
 
-    fprintf(stderr, "DEBUG: Creating dir \"%s\"\n", buf);
+    fprintf(stderr, "Creating dir \"%s\"\n", buf);
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *abs_path_dir = realpath(".", NULL);

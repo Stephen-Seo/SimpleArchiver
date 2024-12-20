@@ -31,7 +31,11 @@
 int print_list_fn(void *data, __attribute__((unused)) void *ud) {
   const SDArchiverFileInfo *file_info = data;
   if (file_info->link_dest == NULL) {
-    fprintf(stderr, "  REGULAR FILE:  %s\n", file_info->filename);
+    if (file_info->flags & 1) {
+      fprintf(stderr, "  DIRECTORY:     %s\n", file_info->filename);
+    } else {
+      fprintf(stderr, "  REGULAR FILE:  %s\n", file_info->filename);
+    }
   } else {
     fprintf(stderr, "  SYMBOLIC LINK: %s -> %s\n", file_info->filename,
             file_info->link_dest);
