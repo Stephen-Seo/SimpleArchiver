@@ -2,6 +2,11 @@
 
 ## Upcoming Changes
 
+Implemented force-setting permissions for files/dirs and force-setting UID/GID.
+
+Better info is printed for directories in file format `version 2` when using
+`test mode` `-t`.
+
 ## Version 1.9
 
 Add `file format 2` to handle archiving empty directories.
