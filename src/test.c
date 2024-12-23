@@ -60,6 +60,8 @@ static int32_t checks_passed = 0;
   } while (0);
 
 int main(void) {
+  puts("Begin unit test.");
+
   // Test parser.
   {
     size_t idx =
