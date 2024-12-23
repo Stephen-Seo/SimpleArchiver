@@ -194,6 +194,18 @@ void simple_archiver_print_usage(void) {
           "--no-preserve-empty-dirs : do NOT preserve empty dirs (only for file"
           " format 2 and onwards)\n");
   fprintf(stderr,
+          "--force-uid <uid> : Force set UID on archive creation/extraction\n");
+  fprintf(stderr,
+          "--force-gid <gid> : Force set GID on archive creation/extraction\n");
+  fprintf(stderr,
+          "--force-file-permissions <3-octal-values> : Force set permissions "
+          "for files on archive creation/extraction\n"
+          "  Must be three octal characters like \"755\" or \"440\"\n");
+  fprintf(stderr,
+          "--force-dir-permissions <3-octal-values> : Force set permissions "
+          "for directories on archive creation/extraction\n"
+          "  Must be three octal characters like \"755\" or \"440\"\n");
+  fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
   fprintf(
       stderr,
@@ -215,6 +227,10 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.user_cwd = NULL;
   parsed.write_version = 2;
   parsed.minimum_chunk_size = 4194304;
+  parsed.uid = 0;
+  parsed.gid = 0;
+  parsed.file_permissions = 0;
+  parsed.dir_permissions = 0;
 
   return parsed;
 }
@@ -371,6 +387,116 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags &= 0xFFFFFFBF;
       } else if (strcmp(argv[0], "--no-preserve-empty-dirs") == 0) {
         out->flags |= 0x200;
+      } else if (strcmp(argv[0], "--force-uid") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --force-uid expects an integer argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        unsigned long long uid = strtoull(argv[1], NULL, 10);
+        if (uid == 0 && strcmp(argv[1], "0") != 0) {
+          fprintf(stderr, "ERROR: Failed to parse --force-uid <UID>!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (uid > 0xFFFFFFFF) {
+          fprintf(stderr,
+                  "ERROR: UID Is too large (expecting unsigned 32-bit "
+                  "value)!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->uid = (uint32_t)uid;
+        out->flags |= 0x400;
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--force-gid") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --force-gid expects an integer argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        unsigned long long gid = strtoull(argv[1], NULL, 10);
+        if (gid == 0 && strcmp(argv[1], "0") != 0) {
+          fprintf(stderr, "ERROR: Failed to parse --force-gid <GID>!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (gid > 0xFFFFFFFF) {
+          fprintf(stderr,
+                  "ERROR: GID Is too large (expecting unsigned 32-bit "
+                  "value)!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->gid = (uint32_t)gid;
+        out->flags |= 0x800;
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--force-file-permissions") == 0) {
+        if (argc < 2
+            || strlen(argv[1]) != 3
+            || (!(argv[1][0] >= '0' && argv[1][0] <= '7'))
+            || (!(argv[1][1] >= '0' && argv[1][1] <= '7'))
+            || (!(argv[1][2] >= '0' && argv[1][2] <= '7'))
+              ) {
+          fprintf(stderr,
+                  "ERROR: --force-file-permissions expects 3 octal values "
+                  "(e.g. \"755\" or \"440\")!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        uint_fast8_t value = (uint_fast8_t)(argv[1][0] - '0');
+        out->file_permissions |= (value & 4) ? 1 : 0;
+        out->file_permissions |= (value & 2) ? 2 : 0;
+        out->file_permissions |= (value & 1) ? 4 : 0;
+
+        value = (uint_fast8_t)(argv[1][1] - '0');
+        out->file_permissions |= (value & 4) ? 8 : 0;
+        out->file_permissions |= (value & 2) ? 0x10 : 0;
+        out->file_permissions |= (value & 1) ? 0x20 : 0;
+
+        value = (uint_fast8_t)(argv[1][2] - '0');
+        out->file_permissions |= (value & 4) ? 0x40 : 0;
+        out->file_permissions |= (value & 2) ? 0x80 : 0;
+        out->file_permissions |= (value & 1) ? 0x100 : 0;
+
+        out->flags |= 0x1000;
+
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--force-dir-permissions") == 0) {
+        if (argc < 2
+            || strlen(argv[1]) != 3
+            || (!(argv[1][0] >= '0' && argv[1][0] <= '7'))
+            || (!(argv[1][1] >= '0' && argv[1][1] <= '7'))
+            || (!(argv[1][2] >= '0' && argv[1][2] <= '7'))
+              ) {
+          fprintf(stderr,
+                  "ERROR: --force-dir-permissions expects 3 octal values "
+                  "(e.g. \"755\" or \"440\")!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        uint_fast8_t value = (uint_fast8_t)(argv[1][0] - '0');
+        out->dir_permissions |= (value & 4) ? 1 : 0;
+        out->dir_permissions |= (value & 2) ? 2 : 0;
+        out->dir_permissions |= (value & 1) ? 4 : 0;
+
+        value = (uint_fast8_t)(argv[1][1] - '0');
+        out->dir_permissions |= (value & 4) ? 8 : 0;
+        out->dir_permissions |= (value & 2) ? 0x10 : 0;
+        out->dir_permissions |= (value & 1) ? 0x20 : 0;
+
+        value = (uint_fast8_t)(argv[1][2] - '0');
+        out->dir_permissions |= (value & 4) ? 0x40 : 0;
+        out->dir_permissions |= (value & 2) ? 0x80 : 0;
+        out->dir_permissions |= (value & 1) ? 0x100 : 0;
+
+        out->flags |= 0x2000;
+
+        --argc;
+        ++argv;
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;
       } else if (argv[0][0] != '-') {
