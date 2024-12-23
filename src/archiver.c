@@ -5723,7 +5723,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           }
 #endif
         } else if (!skip_due_to_map && (file_info->other_flags & 1) == 0) {
-          fprintf(stderr, "    Permissions: ");
+          fprintf(stderr, "    Permissions:");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
           fprintf(stderr,
                   "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
@@ -5826,7 +5826,27 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     }
     simple_archiver_helper_32_bit_be(&gid);
 
-    fprintf(stderr, "Creating dir \"%s\"\n", buf);
+    if (do_extract) {
+      fprintf(stderr, "Creating dir \"%s\"\n", buf);
+    } else {
+      fprintf(stderr, "Dir entry \"%s\"\n", buf);
+      fprintf(stderr, "  Permissions: ");
+      fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 2)    ? "w" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 8)    ? "r" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x10) ? "w" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x40) ? "r" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x80) ? "w" : "-");
+      fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      fprintf(stderr, "\n");
+
+      fprintf(stderr,
+              "  UID: %" PRIu32 ", GID: %" PRIu32 "\n",
+              uid,
+              gid);
+    }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *abs_path_dir = realpath(".", NULL);
