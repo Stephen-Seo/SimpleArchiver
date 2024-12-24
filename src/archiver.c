@@ -5224,7 +5224,8 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                     errno);
           }
         }
-        if (state->parsed->flags & 0x400 || state->parsed->flags & 0x800) {
+        if (geteuid() == 0
+            && (state->parsed->flags & 0x400 || state->parsed->flags & 0x800)) {
           ret = fchownat(
               AT_FDCWD,
               link_name,
@@ -5233,7 +5234,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
               AT_SYMLINK_NOFOLLOW);
           if (ret == -1) {
             fprintf(stderr,
-                    "WARNING: Failed to force set UID/GID of symlink \"%s\""
+                    "  WARNING: Failed to force set UID/GID of symlink \"%s\""
                     "(errno %d)!\n",
                     link_name,
                     errno);
@@ -5576,7 +5577,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                      chown(file_info->filename, file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
-                    "ERROR Failed to set UID/GID as EUID 0 of file \"%s\"!\n",
+                    "    ERROR Failed to set UID/GID of file \"%s\"!\n",
                     file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
@@ -5717,7 +5718,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                      chown(file_info->filename, file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
-                    "ERROR Failed to set UID/GID as EUID 0 of file \"%s\"!\n",
+                    "    ERROR Failed to set UID/GID of file \"%s\"!\n",
                     file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
