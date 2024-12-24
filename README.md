@@ -60,6 +60,21 @@ to open via Wine (if Wine is installed). [A workaround is mentioned here.](https
 
 See the [Changelog](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/Changelog.md).
 
+## Other Things to Know
+
+When storing symlinks, `simplearchiver` will typically store relative and
+absolute-paths for all symlinks. If a symlink points to something that will be
+stored in the archive during archive creation, then relative paths will be
+preferred for that symlink on extraction. If `--no-safe-links` is set when
+creating the archive, then `simplearchiver` will prefer absolute paths on
+extraction for symlinks that point to anything that wasn't stored in the
+archive. `--no-abs-symlink` will force `simplearchiver` to store only relative
+symlinks and not absolute-path symlinks on archive creation.
+
+UID and GID will only be set on extracted files if the EUID is 0. Thus, files
+extracted by non-EUID-0 users will typically have the extracted files UID/GID as
+the extracting user's UID/GID.
+
 ## LICENSE Information
 
 Uses the [ISC License](https://choosealicense.com/licenses/isc/).
