@@ -196,7 +196,15 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--force-uid <uid> : Force set UID on archive creation/extraction\n");
   fprintf(stderr,
+          "  On archive creation, sets UID for all files/dirs in the archive.\n"
+          "  On archive extraction, sets UID for all files/dirs only if EUID is"
+          " 0.\n");
+  fprintf(stderr,
           "--force-gid <gid> : Force set GID on archive creation/extraction\n");
+  fprintf(stderr,
+          "  On archive creation, sets GID for all files/dirs in the archive.\n"
+          "  On archive extraction, sets GID for all files/dirs only if EUID is"
+          " 0.\n");
   fprintf(stderr,
           "--force-file-permissions <3-octal-values> : Force set permissions "
           "for files on archive creation/extraction\n"

@@ -34,6 +34,16 @@ API calls.
     --chunk-min-size <bytes> : v1 file format minimum chunk size (default 4194304 or 4MiB)
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
     --no-preserve-empty-dirs : do NOT preserve empty dirs (only for file format 2 and onwards)
+    --force-uid <uid> : Force set UID on archive creation/extraction
+      On archive creation, sets UID for all files/dirs in the archive.
+      On archive extraction, sets UID for all files/dirs only if EUID is 0.
+    --force-gid <gid> : Force set GID on archive creation/extraction
+      On archive creation, sets GID for all files/dirs in the archive.
+      On archive extraction, sets GID for all files/dirs only if EUID is 0.
+    --force-file-permissions <3-octal-values> : Force set permissions for files on archive creation/extraction
+      Must be three octal characters like "755" or "440"
+    --force-dir-permissions <3-octal-values> : Force set permissions for directories on archive creation/extraction
+      Must be three octal characters like "755" or "440"
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
     If extracting archive file, remaining args specify files to extract.
