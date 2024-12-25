@@ -10,7 +10,7 @@ Better info is printed for directories in file format `version 2` when using
 Fix case when archiving from read-only directory:
 
 - A temporary file is usually created to store compressed archive
-chunks/files which is located where the files are. This commit
+chunks/files which is located where the files are. This version
 falls-back to using `tmpfile()` if the first attempt to create a
 temporary file fails.
 
