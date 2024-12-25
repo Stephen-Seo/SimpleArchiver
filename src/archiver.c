@@ -3602,7 +3602,10 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       }
 
       if (!temp_fd) {
-        return SDAS_INTERNAL_ERROR;
+        temp_fd = tmpfile();
+        if (!temp_fd) {
+          return SDAS_INTERNAL_ERROR;
+        }
       }
 
       // Handle SIGPIPE.
