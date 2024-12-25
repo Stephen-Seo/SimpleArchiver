@@ -260,6 +260,11 @@ int simple_archiver_helper_make_dirs_perms(const char *file_path,
         // Error.
         return 2;
       }
+      ret = chmod(dir, perms);
+      if (ret != 0) {
+        // Error.
+        return 5;
+      }
       if (geteuid() == 0 && chown(dir, uid, gid) != 0) {
         // Error.
         return 4;
