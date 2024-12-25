@@ -2,8 +2,7 @@
 
 This program ~~is not yet~~ ~~almost~~ basically finished! ~~Basic~~ Necessary
 functionality is implemented and only ~~some advanced features are missing~~
-some extra features are not yet implemented. You can track progress
-[here](https://git.seodisparate.com/stephenseo/SimpleArchiver/projects/3).
+some extra features are not yet implemented.
 
 This program exists because I could not get `tar` or `ar` to compile with
 [Cosmopolitan](https://justine.lol/cosmopolitan/index.html). Thus, this
