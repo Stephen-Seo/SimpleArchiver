@@ -7,6 +7,13 @@ Implemented force-setting permissions for files/dirs and force-setting UID/GID.
 Better info is printed for directories in file format `version 2` when using
 `test mode` `-t`.
 
+Fix case when archiving from read-only directory:
+
+- A temporary file is usually created to store compressed archive
+chunks/files which is located where the files are. This commit
+falls-back to using `tmpfile()` if the first attempt to create a
+temporary file fails.
+
 ## Version 1.9
 
 Add `file format 2` to handle archiving empty directories.
