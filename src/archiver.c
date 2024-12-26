@@ -2719,7 +2719,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           }
         } while (1);
         temp_fd = fopen(temp_filename, "w+b");
-        ptrs_array[0] = temp_filename;
+        if (temp_fd) {
+          ptrs_array[0] = temp_filename;
+        }
       } else {
         temp_fd = tmpfile();
       }
@@ -3599,7 +3601,9 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
           }
         } while (1);
         temp_fd = fopen(temp_filename, "w+b");
-        ptrs_array[0] = temp_filename;
+        if (temp_fd) {
+          ptrs_array[0] = temp_filename;
+        }
       } else {
         temp_fd = tmpfile();
       }
