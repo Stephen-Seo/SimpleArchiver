@@ -187,28 +187,20 @@ int write_files_fn(void *data, void *ud) {
       }
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
       FILE *tmp_fd = fopen(temp_filename, "wb");
-      if (!tmp_fd) {
-        fprintf(stderr, "ERROR: Unable to create temp file for compressing!\n");
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-        __attribute__((
-            cleanup(simple_archiver_helper_cleanup_malloced))) void *real_cwd =
-            realpath(".", NULL);
-        if (real_cwd) {
-          fprintf(stderr, "Tried to create temp file(s) in \"%s\"!\n",
-                  (char *)real_cwd);
-        }
-#endif
-        fprintf(stderr,
-                "(Use \"--temp-files-dir <dir>\" to change where to write temp "
-                "files.)\n");
-        return 1;
-      }
       __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
           malloc(sizeof(void *) * 2);
-      ptrs_array[0] = temp_filename;
-      ptrs_array[1] = &tmp_fd;
+      ptrs_array[0] = NULL;
+      ptrs_array[1] = NULL;
+      if (!tmp_fd) {
+        tmp_fd = tmpfile();
+        if (!tmp_fd) {
+          fprintf(stderr, "ERROR: Unable to create temp file for compressing!\n");
+          return 1;
+        }
+      } else {
+        ptrs_array[0] = temp_filename;
+        ptrs_array[1] = &tmp_fd;
+      }
 
       // Handle SIGPIPE.
       signal(SIGPIPE, handle_sig_pipe);
