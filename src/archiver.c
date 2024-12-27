@@ -194,7 +194,8 @@ int write_files_fn(void *data, void *ud) {
       if (!tmp_fd) {
         tmp_fd = tmpfile();
         if (!tmp_fd) {
-          fprintf(stderr, "ERROR: Unable to create temp file for compressing!\n");
+          fprintf(stderr,
+                  "ERROR: Unable to create temp file for compressing!\n");
           return 1;
         }
       } else {
