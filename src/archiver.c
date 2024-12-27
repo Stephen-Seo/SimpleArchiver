@@ -440,8 +440,10 @@ int write_files_fn(void *data, void *ud) {
       }
 
       if (state->parsed->flags & 0x1000) {
-        ((uint8_t *)temp_to_write->buf)[0] |= (state->parsed->file_permissions & 0x7F) << 1;
-        ((uint8_t *)temp_to_write->buf)[1] |= (state->parsed->file_permissions & 0x18) >> 7;
+        ((uint8_t *)temp_to_write->buf)[0] |=
+          (state->parsed->file_permissions & 0x7F) << 1;
+        ((uint8_t *)temp_to_write->buf)[1] |=
+          (state->parsed->file_permissions & 0x18) >> 7;
       } else {
         if ((stat_buf.st_mode & S_IRUSR) != 0) {
           ((uint8_t *)temp_to_write->buf)[0] |= 0x2;
@@ -614,10 +616,12 @@ int write_files_fn(void *data, void *ud) {
 #endif
 
       if (state->parsed->flags & 0x1000) {
-        ((uint8_t *)temp_to_write->buf)[0] = (uint8_t)((state->parsed->file_permissions & 0x7F) << 1);
+        ((uint8_t *)temp_to_write->buf)[0] =
+          (uint8_t)((state->parsed->file_permissions & 0x7F) << 1);
 
         ((uint8_t *)temp_to_write->buf)[1] &= 0xC;
-        ((uint8_t *)temp_to_write->buf)[1] |= (uint8_t)((state->parsed->file_permissions & 0x18) >> 7);
+        ((uint8_t *)temp_to_write->buf)[1] |=
+          (uint8_t)((state->parsed->file_permissions & 0x18) >> 7);
       }
 
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
