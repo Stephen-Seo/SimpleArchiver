@@ -2721,6 +2721,8 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       if (!temp_fd) {
         temp_fd = tmpfile();
         if (!temp_fd) {
+          fprintf(stderr,
+                  "ERROR: Failed to create a temporary file for archival!\n");
           return SDAS_INTERNAL_ERROR;
         }
       }
@@ -3603,6 +3605,8 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       if (!temp_fd) {
         temp_fd = tmpfile();
         if (!temp_fd) {
+          fprintf(stderr,
+                  "ERROR: Failed to create a temporary file for archival!\n");
           return SDAS_INTERNAL_ERROR;
         }
       }
