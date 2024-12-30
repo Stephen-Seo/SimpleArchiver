@@ -61,6 +61,14 @@ See the [Changelog](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/Chan
 
 ## Other Things to Know
 
+When compressing, it may be useful to set `--temp-files-dir <dir>` as
+`simplearchiver` will create a temporary file (a chunk) usually in the current
+working directory or in the directory specified by `-C <dir>` by default. In
+case the temporary file cannot be created in the default directory,
+[`tmpfile()`](https://man7.org/linux/man-pages/man3/tmpfile.3.html) is used
+instead as a fallback. Thus, `--temp-files-dir <dir>` changes the default dir to
+store the temporary compressed chunk.
+
 When storing symlinks, `simplearchiver` will typically store relative and
 absolute-paths for all symlinks. If a symlink points to something that will be
 stored in the archive during archive creation, then relative paths will be
