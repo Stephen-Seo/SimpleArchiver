@@ -39,6 +39,10 @@ typedef struct SDArchiverParsed {
   /// 0b 1xxx xxxx - No safe links.
   /// 0b xxxx xxx1 xxxx xxxx - Preserve symlink target.
   /// 0b xxxx xx1x xxxx xxxx - Ignore empty directories if set.
+  /// 0b xxxx x1xx xxxx xxxx - Force set UID.
+  /// 0b xxxx 1xxx xxxx xxxx - Force set GID.
+  /// 0b xxx1 xxxx xxxx xxxx - Force set file permissions.
+  /// 0b xx1x xxxx xxxx xxxx - Force set directory permissions.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;
@@ -59,6 +63,19 @@ typedef struct SDArchiverParsed {
   uint32_t write_version;
   /// The minimum size of a chunk in bytes (the last chunk may be less).
   uint64_t minimum_chunk_size;
+  uint32_t uid;
+  uint32_t gid;
+  /// 0b xxxx xxxx xxx1 - user read
+  /// 0b xxxx xxxx xx1x - user write
+  /// 0b xxxx xxxx x1xx - user execute
+  /// 0b xxxx xxxx 1xxx - group read
+  /// 0b xxxx xxx1 xxxx - group write
+  /// 0b xxxx xx1x xxxx - group execute
+  /// 0b xxxx x1xx xxxx - other read
+  /// 0b xxxx 1xxx xxxx - other write
+  /// 0b xxx1 xxxx xxxx - other execute
+  uint_fast16_t file_permissions;
+  uint_fast16_t dir_permissions;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

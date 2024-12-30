@@ -33,6 +33,16 @@ API calls.
     --chunk-min-size <bytes> : v1 file format minimum chunk size (default 4194304 or 4MiB)
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
     --no-preserve-empty-dirs : do NOT preserve empty dirs (only for file format 2 and onwards)
+    --force-uid <uid> : Force set UID on archive creation/extraction
+      On archive creation, sets UID for all files/dirs in the archive.
+      On archive extraction, sets UID for all files/dirs only if EUID is 0.
+    --force-gid <gid> : Force set GID on archive creation/extraction
+      On archive creation, sets GID for all files/dirs in the archive.
+      On archive extraction, sets GID for all files/dirs only if EUID is 0.
+    --force-file-permissions <3-octal-values> : Force set permissions for files on archive creation/extraction
+      Must be three octal characters like "755" or "440"
+    --force-dir-permissions <3-octal-values> : Force set permissions for directories on archive creation/extraction
+      Must be three octal characters like "755" or "440"
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
     If extracting archive file, remaining args specify files to extract.
@@ -48,6 +58,29 @@ to open via Wine (if Wine is installed). [A workaround is mentioned here.](https
 ## Changes
 
 See the [Changelog](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/Changelog.md).
+
+## Other Things to Know
+
+When compressing, it may be useful to set `--temp-files-dir <dir>` as
+`simplearchiver` will create a temporary file (a chunk) usually in the current
+working directory or in the directory specified by `-C <dir>` by default. In
+case the temporary file cannot be created in the default directory,
+[`tmpfile()`](https://man7.org/linux/man-pages/man3/tmpfile.3.html) is used
+instead as a fallback. Thus, `--temp-files-dir <dir>` changes the default dir to
+store the temporary compressed chunk.
+
+When storing symlinks, `simplearchiver` will typically store relative and
+absolute-paths for all symlinks. If a symlink points to something that will be
+stored in the archive during archive creation, then relative paths will be
+preferred for that symlink on extraction. If `--no-safe-links` is set when
+creating the archive, then `simplearchiver` will prefer absolute paths on
+extraction for symlinks that point to anything that wasn't stored in the
+archive. `--no-abs-symlink` will force `simplearchiver` to store only relative
+symlinks and not absolute-path symlinks on archive creation.
+
+UID and GID will only be set on extracted files if the EUID is 0. Thus, files
+extracted by non-EUID-0 users will typically have the extracted files UID/GID as
+the extracting user's UID/GID.
 
 ## LICENSE Information
 

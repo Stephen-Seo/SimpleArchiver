@@ -187,28 +187,21 @@ int write_files_fn(void *data, void *ud) {
       }
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
       FILE *tmp_fd = fopen(temp_filename, "wb");
-      if (!tmp_fd) {
-        fprintf(stderr, "ERROR: Unable to create temp file for compressing!\n");
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-        __attribute__((
-            cleanup(simple_archiver_helper_cleanup_malloced))) void *real_cwd =
-            realpath(".", NULL);
-        if (real_cwd) {
-          fprintf(stderr, "Tried to create temp file(s) in \"%s\"!\n",
-                  (char *)real_cwd);
-        }
-#endif
-        fprintf(stderr,
-                "(Use \"--temp-files-dir <dir>\" to change where to write temp "
-                "files.)\n");
-        return 1;
-      }
       __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
           malloc(sizeof(void *) * 2);
-      ptrs_array[0] = temp_filename;
-      ptrs_array[1] = &tmp_fd;
+      ptrs_array[0] = NULL;
+      ptrs_array[1] = NULL;
+      if (!tmp_fd) {
+        tmp_fd = tmpfile();
+        if (!tmp_fd) {
+          fprintf(stderr,
+                  "ERROR: Unable to create temp file for compressing!\n");
+          return 1;
+        }
+      } else {
+        ptrs_array[0] = temp_filename;
+        ptrs_array[1] = &tmp_fd;
+      }
 
       // Handle SIGPIPE.
       signal(SIGPIPE, handle_sig_pipe);
@@ -447,32 +440,39 @@ int write_files_fn(void *data, void *ud) {
         return 1;
       }
 
-      if ((stat_buf.st_mode & S_IRUSR) != 0) {
-        ((uint8_t *)temp_to_write->buf)[0] |= 0x2;
-      }
-      if ((stat_buf.st_mode & S_IWUSR) != 0) {
-        ((uint8_t *)temp_to_write->buf)[0] |= 0x4;
-      }
-      if ((stat_buf.st_mode & S_IXUSR) != 0) {
-        ((uint8_t *)temp_to_write->buf)[0] |= 0x8;
-      }
-      if ((stat_buf.st_mode & S_IRGRP) != 0) {
-        ((uint8_t *)temp_to_write->buf)[0] |= 0x10;
-      }
-      if ((stat_buf.st_mode & S_IWGRP) != 0) {
-        ((uint8_t *)temp_to_write->buf)[0] |= 0x20;
-      }
-      if ((stat_buf.st_mode & S_IXGRP) != 0) {
-        ((uint8_t *)temp_to_write->buf)[0] |= 0x40;
-      }
-      if ((stat_buf.st_mode & S_IROTH) != 0) {
-        ((uint8_t *)temp_to_write->buf)[0] |= 0x80;
-      }
-      if ((stat_buf.st_mode & S_IWOTH) != 0) {
-        ((uint8_t *)temp_to_write->buf)[1] |= 0x1;
-      }
-      if ((stat_buf.st_mode & S_IXOTH) != 0) {
-        ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
+      if (state->parsed->flags & 0x1000) {
+        ((uint8_t *)temp_to_write->buf)[0] |=
+          (state->parsed->file_permissions & 0x7F) << 1;
+        ((uint8_t *)temp_to_write->buf)[1] |=
+          (state->parsed->file_permissions & 0x18) >> 7;
+      } else {
+        if ((stat_buf.st_mode & S_IRUSR) != 0) {
+          ((uint8_t *)temp_to_write->buf)[0] |= 0x2;
+        }
+        if ((stat_buf.st_mode & S_IWUSR) != 0) {
+          ((uint8_t *)temp_to_write->buf)[0] |= 0x4;
+        }
+        if ((stat_buf.st_mode & S_IXUSR) != 0) {
+          ((uint8_t *)temp_to_write->buf)[0] |= 0x8;
+        }
+        if ((stat_buf.st_mode & S_IRGRP) != 0) {
+          ((uint8_t *)temp_to_write->buf)[0] |= 0x10;
+        }
+        if ((stat_buf.st_mode & S_IWGRP) != 0) {
+          ((uint8_t *)temp_to_write->buf)[0] |= 0x20;
+        }
+        if ((stat_buf.st_mode & S_IXGRP) != 0) {
+          ((uint8_t *)temp_to_write->buf)[0] |= 0x40;
+        }
+        if ((stat_buf.st_mode & S_IROTH) != 0) {
+          ((uint8_t *)temp_to_write->buf)[0] |= 0x80;
+        }
+        if ((stat_buf.st_mode & S_IWOTH) != 0) {
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x1;
+        }
+        if ((stat_buf.st_mode & S_IXOTH) != 0) {
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
+        }
       }
 
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
@@ -615,6 +615,15 @@ int write_files_fn(void *data, void *ud) {
       // Unsupported platform. Just set the permission bits for user.
       ((uint8_t *)temp_to_write->buf)[0] |= 0xE;
 #endif
+
+      if (state->parsed->flags & 0x1000) {
+        ((uint8_t *)temp_to_write->buf)[0] =
+          (uint8_t)((state->parsed->file_permissions & 0x7F) << 1);
+
+        ((uint8_t *)temp_to_write->buf)[1] &= 0xC;
+        ((uint8_t *)temp_to_write->buf)[1] |=
+          (uint8_t)((state->parsed->file_permissions & 0x18) >> 7);
+      }
 
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
@@ -1625,17 +1634,21 @@ int symlinks_and_files_from_files(void *data, void *ud) {
   const char *user_cwd = ptr_array[2];
   SDArchiverPHeap *pheap = ptr_array[3];
   SDArchiverLinkedList *dirs_list = ptr_array[4];
+  const SDArchiverState *state = ptr_array[5];
 
   if (file_info->filename) {
     if (file_info->link_dest) {
+      // Is a symbolic link.
       simple_archiver_list_add(
           symlinks_list, file_info->filename,
           simple_archiver_helper_datastructure_cleanup_nop);
     } else if (dirs_list && (file_info->flags & 1) != 0) {
+      // Is a directory.
       simple_archiver_list_add(
           dirs_list, file_info->filename,
           simple_archiver_helper_datastructure_cleanup_nop);
     } else {
+      // Is a file.
       SDArchiverInternalFileInfo *file_info_struct =
           malloc(sizeof(SDArchiverInternalFileInfo));
       file_info_struct->filename = strdup(file_info->filename);
@@ -1699,6 +1712,21 @@ int symlinks_and_files_from_files(void *data, void *ud) {
       file_info_struct->uid = stat_buf.st_uid;
       file_info_struct->gid = stat_buf.st_gid;
 #endif
+      if (state->parsed->flags & 0x1000) {
+        file_info_struct->bit_flags[0] = 0;
+        file_info_struct->bit_flags[1] &= 0xFE;
+
+        file_info_struct->bit_flags[0] |=
+          state->parsed->file_permissions & 0xFF;
+        file_info_struct->bit_flags[1] |=
+          (state->parsed->file_permissions & 0x100) >> 8;
+      }
+      if (state->parsed->flags & 0x400) {
+        file_info_struct->uid = state->parsed->uid;
+      }
+      if (state->parsed->flags & 0x800) {
+        file_info_struct->gid = state->parsed->gid;
+      }
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
           fopen(file_info_struct->filename, "rb");
       if (!fd) {
@@ -1781,7 +1809,9 @@ void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
 
 int internal_write_dir_entries(void *data, void *ud) {
   const char *dir = data;
-  FILE *out_f = ud;
+  void **ptrs = ud;
+  FILE *out_f = ptrs[0];
+  const SDArchiverState *state = ptrs[1];
 
   fprintf(stderr, "  %s\n", dir);
 
@@ -1820,29 +1850,33 @@ int internal_write_dir_entries(void *data, void *ud) {
 
   uint8_t u8 = 0;
 
-  if ((stat_buf.st_mode & S_IRUSR) != 0) {
-    u8 |= 1;
-  }
-  if ((stat_buf.st_mode & S_IWUSR) != 0) {
-    u8 |= 2;
-  }
-  if ((stat_buf.st_mode & S_IXUSR) != 0) {
-    u8 |= 4;
-  }
-  if ((stat_buf.st_mode & S_IRGRP) != 0) {
-    u8 |= 8;
-  }
-  if ((stat_buf.st_mode & S_IWGRP) != 0) {
-    u8 |= 0x10;
-  }
-  if ((stat_buf.st_mode & S_IXGRP) != 0) {
-    u8 |= 0x20;
-  }
-  if ((stat_buf.st_mode & S_IROTH) != 0) {
-    u8 |= 0x40;
-  }
-  if ((stat_buf.st_mode & S_IWOTH) != 0) {
-    u8 |= 0x80;
+  if (state && state->parsed->flags & 0x2000) {
+    u8 = state->parsed->dir_permissions & 0xFF;
+  } else {
+    if ((stat_buf.st_mode & S_IRUSR) != 0) {
+      u8 |= 1;
+    }
+    if ((stat_buf.st_mode & S_IWUSR) != 0) {
+      u8 |= 2;
+    }
+    if ((stat_buf.st_mode & S_IXUSR) != 0) {
+      u8 |= 4;
+    }
+    if ((stat_buf.st_mode & S_IRGRP) != 0) {
+      u8 |= 8;
+    }
+    if ((stat_buf.st_mode & S_IWGRP) != 0) {
+      u8 |= 0x10;
+    }
+    if ((stat_buf.st_mode & S_IXGRP) != 0) {
+      u8 |= 0x20;
+    }
+    if ((stat_buf.st_mode & S_IROTH) != 0) {
+      u8 |= 0x40;
+    }
+    if ((stat_buf.st_mode & S_IWOTH) != 0) {
+      u8 |= 0x80;
+    }
   }
 
   if(fwrite(&u8, 1, 1, out_f) != 1) {
@@ -1853,8 +1887,12 @@ int internal_write_dir_entries(void *data, void *ud) {
   }
 
   u8 = 0;
-  if ((stat_buf.st_mode & S_IXOTH) != 0) {
-    u8 |= 1;
+  if (state && state->parsed->flags & 0x2000) {
+    u8 = (state->parsed->dir_permissions & 0x100) >> 8;
+  } else {
+    if ((stat_buf.st_mode & S_IXOTH) != 0) {
+      u8 |= 1;
+    }
   }
 
   if (fwrite(&u8, 1, 1, out_f) != 1) {
@@ -1880,6 +1918,20 @@ int internal_write_dir_entries(void *data, void *ud) {
   }
 
   return 0;
+}
+
+mode_t simple_archiver_internal_permissions_to_mode_t(uint_fast16_t permissions)
+{
+  return
+      ((permissions & 1) ? S_IRUSR : 0)
+    | ((permissions & 2) ? S_IWUSR : 0)
+    | ((permissions & 4) ? S_IXUSR : 0)
+    | ((permissions & 8) ? S_IRGRP : 0)
+    | ((permissions & 0x10) ? S_IWGRP : 0)
+    | ((permissions & 0x20) ? S_IXGRP : 0)
+    | ((permissions & 0x40) ? S_IROTH : 0)
+    | ((permissions & 0x80) ? S_IWOTH : 0)
+    | ((permissions & 0x100) ? S_IXOTH : 0);
 }
 
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
@@ -2137,12 +2189,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           ? simple_archiver_priority_heap_init_less_fn(greater_fn)
           : NULL;
 
-  ptr_array = malloc(sizeof(void *) * 5);
+  ptr_array = malloc(sizeof(void *) * 6);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
   ptr_array[3] = files_pheap;
   ptr_array[4] = NULL;
+  ptr_array[5] = state;
 
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
@@ -2599,11 +2652,15 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
       // UID and GID.
+
+      // Forced UID/GID is already handled by "symlinks_and_files_from_files".
+
       u32 = file_info_struct->uid;
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
       }
+
       u32 = file_info_struct->gid;
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
@@ -2659,13 +2716,20 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           }
         } while (1);
         temp_fd = fopen(temp_filename, "w+b");
-        ptrs_array[0] = temp_filename;
+        if (temp_fd) {
+          ptrs_array[0] = temp_filename;
+        }
       } else {
         temp_fd = tmpfile();
       }
 
       if (!temp_fd) {
-        return SDAS_INTERNAL_ERROR;
+        temp_fd = tmpfile();
+        if (!temp_fd) {
+          fprintf(stderr,
+                  "ERROR: Failed to create a temporary file for archival!\n");
+          return SDAS_INTERNAL_ERROR;
+        }
       }
 
       // Handle SIGPIPE.
@@ -2996,12 +3060,13 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
           ? simple_archiver_priority_heap_init_less_fn(greater_fn)
           : NULL;
 
-  ptr_array = malloc(sizeof(void *) * 5);
+  ptr_array = malloc(sizeof(void *) * 6);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
   ptr_array[3] = files_pheap;
   ptr_array[4] = dirs_list;
+  ptr_array[5] = state;
 
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
@@ -3472,6 +3537,9 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
       // UID and GID.
+
+      // Forced UID/GID is already handled by "symlinks_and_files_from_files".
+
       u32 = file_info_struct->uid;
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
@@ -3532,13 +3600,20 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
           }
         } while (1);
         temp_fd = fopen(temp_filename, "w+b");
-        ptrs_array[0] = temp_filename;
+        if (temp_fd) {
+          ptrs_array[0] = temp_filename;
+        }
       } else {
         temp_fd = tmpfile();
       }
 
       if (!temp_fd) {
-        return SDAS_INTERNAL_ERROR;
+        temp_fd = tmpfile();
+        if (!temp_fd) {
+          fprintf(stderr,
+                  "ERROR: Failed to create a temporary file for archival!\n");
+          return SDAS_INTERNAL_ERROR;
+        }
       }
 
       // Handle SIGPIPE.
@@ -3852,9 +3927,17 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
     return SDAS_FAILED_TO_WRITE;
   }
 
-  if (simple_archiver_list_get(dirs_list, internal_write_dir_entries, out_f)) {
+  void **void_ptrs = malloc(sizeof(void*) * 2);
+  void_ptrs[0] = out_f;
+  void_ptrs[1] = state;
+
+  if (simple_archiver_list_get(dirs_list,
+                               internal_write_dir_entries,
+                               void_ptrs)) {
+    free(void_ptrs);
     return SDAS_INTERNAL_ERROR;
   }
+  free(void_ptrs);
 
   return SDAS_SUCCESS;
 }
@@ -4244,6 +4327,15 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 
 #endif
 
+    if (state && state->parsed->flags & 0x1000 && do_extract) {
+      fprintf(stderr,
+              "NOTICE: Forcing permissions as specified by "
+              "\"--force-file-permissions\"!\n");
+      permissions =
+        simple_archiver_internal_permissions_to_mode_t(
+          state->parsed->file_permissions);
+    }
+
     if ((buf[0] & 1) == 0) {
       // Not a sybolic link.
       if (fread(&u64, 8, 1, in_f) != 1) {
@@ -4268,7 +4360,15 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       if (do_extract && !skip && !skip_due_to_map) {
         fprintf(stderr, "  Extracting...\n");
 
-        simple_archiver_helper_make_dirs((const char *)out_f_name);
+        simple_archiver_helper_make_dirs_perms(
+          (const char *)out_f_name,
+          (state->parsed->flags & 0x2000)
+            ? simple_archiver_internal_permissions_to_mode_t(
+                state->parsed->dir_permissions)
+            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+          (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
+          (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
+
         out_f = fopen(out_f_name, "wb");
         if (!out_f) {
           fprintf(stderr,
@@ -4621,7 +4721,14 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       }
 
       if (do_extract && !skip) {
-        simple_archiver_helper_make_dirs((const char *)out_f_name);
+        simple_archiver_helper_make_dirs_perms(
+          (const char *)out_f_name,
+          (state->parsed->flags & 0x2000)
+            ? simple_archiver_internal_permissions_to_mode_t(
+                state->parsed->dir_permissions)
+            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+          (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
+          (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         if (abs_path && rel_path) {
           if (abs_preferred) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
@@ -5000,7 +5107,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-        simple_archiver_helper_make_dirs(link_name);
+        simple_archiver_helper_make_dirs_perms(
+          link_name,
+          (state->parsed->flags & 0x2000)
+            ? simple_archiver_internal_permissions_to_mode_t(
+                state->parsed->dir_permissions)
+            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+          (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
+          (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         int_fast8_t link_create_retry = 0;
       V1_SYMLINK_CREATE_RETRY_0:
         ret = symlink(path, link_name);
@@ -5073,7 +5187,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-        simple_archiver_helper_make_dirs(link_name);
+        simple_archiver_helper_make_dirs_perms(
+          link_name,
+          (state->parsed->flags & 0x2000)
+            ? simple_archiver_internal_permissions_to_mode_t(
+                state->parsed->dir_permissions)
+            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+          (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
+          (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         int_fast8_t link_create_retry = 0;
       V1_SYMLINK_CREATE_RETRY_1:
         ret = symlink(path, link_name);
@@ -5111,6 +5232,22 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           } else {
             fprintf(stderr,
                     "  WARNING: Failed to set permissions of symlink (%d)!\n",
+                    errno);
+          }
+        }
+        if (geteuid() == 0
+            && (state->parsed->flags & 0x400 || state->parsed->flags & 0x800)) {
+          ret = fchownat(
+              AT_FDCWD,
+              link_name,
+              state->parsed->flags & 0x400 ? state->parsed->uid : getuid(),
+              state->parsed->flags & 0x800 ? state->parsed->gid : getgid(),
+              AT_SYMLINK_NOFOLLOW);
+          if (ret == -1) {
+            fprintf(stderr,
+                    "  WARNING: Failed to force set UID/GID of symlink \"%s\""
+                    "(errno %d)!\n",
+                    link_name,
                     errno);
           }
         }
@@ -5222,14 +5359,22 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       }
       memcpy(&u32, buf, 4);
       simple_archiver_helper_32_bit_be(&u32);
-      file_info->uid = u32;
+      if (state && (state->parsed->flags & 0x400)) {
+        file_info->uid = state->parsed->uid;
+      } else {
+        file_info->uid = u32;
+      }
 
       if (fread(buf, 1, 4, in_f) != 4) {
         return SDAS_INVALID_FILE;
       }
       memcpy(&u32, buf, 4);
       simple_archiver_helper_32_bit_be(&u32);
-      file_info->gid = u32;
+      if (state && (state->parsed->flags & 0x800)) {
+        file_info->gid = state->parsed->gid;
+      } else {
+        file_info->gid = u32;
+      }
 
       if (fread(buf, 1, 8, in_f) != 8) {
         return SDAS_INVALID_FILE;
@@ -5388,8 +5533,16 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-          mode_t permissions =
-              permissions_from_bits_version_1(file_info->bit_flags, 0);
+          mode_t permissions;
+          if (state->parsed->flags & 0x1000) {
+            permissions =
+              simple_archiver_internal_permissions_to_mode_t(
+                state->parsed->file_permissions);
+          } else {
+            permissions = permissions_from_bits_version_1(
+              file_info->bit_flags,
+              0);
+          }
 #endif
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
@@ -5411,7 +5564,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             }
           }
 
-          simple_archiver_helper_make_dirs(file_info->filename);
+          simple_archiver_helper_make_dirs_perms(
+            file_info->filename,
+            (state->parsed->flags & 0x2000)
+              ? simple_archiver_internal_permissions_to_mode_t(
+                  state->parsed->dir_permissions)
+              : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+            (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
+            (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
           int ret = read_decomp_to_out_file(
               file_info->filename, pipe_outof_read, (char *)buf,
               SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
@@ -5428,7 +5588,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                      chown(file_info->filename, file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
-                    "ERROR Failed to set UID/GID as EUID 0 of file \"%s\"!\n",
+                    "    ERROR Failed to set UID/GID of file \"%s\"!\n",
                     file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
@@ -5510,8 +5670,18 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-          mode_t permissions =
+          mode_t permissions;
+
+          if (state->parsed->flags & 0x1000) {
+            permissions = simple_archiver_internal_permissions_to_mode_t(
+              state->parsed->file_permissions);
+            fprintf(stderr,
+                    "NOTICE: Forcing permissions as specified by "
+                    "\"--force-file-permissions\"!\n");
+          } else {
+            permissions =
               permissions_from_bits_version_1(file_info->bit_flags, 0);
+          }
 #endif
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
@@ -5530,7 +5700,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
               continue;
             }
           }
-          simple_archiver_helper_make_dirs(file_info->filename);
+          simple_archiver_helper_make_dirs_perms(
+            file_info->filename,
+            (state->parsed->flags & 0x2000)
+              ? simple_archiver_internal_permissions_to_mode_t(
+                  state->parsed->dir_permissions)
+              : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+            (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
+            (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
           FILE *out_fd = fopen(file_info->filename, "wb");
           int ret = read_fd_to_out_fd(in_f, out_fd, (char *)buf,
@@ -5544,18 +5721,21 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           if (chmod(file_info->filename, permissions) == -1) {
+            fprintf(stderr,
+                    "ERROR Failed to set permissions of file \"%s\"!\n",
+                    file_info->filename);
             return SDAS_INTERNAL_ERROR;
           } else if (geteuid() == 0 &&
                      chown(file_info->filename, file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
-                    "ERROR Failed to set UID/GID as EUID 0 of file \"%s\"!\n",
+                    "    ERROR Failed to set UID/GID of file \"%s\"!\n",
                     file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
 #endif
         } else if (!skip_due_to_map && (file_info->other_flags & 1) == 0) {
-          fprintf(stderr, "    Permissions: ");
+          fprintf(stderr, "    Permissions:");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
           fprintf(stderr,
                   "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
@@ -5658,7 +5838,27 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     }
     simple_archiver_helper_32_bit_be(&gid);
 
-    fprintf(stderr, "Creating dir \"%s\"\n", buf);
+    if (do_extract) {
+      fprintf(stderr, "Creating dir \"%s\"\n", buf);
+    } else {
+      fprintf(stderr, "Dir entry \"%s\"\n", buf);
+      fprintf(stderr, "  Permissions: ");
+      fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 2)    ? "w" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 8)    ? "r" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x10) ? "w" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x40) ? "r" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x80) ? "w" : "-");
+      fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      fprintf(stderr, "\n");
+
+      fprintf(stderr,
+              "  UID: %" PRIu32 ", GID: %" PRIu32 "\n",
+              uid,
+              gid);
+    }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *abs_path_dir = realpath(".", NULL);
@@ -5708,10 +5908,13 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     //fprintf(stderr, "DEBUG: abs_path is \"%s\"!\n", abs_path);
 
     int ret = simple_archiver_helper_make_dirs_perms(
-                abs_path,
-                permissions_from_bits_version_1(perms_flags, 0),
-                uid,
-                gid);
+      abs_path,
+      state && (state->parsed->flags & 0x2000)
+        ? simple_archiver_internal_permissions_to_mode_t(
+            state->parsed->dir_permissions)
+        : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+      state && (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
+      state && (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
     if (ret != 0) {
       fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
       return SDAS_INTERNAL_ERROR;

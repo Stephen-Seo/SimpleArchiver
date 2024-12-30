@@ -94,6 +94,8 @@ void test_iter_fn_priority_heap(void *data) {
 }
 
 int main(void) {
+  puts("Begin data-structures unit test.");
+
   // Test LinkedList.
   {
     SDArchiverLinkedList *list = simple_archiver_list_init();
