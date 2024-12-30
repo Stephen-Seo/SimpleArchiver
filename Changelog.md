@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 1.10
+
 Implemented force-setting permissions for files/dirs and force-setting UID/GID.
 
 Better info is printed for directories in file format `version 2` when using
