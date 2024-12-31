@@ -27,6 +27,7 @@
 #include "data_structures/hash_map.h"
 #include "data_structures/linked_list.h"
 #include "parser.h"
+#include "users.h"
 
 typedef struct SDArchiverState {
   /*
@@ -38,6 +39,7 @@ typedef struct SDArchiverState {
   size_t count;
   size_t max;
   size_t digits;
+  UsersInfos users_infos;
 } SDArchiverState;
 
 typedef enum SDArchiverStateReturns {
@@ -75,6 +77,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
                              const SDArchiverLinkedList *filenames);
 
 int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
+                             const SDArchiverLinkedList *filenames);
+
+int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
                              const SDArchiverLinkedList *filenames);
 
 /// Returns zero on success.
