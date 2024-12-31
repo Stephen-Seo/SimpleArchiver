@@ -195,7 +195,7 @@ void simple_archiver_priority_heap_iter(SDArchiverPHeap *priority_heap,
   if (priority_heap->size == 0) {
     return;
   }
-  for (uint64_t idx = 0; idx < priority_heap->size; ++idx) {
+  for (uint64_t idx = 0; idx < priority_heap->capacity; ++idx) {
     if (priority_heap->nodes[idx].is_valid) {
       iter_fn(priority_heap->nodes[idx].data);
     }

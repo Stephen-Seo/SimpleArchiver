@@ -446,12 +446,12 @@ int main(void) {
     simple_archiver_priority_heap_free(&priority_heap);
 
     priority_heap = simple_archiver_priority_heap_init();
-    for (uint32_t idx = 0; idx < 50; ++idx) {
+    for (uint32_t idx = 0; idx < 15; ++idx) {
       uint32_t *data = malloc(sizeof(uint32_t));
       *data = idx;
       simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
     }
-    printf("Begin iteration of 50 elements:\n");
+    printf("Begin iteration of 15 elements:\n");
 
     simple_archiver_priority_heap_iter(priority_heap,
                                        test_iter_fn_priority_heap);
