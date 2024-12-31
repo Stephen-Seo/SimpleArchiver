@@ -2,6 +2,9 @@
 
 ## Upcoming Changes
 
+Added file format version 3 that supports username and groupname metadata for
+all symlinks, files, and (leaf) directory entries in an archive.
+
 ## Version 1.10
 
 Implemented force-setting permissions for files/dirs and force-setting UID/GID.
