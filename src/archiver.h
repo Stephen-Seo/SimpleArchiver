@@ -99,6 +99,10 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
                                             const SDArchiverState *state);
 
 /// Returns zero on success.
+int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract,
+                                            const SDArchiverState *state);
+
+/// Returns zero on success.
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
                                 const char *cmd, void *pid_out);
 

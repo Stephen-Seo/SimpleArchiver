@@ -59,7 +59,7 @@ typedef struct SDArchiverParsed {
   const char *temp_dir;
   /// Dir specified by "-C".
   const char *user_cwd;
-  /// Currently only 0, 1, and 2 is supported.
+  /// Currently only 0, 1, 2, and 3 is supported.
   uint32_t write_version;
   /// The minimum size of a chunk in bytes (the last chunk may be less).
   uint64_t minimum_chunk_size;
