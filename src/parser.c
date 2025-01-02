@@ -431,7 +431,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_print_usage();
           return 1;
         }
-        uint32_t *uid = simple_archiver_hash_map_get(out->users_infos.UnameToUid, argv[1], strlen(argv[1]));
+        uint32_t *uid = simple_archiver_hash_map_get(
+          out->users_infos.UnameToUid, argv[1], strlen(argv[1]) + 1);
         if (!uid) {
           fprintf(stderr, "ERROR: --force-user got invalid username!\n");
           simple_archiver_print_usage();
@@ -469,7 +470,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_print_usage();
           return 1;
         }
-        uint32_t *gid = simple_archiver_hash_map_get(out->users_infos.GnameToGid, argv[1], strlen(argv[1]));
+        uint32_t *gid = simple_archiver_hash_map_get(
+          out->users_infos.GnameToGid, argv[1], strlen(argv[1]) + 1);
         if (!gid) {
           fprintf(stderr, "ERROR: --force-group got invalid group!\n");
           simple_archiver_print_usage();
