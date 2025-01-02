@@ -1920,6 +1920,9 @@ int internal_write_dir_entries(void *data, void *ud) {
   }
 
   uint32_t u32 = stat_buf.st_uid;
+  if (state->parsed->flags & 0x400) {
+    u32 = state->parsed->uid;
+  }
 
   simple_archiver_helper_32_bit_be(&u32);
   if (fwrite(&u32, 4, 1, out_f) != 1) {
@@ -1928,6 +1931,9 @@ int internal_write_dir_entries(void *data, void *ud) {
   }
 
   u32 = stat_buf.st_gid;
+  if (state->parsed->flags & 0x800) {
+    u32 = state->parsed->gid;
+  }
   simple_archiver_helper_32_bit_be(&u32);
   if (fwrite(&u32, 4, 1, out_f) != 1) {
     fprintf(stderr, "ERROR: Failed to write GID for \"%s\"!\n", dir);
@@ -1936,6 +1942,9 @@ int internal_write_dir_entries(void *data, void *ud) {
 
   if (state->parsed->write_version == 3) {
     u32 = stat_buf.st_uid;
+    if (state->parsed->flags & 0x400) {
+      u32 = state->parsed->uid;
+    }
     const char *username = simple_archiver_hash_map_get(
       state->parsed->users_infos.UidToUname, &u32, sizeof(uint32_t));
     if (username) {
@@ -1967,6 +1976,9 @@ int internal_write_dir_entries(void *data, void *ud) {
     }
 
     u32 = stat_buf.st_gid;
+    if (state->parsed->flags & 0x800) {
+      u32 = state->parsed->gid;
+    }
     const char *groupname = simple_archiver_hash_map_get(
       state->parsed->users_infos.GidToGname, &u32, sizeof(uint32_t));
     if (groupname) {
