@@ -5,6 +5,8 @@
 Added file format version 3 that supports username and groupname metadata for
 all symlinks, files, and (leaf) directory entries in an archive.
 
+Fix data_structures/priority_heap iter function.
+
 ## Version 1.10
 
 Implemented force-setting permissions for files/dirs and force-setting UID/GID.
