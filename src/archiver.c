@@ -1937,7 +1937,7 @@ int internal_write_dir_entries(void *data, void *ud) {
   if (state->parsed->write_version == 3) {
     u32 = stat_buf.st_uid;
     const char *username = simple_archiver_hash_map_get(
-      state->users_infos.UidToUname, &u32, sizeof(uint32_t));
+      state->parsed->users_infos.UidToUname, &u32, sizeof(uint32_t));
     if (username) {
       unsigned long length = strlen(username);
       if (length > 0xFFFF) {
@@ -1968,7 +1968,7 @@ int internal_write_dir_entries(void *data, void *ud) {
 
     u32 = stat_buf.st_gid;
     const char *groupname = simple_archiver_hash_map_get(
-      state->users_infos.GidToGname, &u32, sizeof(uint32_t));
+      state->parsed->users_infos.GidToGname, &u32, sizeof(uint32_t));
     if (groupname) {
       unsigned long length = strlen(groupname);
       if (length > 0xFFFF) {
@@ -2064,14 +2064,12 @@ SDArchiverState *simple_archiver_init_state(const SDArchiverParsed *parsed) {
   state->count = 0;
   state->max = 0;
   state->digits = 10;
-  state->users_infos = simple_archiver_users_get_system_info();
 
   return state;
 }
 
 void simple_archiver_free_state(SDArchiverState **state) {
   if (state && *state) {
-    simple_archiver_users_free_users_infos(&(*state)->users_infos);
     free(*state);
     *state = NULL;
   }
@@ -4418,7 +4416,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
 
       u32 = stat_buf.st_uid;
       char *username = simple_archiver_hash_map_get(
-        state->users_infos.UidToUname,
+        state->parsed->users_infos.UidToUname,
         &u32,
         sizeof(uint32_t));
       if (username) {
@@ -4444,7 +4442,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
 
       u32 = stat_buf.st_gid;
       char *groupname = simple_archiver_hash_map_get(
-        state->users_infos.GidToGname,
+        state->parsed->users_infos.GidToGname,
         &u32,
         sizeof(uint32_t));
       if (groupname) {
@@ -4615,7 +4613,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
 
       u32 = file_info_struct->uid;
       char *username = simple_archiver_hash_map_get(
-        state->users_infos.UidToUname, &u32, sizeof(uint32_t));
+        state->parsed->users_infos.UidToUname, &u32, sizeof(uint32_t));
       if (username) {
         unsigned long name_length = strlen(username);
         if (name_length > 0xFFFF) {
@@ -4639,7 +4637,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
 
       u32 = file_info_struct->gid;
       char *groupname = simple_archiver_hash_map_get(
-        state->users_infos.GidToGname, &u32, sizeof(uint32_t));
+        state->parsed->users_infos.GidToGname, &u32, sizeof(uint32_t));
       if (groupname) {
         unsigned long group_length = strlen(groupname);
         if (group_length > 0xFFFF) {

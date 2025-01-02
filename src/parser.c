@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "platforms.h"
+#include "users.h"
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||   \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
@@ -239,6 +240,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.gid = 0;
   parsed.file_permissions = 0;
   parsed.dir_permissions = 0;
+  parsed.users_infos = simple_archiver_users_get_system_info();
 
   return parsed;
 }
@@ -585,6 +587,7 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     free(parsed->working_files);
     parsed->working_files = NULL;
   }
+  simple_archiver_users_free_users_infos(&parsed->users_infos);
 }
 
 SDArchiverLinkedList *simple_archiver_parsed_to_filenames(

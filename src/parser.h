@@ -24,6 +24,7 @@
 
 // Local includes.
 #include "data_structures/linked_list.h"
+#include "users.h"
 
 typedef struct SDArchiverParsed {
   /// Each bit is a flag.
@@ -76,6 +77,7 @@ typedef struct SDArchiverParsed {
   /// 0b xxx1 xxxx xxxx - other execute
   uint_fast16_t file_permissions;
   uint_fast16_t dir_permissions;
+  UsersInfos users_infos;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

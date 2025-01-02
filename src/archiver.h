@@ -27,7 +27,6 @@
 #include "data_structures/hash_map.h"
 #include "data_structures/linked_list.h"
 #include "parser.h"
-#include "users.h"
 
 typedef struct SDArchiverState {
   /*
@@ -39,7 +38,6 @@ typedef struct SDArchiverState {
   size_t count;
   size_t max;
   size_t digits;
-  UsersInfos users_infos;
 } SDArchiverState;
 
 typedef enum SDArchiverStateReturns {
