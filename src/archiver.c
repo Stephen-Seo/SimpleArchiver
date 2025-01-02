@@ -4415,18 +4415,27 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
 
       u32 = stat_buf.st_uid;
+      if (state->parsed->flags & 0x400) {
+        u32 = state->parsed->uid;
+      }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
       }
 
       u32 = stat_buf.st_gid;
+      if (state->parsed->flags & 0x800) {
+        u32 = state->parsed->gid;
+      }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
       }
 
       u32 = stat_buf.st_uid;
+      if (state->parsed->flags & 0x400) {
+        u32 = state->parsed->uid;
+      }
       char *username = simple_archiver_hash_map_get(
         state->parsed->users_infos.UidToUname,
         &u32,
@@ -4453,6 +4462,9 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
 
       u32 = stat_buf.st_gid;
+      if (state->parsed->flags & 0x800) {
+        u32 = state->parsed->gid;
+      }
       char *groupname = simple_archiver_hash_map_get(
         state->parsed->users_infos.GidToGname,
         &u32,
