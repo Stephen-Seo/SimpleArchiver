@@ -201,7 +201,13 @@ void simple_archiver_print_usage(void) {
           "  On archive extraction, sets UID for all files/dirs only if EUID is"
           " 0.\n");
   fprintf(stderr,
+          "--force-user <username> : Force set UID (same as --force-uid but "
+          "fetched from username)\n");
+  fprintf(stderr,
           "--force-gid <gid> : Force set GID on archive creation/extraction\n");
+  fprintf(stderr,
+          "--force-group <groupname> : Force set GID (same as --force-gid but "
+          "fetched from groupname)\n");
   fprintf(stderr,
           "  On archive creation, sets GID for all files/dirs in the archive.\n"
           "  On archive extraction, sets GID for all files/dirs only if EUID is"
@@ -419,6 +425,22 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x400;
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--force-user") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --force-user expects a username!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        uint32_t *uid = simple_archiver_hash_map_get(out->users_infos.UnameToUid, argv[1], strlen(argv[1]));
+        if (!uid) {
+          fprintf(stderr, "ERROR: --force-user got invalid username!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->uid = *uid;
+        out->flags |= 0x400;
+        --argc;
+        ++argv;
       } else if (strcmp(argv[0], "--force-gid") == 0) {
         if (argc < 2) {
           fprintf(stderr, "ERROR: --force-gid expects an integer argument!\n");
@@ -438,6 +460,20 @@ int simple_archiver_parse_args(int argc, const char **argv,
           return 1;
         }
         out->gid = (uint32_t)gid;
+        out->flags |= 0x800;
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--force-group") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --force-group expects a group name!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        uint32_t *gid = simple_archiver_hash_map_get(out->users_infos.GnameToGid, argv[1], strlen(argv[1]));
+        if (!gid) {
+          fprintf(stderr, "ERROR: --force-group got invalid group!\n");
+        }
+        out->gid = *gid;
         out->flags |= 0x800;
         --argc;
         ++argv;
