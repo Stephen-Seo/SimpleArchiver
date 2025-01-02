@@ -472,6 +472,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         uint32_t *gid = simple_archiver_hash_map_get(out->users_infos.GnameToGid, argv[1], strlen(argv[1]));
         if (!gid) {
           fprintf(stderr, "ERROR: --force-group got invalid group!\n");
+          simple_archiver_print_usage();
+          return 1;
         }
         out->gid = *gid;
         out->flags |= 0x800;
