@@ -5,6 +5,12 @@
 Added file format version 3 that supports username and groupname metadata for
 all symlinks, files, and (leaf) directory entries in an archive.
 
+Add `--force-user <username>` and `--force-group <groupname>` which acts just
+like `--force-uid <UID>` and `--force-gid <GID>` but performs a lookup on the
+local system to get the UID/GID.
+
+Fix setting UID/GID for stored directories.
+
 Fix data_structures/priority_heap iter function.
 
 ## Version 1.10
