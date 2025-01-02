@@ -89,8 +89,24 @@ int hash_map_iter_check_fn2(__attribute__((unused)) const void *key,
   return 2;
 }
 
-void test_iter_fn_priority_heap(void *data) {
-  printf("Got data %" PRIu32 "\n", *((uint32_t*)data));
+void test_iter_fn_priority_heap(void *data, void *user_data) {
+  void **ptrs = user_data;
+  char *elems = ptrs[0];
+  const uint32_t *size = ptrs[1];
+
+  uint32_t *uint_data = data;
+  if (uint_data) {
+    printf("Got data %" PRIu32 "\n", *uint_data);
+    if (*uint_data < *size) {
+      elems[*uint_data] = 1;
+    } else {
+      printf(
+        "WARNING: data in priorty heap is invalid: \"%" PRIu32 "\"!\n",
+        *uint_data);
+    }
+  } else {
+    printf("WARNING: data in priority heap is NULL!\n");
+  }
 }
 
 int main(void) {
@@ -446,15 +462,31 @@ int main(void) {
     simple_archiver_priority_heap_free(&priority_heap);
 
     priority_heap = simple_archiver_priority_heap_init();
-    for (uint32_t idx = 0; idx < 15; ++idx) {
-      uint32_t *data = malloc(sizeof(uint32_t));
-      *data = idx;
-      simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
-    }
-    printf("Begin iteration of 15 elements:\n");
 
-    simple_archiver_priority_heap_iter(priority_heap,
-                                       test_iter_fn_priority_heap);
+    {
+      const uint32_t size = 15;
+      char elems[15];
+
+      for (uint32_t idx = 0; idx < size; ++idx) {
+        uint32_t *data = malloc(sizeof(uint32_t));
+        *data = idx;
+        simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
+        elems[idx] = 0;
+      }
+      printf("Begin iteration of 15 elements:\n");
+
+      void **ptrs = malloc(sizeof(void*) * 2);
+      ptrs[0] = elems;
+      ptrs[1] = (void*)&size;
+      simple_archiver_priority_heap_iter(priority_heap,
+                                         test_iter_fn_priority_heap,
+                                         ptrs);
+      free(ptrs);
+
+      for (uint32_t idx = 0; idx < size; ++idx) {
+        CHECK_TRUE(elems[idx]);
+      }
+    }
     simple_archiver_priority_heap_free(&priority_heap);
   }
 
