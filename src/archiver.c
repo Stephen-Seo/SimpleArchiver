@@ -7433,6 +7433,14 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
       fprintf(stderr, "  Username does not exist for this link\n");
     }
 
+    uint32_t *username_uid_mapped = NULL;
+    if (state && username) {
+      username_uid_mapped = simple_archiver_hash_map_get(
+        state->parsed->users_infos.UnameToUid,
+        username,
+        u16 + 1);
+    }
+
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr,
               "  ERROR: Failed to read Groupname length for symlink!\n");
@@ -7456,13 +7464,28 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
       fprintf(stderr, "  Groupname does not exist for this link\n");
     }
 
+    uint32_t *group_gid_mapped = NULL;
+    if (state && groupname) {
+      group_gid_mapped = simple_archiver_hash_map_get(
+        state->parsed->users_infos.GnameToGid,
+        groupname,
+        u16 + 1);
+    }
+
     if (do_extract && link_extracted && geteuid() == 0) {
-      // TODO Be able to set preference between UID/GID and user/group name.
+      uint32_t picked_uid =
+        (state->parsed->flags & 0x4000) || !username_uid_mapped
+        ? uid
+        : *username_uid_mapped;
+      uint32_t picked_gid =
+        (state->parsed->flags & 0x8000) || !group_gid_mapped
+        ? gid
+        : *group_gid_mapped;
       ret = fchownat(
           AT_FDCWD,
           link_name,
-          state->parsed->flags & 0x400 ? state->parsed->uid : uid,
-          state->parsed->flags & 0x800 ? state->parsed->gid : gid,
+          state->parsed->flags & 0x400 ? state->parsed->uid : picked_uid,
+          state->parsed->flags & 0x800 ? state->parsed->gid : picked_gid,
           AT_SYMLINK_NOFOLLOW);
       if (ret == -1) {
         fprintf(stderr,
@@ -7620,6 +7643,30 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
       } else {
         free(groupname);
         groupname = NULL;
+      }
+
+      if (state && file_info->username) {
+        uint32_t *username_uid = simple_archiver_hash_map_get(
+          state->parsed->users_infos.UnameToUid,
+          file_info->username,
+          strlen(file_info->username) + 1);
+        if ((state->parsed->flags & 0x400) == 0
+            && (state->parsed->flags & 0x4000) == 0
+            && username_uid) {
+          file_info->uid = *username_uid;
+        }
+      }
+
+      if (state && file_info->groupname) {
+        uint32_t *groupname_gid = simple_archiver_hash_map_get(
+          state->parsed->users_infos.GnameToGid,
+          file_info->groupname,
+          strlen(file_info->groupname) + 1);
+        if ((state->parsed->flags & 0x800) == 0
+            && (state->parsed->flags & 0x8000) == 0
+            && groupname_gid) {
+          file_info->gid = *groupname_gid;
+        }
       }
 
       if (fread(&u64, 8, 1, in_f) != 1) {
@@ -7815,8 +7862,8 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
               : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
-            (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
-            (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
+            (state->parsed->flags & 0x400) ? state->parsed->uid : file_info->uid,
+            (state->parsed->flags & 0x800) ? state->parsed->gid : file_info->gid);
           int ret = read_decomp_to_out_file(
               file_info->filename, pipe_outof_read, (char *)buf,
               SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
@@ -7830,7 +7877,8 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
           if (chmod(file_info->filename, permissions) == -1) {
             return SDAS_INTERNAL_ERROR;
           } else if (geteuid() == 0 &&
-                     chown(file_info->filename, file_info->uid,
+                     chown(file_info->filename,
+                           file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
@@ -7961,8 +8009,8 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
               : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
-            (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
-            (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
+            (state->parsed->flags & 0x400) ? state->parsed->uid : file_info->uid,
+            (state->parsed->flags & 0x800) ? state->parsed->gid : file_info->gid);
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
           FILE *out_fd = fopen(file_info->filename, "wb");
           int ret = read_fd_to_out_fd(in_f, out_fd, (char *)buf,
@@ -7981,7 +8029,8 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
                     file_info->filename);
             return SDAS_INTERNAL_ERROR;
           } else if (geteuid() == 0 &&
-                     chown(file_info->filename, file_info->uid,
+                     chown(file_info->filename,
+                           file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
@@ -8124,6 +8173,24 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
 
     if (do_extract) {
       fprintf(stderr, "Creating dir \"%s\"\n", buf);
+      if ((state->parsed->flags & 0x4000) == 0 && username) {
+        uint32_t *username_uid = simple_archiver_hash_map_get(
+          state->parsed->users_infos.UnameToUid,
+          username,
+          strlen(username) + 1);
+        if (username_uid) {
+          uid = *username_uid;
+        }
+      }
+      if ((state->parsed->flags & 0x8000) == 0 && groupname) {
+        uint32_t *group_gid = simple_archiver_hash_map_get(
+          state->parsed->users_infos.GnameToGid,
+          groupname,
+          strlen(groupname) + 1);
+        if (group_gid) {
+          gid = *group_gid;
+        }
+      }
     } else {
       fprintf(stderr, "Dir entry \"%s\"\n", buf);
       fprintf(stderr, "  Permissions: ");

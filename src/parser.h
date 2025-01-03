@@ -44,6 +44,8 @@ typedef struct SDArchiverParsed {
   /// 0b xxxx 1xxx xxxx xxxx - Force set GID.
   /// 0b xxx1 xxxx xxxx xxxx - Force set file permissions.
   /// 0b xx1x xxxx xxxx xxxx - Force set directory permissions.
+  /// 0b x1xx xxxx xxxx xxxx - Prefer UID over Username when extracting.
+  /// 0b 1xxx xxxx xxxx xxxx - Prefer GID over Group when extracting.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;

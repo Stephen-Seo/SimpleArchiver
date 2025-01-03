@@ -213,6 +213,14 @@ void simple_archiver_print_usage(void) {
           "  On archive extraction, sets GID for all files/dirs only if EUID is"
           " 0.\n");
   fprintf(stderr,
+          "--extract-prefer-uid : Prefer UID over Username when extracting\n");
+  fprintf(stderr,
+          "  Note that by default Username is preferred over UID\n");
+  fprintf(stderr,
+          "--extract-prefer-gid : Prefer GID over Group when extracting\n");
+  fprintf(stderr,
+          "  Note that by default Group is preferred over UID\n");
+  fprintf(stderr,
           "--force-file-permissions <3-octal-values> : Force set permissions "
           "for files on archive creation/extraction\n"
           "  Must be three octal characters like \"755\" or \"440\"\n");
@@ -481,6 +489,10 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x800;
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--extract-prefer-uid") == 0) {
+        out->flags |= 0x4000;
+      } else if (strcmp(argv[0], "--extract-prefer-gid") == 0) {
+        out->flags |= 0x8000;
       } else if (strcmp(argv[0], "--force-file-permissions") == 0) {
         if (argc < 2
             || strlen(argv[1]) != 3
