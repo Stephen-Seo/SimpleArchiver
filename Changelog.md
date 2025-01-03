@@ -11,6 +11,9 @@ local system to get the UID/GID.
 
 Fix setting UID/GID for stored directories.
 
+Make extraction prefer username over UID and groupname over GID by default.  
+Added `--extract-prefer-uid` and `--extract-prefer-gid` to change this behavior.
+
 Fix data_structures/priority_heap iter function.
 
 ## Version 1.10
