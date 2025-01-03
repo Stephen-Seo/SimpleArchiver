@@ -36,9 +36,15 @@ API calls.
     --force-uid <uid> : Force set UID on archive creation/extraction
       On archive creation, sets UID for all files/dirs in the archive.
       On archive extraction, sets UID for all files/dirs only if EUID is 0.
+    --force-user <username> : Force set UID (same as --force-uid but fetched from username)
     --force-gid <gid> : Force set GID on archive creation/extraction
+    --force-group <groupname> : Force set GID (same as --force-gid but fetched from groupname)
       On archive creation, sets GID for all files/dirs in the archive.
       On archive extraction, sets GID for all files/dirs only if EUID is 0.
+    --extract-prefer-uid : Prefer UID over Username when extracting
+      Note that by default Username is preferred over UID
+    --extract-prefer-gid : Prefer GID over Group when extracting
+      Note that by default Group is preferred over UID
     --force-file-permissions <3-octal-values> : Force set permissions for files on archive creation/extraction
       Must be three octal characters like "755" or "440"
     --force-dir-permissions <3-octal-values> : Force set permissions for directories on archive creation/extraction
