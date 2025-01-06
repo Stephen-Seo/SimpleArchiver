@@ -14,6 +14,12 @@ Fix setting UID/GID for stored directories.
 Make extraction prefer username over UID and groupname over GID by default.  
 Added `--extract-prefer-uid` and `--extract-prefer-gid` to change this behavior.
 
+Add `--remap-user <UID/Username>:<UID/Username>` and `--remap-group
+<GID/Groupname>:<GID/Groupname>` that remaps the first item with the last item
+during archival or extraction. Note that if a remap is specified, it always
+takes effect when archiving, but when extracting it only takes effect when the
+effective-user-id is 0/root.
+
 Fix data_structures/priority_heap iter function.
 
 ## Version 1.10
