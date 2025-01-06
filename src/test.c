@@ -170,7 +170,21 @@ int main(void) {
       parsed.mappings.UnameToUname) != 0);
     fprintf(stderr, "Expecting ERROR output on next line:\n");
     CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "1000:other",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) != 0);
+    fprintf(stderr, "Expecting ERROR output on next line:\n");
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
       "1002:user00",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) != 0);
+    fprintf(stderr, "Expecting ERROR output on next line:\n");
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "1002:100",
       parsed.mappings.UidToUname,
       parsed.mappings.UnameToUid,
       parsed.mappings.UidToUid,
@@ -184,7 +198,21 @@ int main(void) {
       parsed.mappings.UnameToUname) != 0);
     fprintf(stderr, "Expecting ERROR output on next line:\n");
     CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "user1:user10",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) != 0);
+    fprintf(stderr, "Expecting ERROR output on next line:\n");
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
       "user2:us3r3",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) != 0);
+    fprintf(stderr, "Expecting ERROR output on next line:\n");
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "user2:3",
       parsed.mappings.UidToUname,
       parsed.mappings.UnameToUid,
       parsed.mappings.UidToUid,
