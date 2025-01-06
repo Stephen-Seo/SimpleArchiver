@@ -1079,11 +1079,28 @@ int simple_archiver_handle_map_user_or_group(
   }
 
   if (first_is_numeric && last_is_numeric) {
-    if (simple_archiver_hash_map_get(IDToID, first_id, sizeof(uint32_t))
-        || simple_archiver_hash_map_get(IDToName, first_id, sizeof(uint32_t))) {
+    uint32_t *mapped_id = simple_archiver_hash_map_get(IDToID,
+                                                       first_id,
+                                                       sizeof(uint32_t));
+    if (mapped_id) {
       fprintf(stderr,
               "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
               *first_id);
+      fprintf(stderr,
+              "  Already mapped to ID \"%" PRIu32 "\".\n",
+              *mapped_id);
+      return 1;
+    }
+    const char *mapped_name = simple_archiver_hash_map_get(IDToName,
+                                                           first_id,
+                                                           sizeof(uint32_t));
+    if (mapped_name) {
+      fprintf(stderr,
+              "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
+              *first_id);
+      fprintf(stderr,
+              "  Already mapped to name \"%s\".\n",
+              mapped_name);
       return 1;
     }
     if (simple_archiver_hash_map_insert(IDToID,
@@ -1104,11 +1121,28 @@ int simple_archiver_handle_map_user_or_group(
     last_id = NULL;
     first_id = NULL;
   } else if (first_is_numeric) {
-    if (simple_archiver_hash_map_get(IDToName, first_id, sizeof(uint32_t))
-        || simple_archiver_hash_map_get(IDToID, first_id, sizeof(uint32_t))) {
+    uint32_t *mapped_id = simple_archiver_hash_map_get(IDToID,
+                                                       first_id,
+                                                       sizeof(uint32_t));
+    if (mapped_id) {
       fprintf(stderr,
               "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
               *first_id);
+      fprintf(stderr,
+              "  Already mapped to ID \"%" PRIu32 "\".\n",
+              *mapped_id);
+      return 1;
+    }
+    const char *mapped_name = simple_archiver_hash_map_get(IDToName,
+                                                           first_id,
+                                                           sizeof(uint32_t));
+    if (mapped_name) {
+      fprintf(stderr,
+              "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
+              *first_id);
+      fprintf(stderr,
+              "  Already mapped to name \"%s\".\n",
+              mapped_name);
       return 1;
     }
     if (simple_archiver_hash_map_insert(IDToName,
@@ -1129,15 +1163,29 @@ int simple_archiver_handle_map_user_or_group(
     last_buf = NULL;
     first_id = NULL;
   } else if (last_is_numeric) {
-    if (simple_archiver_hash_map_get(NameToID,
-                                     first_buf,
-                                     strlen(first_buf) + 1)
-        || simple_archiver_hash_map_get(NameToName,
-                                        first_buf,
-                                        strlen(first_buf) + 1)) {
+    uint32_t *mapped_id = simple_archiver_hash_map_get(NameToID,
+                                                       first_buf,
+                                                       strlen(first_buf) + 1);
+    if (mapped_id) {
       fprintf(stderr,
               "ERROR: Mapping with key \"%s\" already exists!\n",
-            first_buf);
+              first_buf);
+      fprintf(stderr,
+              "  Already mapped to ID \"%" PRIu32 "\".\n",
+              *mapped_id);
+      return 1;
+    }
+    const char *mapped_name = simple_archiver_hash_map_get(NameToName,
+                                                           first_buf,
+                                                           strlen(first_buf)
+                                                             + 1);
+    if (mapped_name) {
+      fprintf(stderr,
+              "ERROR: Mapping with key \"%s\" already exists!\n",
+              first_buf);
+      fprintf(stderr,
+              "  Already mapped to name \"%s\".\n",
+              mapped_name);
       return 1;
     }
     if (simple_archiver_hash_map_insert(NameToID,
@@ -1158,15 +1206,29 @@ int simple_archiver_handle_map_user_or_group(
     last_id = NULL;
     first_buf = NULL;
   } else {
-    if (simple_archiver_hash_map_get(NameToName,
-                                     first_buf,
-                                     strlen(first_buf) + 1)
-        || simple_archiver_hash_map_get(NameToID,
-                                        first_buf,
-                                        strlen(first_buf) + 1)) {
+    uint32_t *mapped_id = simple_archiver_hash_map_get(NameToID,
+                                                       first_buf,
+                                                       strlen(first_buf) + 1);
+    if (mapped_id) {
       fprintf(stderr,
               "ERROR: Mapping with key \"%s\" already exists!\n",
-            first_buf);
+              first_buf);
+      fprintf(stderr,
+              "  Already mapped to ID \"%" PRIu32 "\".\n",
+              *mapped_id);
+      return 1;
+    }
+    const char *mapped_name = simple_archiver_hash_map_get(NameToName,
+                                                           first_buf,
+                                                           strlen(first_buf)
+                                                             + 1);
+    if (mapped_name) {
+      fprintf(stderr,
+              "ERROR: Mapping with key \"%s\" already exists!\n",
+              first_buf);
+      fprintf(stderr,
+              "  Already mapped to name \"%s\".\n",
+              mapped_name);
       return 1;
     }
     if (simple_archiver_hash_map_insert(NameToName,
