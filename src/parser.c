@@ -1084,7 +1084,7 @@ int simple_archiver_handle_map_user_or_group(
                                                        sizeof(uint32_t));
     if (mapped_id) {
       fprintf(stderr,
-              "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
+              "ERROR: Mapping with key ID \"%" PRIu32 "\" already exists!\n",
               *first_id);
       fprintf(stderr,
               "  Already mapped to ID \"%" PRIu32 "\".\n",
@@ -1096,7 +1096,7 @@ int simple_archiver_handle_map_user_or_group(
                                                            sizeof(uint32_t));
     if (mapped_name) {
       fprintf(stderr,
-              "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
+              "ERROR: Mapping with key ID \"%" PRIu32 "\" already exists!\n",
               *first_id);
       fprintf(stderr,
               "  Already mapped to name \"%s\".\n",
@@ -1126,7 +1126,7 @@ int simple_archiver_handle_map_user_or_group(
                                                        sizeof(uint32_t));
     if (mapped_id) {
       fprintf(stderr,
-              "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
+              "ERROR: Mapping with key ID \"%" PRIu32 "\" already exists!\n",
               *first_id);
       fprintf(stderr,
               "  Already mapped to ID \"%" PRIu32 "\".\n",
@@ -1138,7 +1138,7 @@ int simple_archiver_handle_map_user_or_group(
                                                            sizeof(uint32_t));
     if (mapped_name) {
       fprintf(stderr,
-              "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
+              "ERROR: Mapping with key ID \"%" PRIu32 "\" already exists!\n",
               *first_id);
       fprintf(stderr,
               "  Already mapped to name \"%s\".\n",
@@ -1168,7 +1168,7 @@ int simple_archiver_handle_map_user_or_group(
                                                        strlen(first_buf) + 1);
     if (mapped_id) {
       fprintf(stderr,
-              "ERROR: Mapping with key \"%s\" already exists!\n",
+              "ERROR: Mapping with key name \"%s\" already exists!\n",
               first_buf);
       fprintf(stderr,
               "  Already mapped to ID \"%" PRIu32 "\".\n",
@@ -1181,7 +1181,7 @@ int simple_archiver_handle_map_user_or_group(
                                                              + 1);
     if (mapped_name) {
       fprintf(stderr,
-              "ERROR: Mapping with key \"%s\" already exists!\n",
+              "ERROR: Mapping with key name \"%s\" already exists!\n",
               first_buf);
       fprintf(stderr,
               "  Already mapped to name \"%s\".\n",
@@ -1211,7 +1211,7 @@ int simple_archiver_handle_map_user_or_group(
                                                        strlen(first_buf) + 1);
     if (mapped_id) {
       fprintf(stderr,
-              "ERROR: Mapping with key \"%s\" already exists!\n",
+              "ERROR: Mapping with key name \"%s\" already exists!\n",
               first_buf);
       fprintf(stderr,
               "  Already mapped to ID \"%" PRIu32 "\".\n",
@@ -1224,7 +1224,7 @@ int simple_archiver_handle_map_user_or_group(
                                                              + 1);
     if (mapped_name) {
       fprintf(stderr,
-              "ERROR: Mapping with key \"%s\" already exists!\n",
+              "ERROR: Mapping with key name \"%s\" already exists!\n",
               first_buf);
       fprintf(stderr,
               "  Already mapped to name \"%s\".\n",
