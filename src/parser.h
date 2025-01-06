@@ -24,7 +24,19 @@
 
 // Local includes.
 #include "data_structures/linked_list.h"
+#include "data_structures/hash_map.h"
 #include "users.h"
+
+typedef struct SDA_UGMapping {
+  SDArchiverHashMap *UidToUname;
+  SDArchiverHashMap *UnameToUid;
+  SDArchiverHashMap *UidToUid;
+  SDArchiverHashMap *UnameToUname;
+  SDArchiverHashMap *GidToGname;
+  SDArchiverHashMap *GnameToGid;
+  SDArchiverHashMap *GidToGid;
+  SDArchiverHashMap *GnameToGname;
+} SDA_UGMapping;
 
 typedef struct SDArchiverParsed {
   /// Each bit is a flag.
@@ -80,6 +92,7 @@ typedef struct SDArchiverParsed {
   uint_fast16_t file_permissions;
   uint_fast16_t dir_permissions;
   UsersInfos users_infos;
+  SDA_UGMapping mappings;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {
@@ -113,6 +126,13 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed);
 
 /// Each entry in the linked list is an SDArchiverFileInfo object.
 SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
-    const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out);
+  const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out);
+
+int simple_archiver_handle_map_user_or_group(
+  const char *arg,
+  SDArchiverHashMap *IDToName,
+  SDArchiverHashMap *NameToID,
+  SDArchiverHashMap *IDToID,
+  SDArchiverHashMap *NameToName);
 
 #endif

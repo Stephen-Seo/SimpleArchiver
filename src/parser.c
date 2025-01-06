@@ -19,6 +19,7 @@
 #include "parser.h"
 
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -221,6 +222,12 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "  Note that by default Group is preferred over UID\n");
   fprintf(stderr,
+          "--map-user <UID/Uname>:<UID/Uname> : Maps a UID/Username to "
+          "UID/Username\n");
+  fprintf(stderr,
+          "--map-group <GID/Gname>:<GID/Gname> : Maps a GID/Group to "
+          "GID/Group\n");
+  fprintf(stderr,
           "--force-file-permissions <3-octal-values> : Force set permissions "
           "for files on archive creation/extraction\n"
           "  Must be three octal characters like \"755\" or \"440\"\n");
@@ -255,6 +262,14 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.file_permissions = 0;
   parsed.dir_permissions = 0;
   parsed.users_infos = simple_archiver_users_get_system_info();
+  parsed.mappings.UidToUname = simple_archiver_hash_map_init();
+  parsed.mappings.UnameToUid = simple_archiver_hash_map_init();
+  parsed.mappings.UidToUid = simple_archiver_hash_map_init();
+  parsed.mappings.UnameToUname = simple_archiver_hash_map_init();
+  parsed.mappings.GidToGname = simple_archiver_hash_map_init();
+  parsed.mappings.GnameToGid = simple_archiver_hash_map_init();
+  parsed.mappings.GidToGid = simple_archiver_hash_map_init();
+  parsed.mappings.GnameToGname = simple_archiver_hash_map_init();
 
   return parsed;
 }
@@ -493,6 +508,44 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x4000;
       } else if (strcmp(argv[0], "--extract-prefer-gid") == 0) {
         out->flags |= 0x8000;
+      } else if (strcmp(argv[0], "--map-user") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --map-user requires an argument!\n"
+                  "  <UID/Username>:<UID/Username>, like \"1000:someuser\" or "
+                  "\"myuser:thisuser\" or \"thatuser:1011\" etc.\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        if (simple_archiver_handle_map_user_or_group(
+            argv[1],
+            out->mappings.UidToUname,
+            out->mappings.UnameToUid,
+            out->mappings.UidToUid,
+            out->mappings.UnameToUname) != 0) {
+          simple_archiver_print_usage();
+          return 1;
+        }
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--map-group") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --map-group requires an argument!\n"
+                  "  <GID/Group>:<GID/Group>, like \"1000:audio\" or "
+                  "\"cups:wheel\" or \"users:1011\" etc.\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        if (simple_archiver_handle_map_user_or_group(
+            argv[1],
+            out->mappings.GidToGname,
+            out->mappings.GnameToGid,
+            out->mappings.GidToGid,
+            out->mappings.GnameToGname) != 0) {
+          simple_archiver_print_usage();
+          return 1;
+        }
+        --argc;
+        ++argv;
       } else if (strcmp(argv[0], "--force-file-permissions") == 0) {
         if (argc < 2
             || strlen(argv[1]) != 3
@@ -639,7 +692,33 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     free(parsed->working_files);
     parsed->working_files = NULL;
   }
+
   simple_archiver_users_free_users_infos(&parsed->users_infos);
+
+  if (parsed->mappings.UidToUname) {
+    simple_archiver_hash_map_free(&parsed->mappings.UidToUname);
+  }
+  if (parsed->mappings.UnameToUid) {
+    simple_archiver_hash_map_free(&parsed->mappings.UnameToUid);
+  }
+  if (parsed->mappings.UidToUid) {
+    simple_archiver_hash_map_free(&parsed->mappings.UidToUid);
+  }
+  if (parsed->mappings.UnameToUname) {
+    simple_archiver_hash_map_free(&parsed->mappings.UnameToUname);
+  }
+  if (parsed->mappings.GidToGname) {
+    simple_archiver_hash_map_free(&parsed->mappings.GidToGname);
+  }
+  if (parsed->mappings.GnameToGid) {
+    simple_archiver_hash_map_free(&parsed->mappings.GnameToGid);
+  }
+  if (parsed->mappings.GidToGid) {
+    simple_archiver_hash_map_free(&parsed->mappings.GidToGid);
+  }
+  if (parsed->mappings.GnameToGname) {
+    simple_archiver_hash_map_free(&parsed->mappings.GnameToGname);
+  }
 }
 
 SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
@@ -910,4 +989,196 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
     *status_out = SDAPS_SUCCESS;
   }
   return files_list;
+}
+
+int simple_archiver_handle_map_user_or_group(
+    const char *arg,
+    SDArchiverHashMap *IDToName,
+    SDArchiverHashMap *NameToID,
+    SDArchiverHashMap *IDToID,
+    SDArchiverHashMap *NameToName) {
+  const unsigned long arg_len = strlen(arg);
+
+  int32_t colon_idx = -1;
+  for (int32_t idx = 0; (unsigned long)idx < arg_len; ++idx) {
+    if (arg[idx] == ':') {
+      if (colon_idx == -1) {
+        colon_idx = idx;
+      } else {
+        fprintf(stderr,
+                "ERROR: Encountered multiple \":\" in --map-user arg!\n");
+        return 1;
+      }
+    }
+  }
+
+  if (colon_idx == -1) {
+    fprintf(stderr, "ERROR: No \":\" in --map-user arg!\n");
+    return 1;
+  } else if (colon_idx == 0) {
+    fprintf(stderr, "ERROR: Colon in arg before ID/Name!\n");
+    return 1;
+  } else if ((unsigned long)colon_idx + 1 == arg_len) {
+    fprintf(stderr, "ERROR: Colon in arg at end, no end-ID/Name!\n");
+    return 1;
+  }
+
+  uint_fast8_t first_is_numeric = 1;
+  uint_fast8_t last_is_numeric = 1;
+
+  for (uint32_t idx = 0; idx < (uint32_t)colon_idx; ++idx) {
+    if (arg[idx] < '0' || arg[idx] > '9') {
+      first_is_numeric = 0;
+      break;
+    }
+  }
+
+  for (uint32_t idx = (uint32_t)colon_idx + 1; idx < (uint32_t)arg_len; ++idx) {
+    if (arg[idx] < '0' || arg[idx] > '9') {
+      last_is_numeric = 0;
+      break;
+    }
+  }
+
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *first_buf = malloc((size_t)colon_idx + 1);
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *last_buf = malloc((size_t)arg_len - (size_t)colon_idx);
+
+  __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+  uint32_t *first_id = NULL;
+  __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+  uint32_t *last_id = NULL;
+
+  memcpy(first_buf, arg, (size_t)colon_idx);
+  first_buf[colon_idx] = 0;
+
+  memcpy(last_buf,
+         arg + colon_idx + 1,
+         (size_t)arg_len - (size_t)colon_idx - 1);
+  last_buf[(size_t)arg_len - (size_t)colon_idx - 1] = 0;
+
+  if (first_is_numeric) {
+    unsigned long integer = strtoul(first_buf, NULL, 10);
+    if (integer > 0xFFFFFFFF) {
+      fprintf(stderr, "ERROR: ID integer \"%s\" is too large!\n", first_buf);
+      return 1;
+    }
+    first_id = malloc(sizeof(uint32_t));
+    *first_id = (uint32_t)integer;
+  }
+
+  if (last_is_numeric) {
+    unsigned long integer = strtoul(last_buf, NULL, 10);
+    if (integer > 0xFFFFFFFF) {
+      fprintf(stderr, "ERROR: ID integer \"%s\" is too large!\n", last_buf);
+      return 1;
+    }
+    last_id = malloc(sizeof(uint32_t));
+    *last_id = (uint32_t)integer;
+  }
+
+  if (first_is_numeric && last_is_numeric) {
+    if (simple_archiver_hash_map_get(IDToID, first_id, sizeof(uint32_t))) {
+      fprintf(stderr,
+              "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
+              *first_id);
+      return 1;
+    }
+    if (simple_archiver_hash_map_insert(IDToID,
+                                        last_id,
+                                        first_id,
+                                        sizeof(uint32_t),
+                                        NULL,
+                                        NULL) != 0) {
+      // Values are free'd by insert fn on failure.
+      last_id = NULL;
+      first_id = NULL;
+      fprintf(stderr,
+              "ERROR: Internal error storing ID to ID mapping \"%s\"!",
+              arg);
+      return 1;
+    }
+    // Map takes ownership of values.
+    last_id = NULL;
+    first_id = NULL;
+  } else if (first_is_numeric) {
+    if (simple_archiver_hash_map_get(IDToName, first_id, sizeof(uint32_t))) {
+      fprintf(stderr,
+              "ERROR: Mapping with key \"%" PRIu32 "\" already exists!\n",
+              *first_id);
+      return 1;
+    }
+    if (simple_archiver_hash_map_insert(IDToName,
+                                        last_buf,
+                                        first_id,
+                                        sizeof(uint32_t),
+                                        NULL,
+                                        NULL) != 0) {
+      // Values are free'd by insert fn on failure.
+      last_buf = NULL;
+      first_id = NULL;
+      fprintf(stderr,
+              "ERROR: Internal error storing ID to Name mapping \"%s\"!",
+              arg);
+      return 1;
+    }
+    // Map takes ownership of values.
+    last_buf = NULL;
+    first_id = NULL;
+  } else if (last_is_numeric) {
+    if (simple_archiver_hash_map_get(NameToID,
+                                     first_buf,
+                                     strlen(first_buf) + 1)) {
+      fprintf(stderr,
+              "ERROR: Mapping with key \"%s\" already exists!\n",
+            first_buf);
+      return 1;
+    }
+    if (simple_archiver_hash_map_insert(NameToID,
+                                        last_id,
+                                        first_buf,
+                                        strlen(first_buf) + 1,
+                                        NULL,
+                                        NULL) != 0) {
+      // Values are free'd by insert fn on failure.
+      last_id = NULL;
+      first_buf = NULL;
+      fprintf(stderr,
+              "ERROR: Internal error storing Name to ID mapping \"%s\"!",
+              arg);
+      return 1;
+    }
+    // Map takes ownership of values.
+    last_id = NULL;
+    first_buf = NULL;
+  } else {
+    if (simple_archiver_hash_map_get(NameToName,
+                                     first_buf,
+                                     strlen(first_buf) + 1)) {
+      fprintf(stderr,
+              "ERROR: Mapping with key \"%s\" already exists!\n",
+            first_buf);
+      return 1;
+    }
+    if (simple_archiver_hash_map_insert(NameToName,
+                                        last_buf,
+                                        first_buf,
+                                        strlen(first_buf) + 1,
+                                        NULL,
+                                        NULL) != 0) {
+      // Values are free'd by insert fn on failure.
+      last_buf = NULL;
+      first_buf = NULL;
+      fprintf(stderr,
+              "ERROR: Internal error storing Name to Name mapping \"%s\"!",
+              arg);
+      return 1;
+    }
+    // Map takes ownership of values.
+    last_buf = NULL;
+    first_buf = NULL;
+  }
+
+  return 0;
 }

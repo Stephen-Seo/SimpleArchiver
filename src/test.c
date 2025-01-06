@@ -25,7 +25,9 @@
 
 // Local includes.
 #include "archiver.h"
+#include "data_structures/hash_map.h"
 #include "helpers.h"
+#include "parser.h"
 #include "parser_internal.h"
 
 static int32_t checks_checked = 0;
@@ -130,6 +132,110 @@ int main(void) {
     CHECK_TRUE(parsed.working_files[3] == NULL);
     CHECK_TRUE(strcmp("the_filename", parsed.filename) == 0);
     CHECK_TRUE(parsed.flags == 0x41);
+
+    simple_archiver_free_parsed(&parsed);
+
+    // Test mappings.
+    parsed = simple_archiver_create_parsed();
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "1000:1001",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) == 0);
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "1002:user0",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) == 0);
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "user1:1003",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) == 0);
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "user2:user3",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) == 0);
+    fprintf(stderr, "Expecting ERROR output on next line:\n");
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "1000:1091",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) != 0);
+    fprintf(stderr, "Expecting ERROR output on next line:\n");
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "1002:user00",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) != 0);
+    fprintf(stderr, "Expecting ERROR output on next line:\n");
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "user1:1033",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) != 0);
+    fprintf(stderr, "Expecting ERROR output on next line:\n");
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "user2:us3r3",
+      parsed.mappings.UidToUname,
+      parsed.mappings.UnameToUid,
+      parsed.mappings.UidToUid,
+      parsed.mappings.UnameToUname) != 0);
+    uint32_t id_check = 1000;
+    uint32_t *id_get;
+
+    id_get = simple_archiver_hash_map_get(parsed.mappings.UidToUid,
+                                          &id_check,
+                                          sizeof(uint32_t));
+    CHECK_TRUE(id_get);
+    CHECK_TRUE(*id_get == 1001);
+    id_check = 1001;
+    id_get = simple_archiver_hash_map_get(parsed.mappings.UidToUid,
+                                          &id_check,
+                                          sizeof(uint32_t));
+    CHECK_FALSE(id_get);
+
+    id_check = 1002;
+    char *name_get;
+
+    name_get = simple_archiver_hash_map_get(parsed.mappings.UidToUname,
+                                            &id_check,
+                                            sizeof(uint32_t));
+    CHECK_TRUE(name_get);
+    CHECK_STREQ(name_get, "user0");
+    id_check = 1010;
+    name_get = simple_archiver_hash_map_get(parsed.mappings.UidToUname,
+                                            &id_check,
+                                            sizeof(uint32_t));
+    CHECK_FALSE(name_get);
+
+    id_get = simple_archiver_hash_map_get(parsed.mappings.UnameToUid,
+                                          "user1",
+                                          6);
+    CHECK_TRUE(id_get);
+    CHECK_TRUE(*id_get == 1003);
+    id_get = simple_archiver_hash_map_get(parsed.mappings.UnameToUid,
+                                          "user9",
+                                          6);
+    CHECK_FALSE(id_get);
+
+    name_get = simple_archiver_hash_map_get(parsed.mappings.UnameToUname,
+                                            "user2",
+                                            6);
+    CHECK_TRUE(name_get);
+    CHECK_STREQ(name_get, "user3");
+    name_get = simple_archiver_hash_map_get(parsed.mappings.UnameToUname,
+                                            "user3",
+                                            6);
+    CHECK_FALSE(name_get);
 
     simple_archiver_free_parsed(&parsed);
   }
