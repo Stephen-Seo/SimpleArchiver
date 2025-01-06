@@ -111,6 +111,7 @@ void test_iter_fn_priority_heap(void *data, void *user_data) {
 
 int main(void) {
   puts("Begin data-structures unit test.");
+  fflush(stdout);
 
   // Test LinkedList.
   {

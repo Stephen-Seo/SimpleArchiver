@@ -63,6 +63,7 @@ static int32_t checks_passed = 0;
 
 int main(void) {
   puts("Begin unit test.");
+  fflush(stdout);
 
   // Test parser.
   {
