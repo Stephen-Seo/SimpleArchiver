@@ -59,6 +59,11 @@ to open via Wine (if Wine is installed). [A workaround is mentioned here.](https
 
 See the [Changelog](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/Changelog.md).
 
+## `dev` branch
+
+The `dev` branch sees active development, and is only merged into `main` when
+considered a new release/tag and/or stable.
+
 ## Other Things to Know
 
 When compressing, it may be useful to set `--temp-files-dir <dir>` as
