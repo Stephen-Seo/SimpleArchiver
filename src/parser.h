@@ -135,4 +135,35 @@ int simple_archiver_handle_map_user_or_group(
   SDArchiverHashMap *IDToID,
   SDArchiverHashMap *NameToName);
 
+/// Returns 0 on success. out_user is used if not NULL. out_user may hold NULL
+/// if username is not found. On success, `*out_user` must be free'd.
+int simple_archiver_get_uid_mapping(SDA_UGMapping mappings,
+                                    UsersInfos users_infos,
+                                    uint32_t uid,
+                                    uint32_t *out_uid,
+                                    char **out_user);
+
+/// Returns 0 on success. out_user is used if not NULL. out_user may hold NULL
+/// if username is not found. On success, `*out_user` must be free'd.
+int simple_archiver_get_user_mapping(SDA_UGMapping mappings,
+                                     UsersInfos users_infos,
+                                     const char *user,
+                                     uint32_t *out_uid,
+                                     char **out_user);
+
+/// Returns 0 on success. out_group is used if not NULL. out_group may hold
+/// NULL if groupname is not found. On success `*out_group` must be free'd.
+int simple_archiver_get_gid_mapping(SDA_UGMapping mappings,
+                                    UsersInfos users_infos,
+                                    uint32_t gid,
+                                    uint32_t *out_gid,
+                                    char **out_group);
+
+/// Returns 0 on success. out_group is used if not NULL. out_group may hold
+/// NULL if groupname is not found. On success `*out_group` must be free'd.
+int simple_archiver_get_group_mapping(SDA_UGMapping mappings,
+                                      UsersInfos users_infos,
+                                      const char *group,
+                                      uint32_t *out_gid,
+                                      char **out_group);
 #endif

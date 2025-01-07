@@ -266,6 +266,479 @@ int main(void) {
                                             6);
     CHECK_FALSE(name_get);
 
+    // Test get mappings.
+
+    // Prepare users_infos.
+    simple_archiver_users_free_users_infos(&parsed.users_infos);
+    parsed.users_infos.UidToUname = simple_archiver_hash_map_init();
+    parsed.users_infos.UnameToUid = simple_archiver_hash_map_init();
+    parsed.users_infos.GidToGname = simple_archiver_hash_map_init();
+    parsed.users_infos.GnameToGid = simple_archiver_hash_map_init();
+
+    uint32_t *temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1000;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UidToUname,
+      "user1000",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1000;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UnameToUid,
+      temp_id,
+      "user1000",
+      9,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1001;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UidToUname,
+      "user1001",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1001;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UnameToUid,
+      temp_id,
+      "user1001",
+      9,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1002;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UidToUname,
+      "user1002",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1002;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UnameToUid,
+      temp_id,
+      "user1002",
+      9,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1100;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UidToUname,
+      "user0",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1100;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UnameToUid,
+      temp_id,
+      "user0",
+      6,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1101;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UidToUname,
+      "user1",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1101;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UnameToUid,
+      temp_id,
+      "user1",
+      6,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1003;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UidToUname,
+      "user1003",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1003;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UnameToUid,
+      temp_id,
+      "user1003",
+      9,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1102;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UidToUname,
+      "user2",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1102;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UnameToUid,
+      temp_id,
+      "user2",
+      6,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1103;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UidToUname,
+      "user3",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1103;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.UnameToUid,
+      temp_id,
+      "user3",
+      6,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    // Mappings checks.
+    uint32_t out_id;
+    char *out_name = NULL;
+    CHECK_TRUE(simple_archiver_get_uid_mapping(parsed.mappings,
+                                               parsed.users_infos,
+                                               1000,
+                                               &out_id,
+                                               &out_name) == 0);
+    CHECK_TRUE(out_id == 1001);
+    CHECK_TRUE(out_name);
+    if (out_name) {
+      CHECK_STREQ(out_name, "user1001");
+      free(out_name);
+      out_name = NULL;
+    }
+
+    CHECK_TRUE(simple_archiver_get_uid_mapping(parsed.mappings,
+                                               parsed.users_infos,
+                                               1002,
+                                               &out_id,
+                                               &out_name) == 0);
+    CHECK_TRUE(out_id == 1100);
+    CHECK_TRUE(out_name);
+    if (out_name) {
+      CHECK_STREQ(out_name, "user0");
+      free(out_name);
+      out_name = NULL;
+    }
+
+    CHECK_TRUE(simple_archiver_get_uid_mapping(parsed.mappings,
+                                               parsed.users_infos,
+                                               2000,
+                                               &out_id,
+                                               &out_name) != 0);
+    CHECK_FALSE(out_name);
+
+    CHECK_TRUE(simple_archiver_get_user_mapping(parsed.mappings,
+                                                parsed.users_infos,
+                                                "user1",
+                                                &out_id,
+                                                &out_name) == 0);
+    CHECK_TRUE(out_id == 1003);
+    CHECK_TRUE(out_name);
+    if (out_name) {
+      CHECK_STREQ(out_name, "user1003");
+      free(out_name);
+      out_name = NULL;
+    }
+
+    CHECK_TRUE(simple_archiver_get_user_mapping(parsed.mappings,
+                                                parsed.users_infos,
+                                                "user2",
+                                                &out_id,
+                                                &out_name) == 0);
+    CHECK_TRUE(out_id == 1103);
+    CHECK_TRUE(out_name);
+    if (out_name) {
+      CHECK_STREQ(out_name, "user3");
+      free(out_name);
+      out_name = NULL;
+    }
+
+    CHECK_TRUE(simple_archiver_get_user_mapping(parsed.mappings,
+                                                parsed.users_infos,
+                                                "invalid_user",
+                                                &out_id,
+                                                &out_name) != 0);
+    CHECK_FALSE(out_name);
+
+    // Test group mappings.
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "1000:1",
+      parsed.mappings.GidToGname,
+      parsed.mappings.GnameToGid,
+      parsed.mappings.GidToGid,
+      parsed.mappings.GnameToGname) == 0);
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "1001:root",
+      parsed.mappings.GidToGname,
+      parsed.mappings.GnameToGid,
+      parsed.mappings.GidToGid,
+      parsed.mappings.GnameToGname) == 0);
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "audio:200",
+      parsed.mappings.GidToGname,
+      parsed.mappings.GnameToGid,
+      parsed.mappings.GidToGid,
+      parsed.mappings.GnameToGname) == 0);
+    CHECK_TRUE(simple_archiver_handle_map_user_or_group(
+      "lp:realtime",
+      parsed.mappings.GidToGname,
+      parsed.mappings.GnameToGid,
+      parsed.mappings.GidToGid,
+      parsed.mappings.GnameToGname) == 0);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1000;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GidToGname,
+      "group1000",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1000;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GnameToGid,
+      temp_id,
+      "group1000",
+      10,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GidToGname,
+      "one",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GnameToGid,
+      temp_id,
+      "one",
+      4,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1001;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GidToGname,
+      "group1001",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 1001;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GnameToGid,
+      temp_id,
+      "group1001",
+      10,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 0;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GidToGname,
+      "root",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 0;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GnameToGid,
+      temp_id,
+      "root",
+      5,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 50;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GidToGname,
+      "audio",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 50;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GnameToGid,
+      temp_id,
+      "audio",
+      6,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 200;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GidToGname,
+      "group200",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 200;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GnameToGid,
+      temp_id,
+      "group200",
+      9,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 300;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GidToGname,
+      "lp",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 300;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GnameToGid,
+      temp_id,
+      "lp",
+      3,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 10;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GidToGname,
+      "realtime",
+      temp_id,
+      sizeof(uint32_t),
+      simple_archiver_helper_datastructure_cleanup_nop,
+      NULL);
+    temp_id = malloc(sizeof(uint32_t));
+    *temp_id = 10;
+    simple_archiver_hash_map_insert(
+      parsed.users_infos.GnameToGid,
+      temp_id,
+      "realtime",
+      9,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    // Mappings checks for groups.
+    CHECK_TRUE(simple_archiver_get_gid_mapping(parsed.mappings,
+                                               parsed.users_infos,
+                                               1000,
+                                               &out_id,
+                                               &out_name) == 0);
+    CHECK_TRUE(out_id == 1);
+    CHECK_TRUE(out_name);
+    if (out_name) {
+      CHECK_STREQ(out_name, "one");
+      free(out_name);
+      out_name = NULL;
+    }
+
+    CHECK_TRUE(simple_archiver_get_gid_mapping(parsed.mappings,
+                                               parsed.users_infos,
+                                               1001,
+                                               &out_id,
+                                               &out_name) == 0);
+    CHECK_TRUE(out_id == 0);
+    CHECK_TRUE(out_name);
+    if (out_name) {
+      CHECK_STREQ(out_name, "root");
+      free(out_name);
+      out_name = NULL;
+    }
+
+    CHECK_TRUE(simple_archiver_get_gid_mapping(parsed.mappings,
+                                               parsed.users_infos,
+                                               1111,
+                                               &out_id,
+                                               &out_name) != 0);
+
+    CHECK_TRUE(simple_archiver_get_group_mapping(parsed.mappings,
+                                                 parsed.users_infos,
+                                                 "audio",
+                                                 &out_id,
+                                                 &out_name) == 0);
+    CHECK_TRUE(out_id == 200);
+    CHECK_TRUE(out_name);
+    if (out_name) {
+      CHECK_STREQ(out_name, "group200");
+      free(out_name);
+      out_name = NULL;
+    }
+
+    CHECK_TRUE(simple_archiver_get_group_mapping(parsed.mappings,
+                                                 parsed.users_infos,
+                                                 "lp",
+                                                 &out_id,
+                                                 &out_name) == 0);
+    CHECK_TRUE(out_id == 10);
+    CHECK_TRUE(out_name);
+    if (out_name) {
+      CHECK_STREQ(out_name, "realtime");
+      free(out_name);
+      out_name = NULL;
+    }
+
+    CHECK_TRUE(simple_archiver_get_group_mapping(parsed.mappings,
+                                                 parsed.users_infos,
+                                                 "nothing",
+                                                 &out_id,
+                                                 &out_name) != 0);
+
     simple_archiver_free_parsed(&parsed);
   }
 

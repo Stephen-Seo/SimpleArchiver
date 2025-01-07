@@ -1252,3 +1252,199 @@ int simple_archiver_handle_map_user_or_group(
 
   return 0;
 }
+
+int simple_archiver_get_uid_mapping(SDA_UGMapping mappings,
+                                    UsersInfos users_infos,
+                                    uint32_t uid,
+                                    uint32_t *out_uid,
+                                    char **out_user) {
+  uint32_t *get_uid = simple_archiver_hash_map_get(mappings.UidToUid,
+                                                   &uid,
+                                                   sizeof(uint32_t));
+  const char *get_user;
+  if (get_uid) {
+    *out_uid = *get_uid;
+    if (out_user) {
+      if (*out_user) {
+        free(*out_user);
+      }
+      get_user = simple_archiver_hash_map_get(users_infos.UidToUname,
+                                              get_uid,
+                                              sizeof(uint32_t));
+      if (get_user) {
+        *out_user = strdup(get_user);
+      } else {
+        *out_user = NULL;
+      }
+    }
+    return 0;
+  }
+
+  get_user = simple_archiver_hash_map_get(mappings.UidToUname,
+                                                      &uid,
+                                                      sizeof(uint32_t));
+  if (get_user) {
+    get_uid = simple_archiver_hash_map_get(users_infos.UnameToUid,
+                                           get_user,
+                                           strlen(get_user) + 1);
+    if (get_uid) {
+      *out_uid = *get_uid;
+      if (out_user) {
+        if (*out_user) {
+          free(*out_user);
+        }
+        *out_user = strdup(get_user);
+      }
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+int simple_archiver_get_user_mapping(SDA_UGMapping mappings,
+                                     UsersInfos users_infos,
+                                     const char *user,
+                                     uint32_t *out_uid,
+                                     char **out_user) {
+  uint32_t *get_uid = simple_archiver_hash_map_get(mappings.UnameToUid,
+                                                   user,
+                                                   strlen(user) + 1);
+  char *get_user;
+  if (get_uid) {
+    *out_uid = *get_uid;
+    if (out_user) {
+      if (*out_user) {
+        free(*out_user);
+      }
+      get_user = simple_archiver_hash_map_get(users_infos.UidToUname,
+                                              get_uid,
+                                              sizeof(uint32_t));
+      if (get_user) {
+        *out_user = strdup(get_user);
+      } else {
+        *out_user = NULL;
+      }
+    }
+    return 0;
+  }
+
+  get_user = simple_archiver_hash_map_get(mappings.UnameToUname,
+                                          user,
+                                          strlen(user) + 1);
+  if (get_user) {
+    get_uid = simple_archiver_hash_map_get(users_infos.UnameToUid,
+                                           get_user,
+                                           strlen(get_user) + 1);
+    if (get_uid) {
+      *out_uid = *get_uid;
+      if (out_user) {
+        if (*out_user) {
+          free(*out_user);
+        }
+        *out_user = strdup(get_user);
+      }
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+int simple_archiver_get_gid_mapping(SDA_UGMapping mappings,
+                                    UsersInfos users_infos,
+                                    uint32_t gid,
+                                    uint32_t *out_gid,
+                                    char **out_group) {
+  uint32_t *get_gid = simple_archiver_hash_map_get(mappings.GidToGid,
+                                                   &gid,
+                                                   sizeof(uint32_t));
+  char *get_group;
+  if (get_gid) {
+    *out_gid = *get_gid;
+    if (out_group) {
+      if (*out_group) {
+        free(*out_group);
+      }
+      get_group = simple_archiver_hash_map_get(users_infos.GidToGname,
+                                               get_gid,
+                                               sizeof(uint32_t));
+      if (get_group) {
+        *out_group = strdup(get_group);
+      } else {
+        *out_group = NULL;
+      }
+    }
+    return 0;
+  }
+
+  get_group = simple_archiver_hash_map_get(mappings.GidToGname,
+                                           &gid,
+                                           sizeof(uint32_t));
+  if (get_group) {
+    get_gid = simple_archiver_hash_map_get(users_infos.GnameToGid,
+                                           get_group,
+                                           strlen(get_group) + 1);
+    if (get_gid) {
+      *out_gid = *get_gid;
+      if (out_group) {
+        if (*out_group) {
+          free(*out_group);
+        }
+        *out_group = strdup(get_group);
+      }
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+int simple_archiver_get_group_mapping(SDA_UGMapping mappings,
+                                      UsersInfos users_infos,
+                                      const char *group,
+                                      uint32_t *out_gid,
+                                      char **out_group) {
+  uint32_t *get_gid = simple_archiver_hash_map_get(mappings.GnameToGid,
+                                                   group,
+                                                   strlen(group) + 1);
+  char *get_group;
+  if (get_gid) {
+    *out_gid = *get_gid;
+    if (out_group) {
+      if (*out_group) {
+        free(*out_group);
+      }
+      get_group = simple_archiver_hash_map_get(users_infos.GidToGname,
+                                               get_gid,
+                                               sizeof(uint32_t));
+      if (get_group) {
+        *out_group = strdup(get_group);
+      } else {
+        *out_group = NULL;
+      }
+    }
+    return 0;
+  }
+
+  get_group = simple_archiver_hash_map_get(mappings.GnameToGname,
+                                           group,
+                                           strlen(group) + 1);
+  if (get_group) {
+    get_gid = simple_archiver_hash_map_get(users_infos.GnameToGid,
+                                           get_group,
+                                           strlen(get_group) + 1);
+    if (get_gid) {
+      *out_gid = *get_gid;
+      if (out_group) {
+        if (*out_group) {
+          free(*out_group);
+        }
+        *out_group = strdup(get_group);
+      }
+      return 0;
+    }
+  }
+
+  return 1;
+}
