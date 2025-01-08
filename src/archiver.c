@@ -1922,6 +1922,19 @@ int internal_write_dir_entries(void *data, void *ud) {
   uint32_t u32 = stat_buf.st_uid;
   if (state->parsed->flags & 0x400) {
     u32 = state->parsed->uid;
+  } else {
+    uint32_t mapped_uid;
+    if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                        state->parsed->users_infos,
+                                        u32,
+                                        &mapped_uid,
+                                        NULL) == 0) {
+      //fprintf(stderr,
+      //        "NOTICE: Mapped UID %" PRIu32 " to %" PRIu32 "\n",
+      //        u32,
+      //        mapped_uid);
+      u32 = mapped_uid;
+    }
   }
 
   simple_archiver_helper_32_bit_be(&u32);
@@ -1933,6 +1946,19 @@ int internal_write_dir_entries(void *data, void *ud) {
   u32 = stat_buf.st_gid;
   if (state->parsed->flags & 0x800) {
     u32 = state->parsed->gid;
+  } else {
+    uint32_t mapped_gid;
+    if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                        state->parsed->users_infos,
+                                        u32,
+                                        &mapped_gid,
+                                        NULL) == 0) {
+      //fprintf(stderr,
+      //        "NOTICE: Mapped GID %" PRIu32 " to %" PRIu32 "\n",
+      //        u32,
+      //        mapped_gid);
+      u32 = mapped_gid;
+    }
   }
   simple_archiver_helper_32_bit_be(&u32);
   if (fwrite(&u32, 4, 1, out_f) != 1) {
@@ -1945,9 +1971,28 @@ int internal_write_dir_entries(void *data, void *ud) {
     if (state->parsed->flags & 0x400) {
       u32 = state->parsed->uid;
     }
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *to_cleanup_user = NULL;
     const char *username = simple_archiver_hash_map_get(
       state->parsed->users_infos.UidToUname, &u32, sizeof(uint32_t));
     if (username) {
+      if ((state->parsed->flags & 0x400) == 0) {
+        uint32_t out_uid;
+        const char *mapped_user = NULL;
+        if (simple_archiver_get_user_mapping(state->parsed->mappings,
+                                             state->parsed->users_infos,
+                                             username,
+                                             &out_uid,
+                                             &mapped_user) == 0
+            && mapped_user) {
+          //fprintf(stderr,
+          //        "NOTICE: Mapped User %s to %s\n",
+          //        username,
+          //        mapped_user);
+          username = mapped_user;
+          to_cleanup_user = (char *)mapped_user;
+        }
+      }
       unsigned long length = strlen(username);
       if (length > 0xFFFF) {
         fprintf(stderr, "ERROR: Username is too long for dir \"%s\"!\n", dir);
@@ -1979,9 +2024,28 @@ int internal_write_dir_entries(void *data, void *ud) {
     if (state->parsed->flags & 0x800) {
       u32 = state->parsed->gid;
     }
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *to_cleanup_group = NULL;
     const char *groupname = simple_archiver_hash_map_get(
       state->parsed->users_infos.GidToGname, &u32, sizeof(uint32_t));
     if (groupname) {
+      if ((state->parsed->flags & 0x800) == 0) {
+        uint32_t out_gid;
+        const char *mapped_group = NULL;
+        if (simple_archiver_get_group_mapping(state->parsed->mappings,
+                                              state->parsed->users_infos,
+                                              groupname,
+                                              &out_gid,
+                                              &mapped_group) == 0
+            && mapped_group) {
+          //fprintf(stderr,
+          //        "NOTICE: Mapped Group %s to %s\n",
+          //        groupname,
+          //        mapped_group);
+          groupname = mapped_group;
+          to_cleanup_group = (char *)mapped_group;
+        }
+      }
       unsigned long length = strlen(groupname);
       if (length > 0xFFFF) {
         fprintf(stderr, "ERROR: Groupname is too long for dir \"%s\"!\n", dir);
@@ -4417,6 +4481,20 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       u32 = stat_buf.st_uid;
       if (state->parsed->flags & 0x400) {
         u32 = state->parsed->uid;
+      } else {
+        uint32_t mapped_uid;
+        if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            u32,
+                                            &mapped_uid,
+                                            NULL) == 0) {
+          //fprintf(stderr,
+          //        "NOTICE: Mapped UID %" PRIu32 " to %" PRIu32" for %s\n",
+          //        u32,
+          //        mapped_uid,
+          //        (const char *)node->data);
+          u32 = mapped_uid;
+        }
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
@@ -4426,6 +4504,20 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       u32 = stat_buf.st_gid;
       if (state->parsed->flags & 0x800) {
         u32 = state->parsed->gid;
+      } else {
+        uint32_t mapped_gid;
+        if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            u32,
+                                            &mapped_gid,
+                                            NULL) == 0) {
+          //fprintf(stderr,
+          //        "NOTICE: Mapped GID %" PRIu32 " to %" PRIu32 " for %s\n",
+          //        u32,
+          //        mapped_gid,
+          //        (const char *)node->data);
+          u32 = mapped_gid;
+        }
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
@@ -4436,11 +4528,31 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       if (state->parsed->flags & 0x400) {
         u32 = state->parsed->uid;
       }
-      char *username = simple_archiver_hash_map_get(
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *to_cleanup_user = NULL;
+      const char *username = simple_archiver_hash_map_get(
         state->parsed->users_infos.UidToUname,
         &u32,
         sizeof(uint32_t));
       if (username) {
+        if ((state->parsed->flags & 0x400) == 0) {
+          uint32_t out_uid;
+          const char *mapped_user = NULL;
+          if (simple_archiver_get_user_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               username,
+                                               &out_uid,
+                                               &mapped_user) == 0
+              && mapped_user) {
+            //fprintf(stderr,
+            //        "NOTICE: Mapped User %s to %s for %s\n",
+            //        username,
+            //        mapped_user,
+            //        (const char *)node->data);
+            username = mapped_user;
+            to_cleanup_user = (char *)mapped_user;
+          }
+        }
         unsigned long name_length = strlen(username);
         if (name_length > 0xFFFF) {
           return SDAS_INTERNAL_ERROR;
@@ -4465,11 +4577,31 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       if (state->parsed->flags & 0x800) {
         u32 = state->parsed->gid;
       }
-      char *groupname = simple_archiver_hash_map_get(
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *to_cleanup_group = NULL;
+      const char *groupname = simple_archiver_hash_map_get(
         state->parsed->users_infos.GidToGname,
         &u32,
         sizeof(uint32_t));
       if (groupname) {
+        if ((state->parsed->flags & 0x800) == 0) {
+          uint32_t out_gid;
+          const char *mapped_group = NULL;
+          if (simple_archiver_get_group_mapping(state->parsed->mappings,
+                                                state->parsed->users_infos,
+                                                groupname,
+                                                &out_gid,
+                                                &mapped_group) == 0
+              && mapped_group) {
+            //fprintf(stderr,
+            //        "NOTICE: Mapped Group %s to %s for %s\n",
+            //        groupname,
+            //        mapped_group,
+            //        (const char *)node->data);
+            groupname = mapped_group;
+            to_cleanup_group = (char *)mapped_group;
+          }
+        }
         unsigned long group_length = strlen(groupname);
         if (group_length > 0xFFFF) {
           return SDAS_INTERNAL_ERROR;
@@ -4625,20 +4757,70 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       // Forced UID/GID is already handled by "symlinks_and_files_from_files".
 
       u32 = file_info_struct->uid;
+      if ((state->parsed->flags & 0x400) == 0) {
+        uint32_t mapped_uid;
+        if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            u32,
+                                            &mapped_uid,
+                                            NULL) == 0) {
+          //fprintf(stderr,
+          //        "NOTICE: Mapped UID %" PRIu32 " to %" PRIu32" for %s\n",
+          //        u32,
+          //        mapped_uid,
+          //        file_info_struct->filename);
+          u32 = mapped_uid;
+        }
+      }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
       }
       u32 = file_info_struct->gid;
+      if ((state->parsed->flags & 0x800) == 0) {
+        uint32_t mapped_gid;
+        if(simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                           state->parsed->users_infos,
+                                           u32,
+                                           &mapped_gid,
+                                           NULL) == 0) {
+          //fprintf(stderr,
+          //        "NOTICE: Mapped GID %" PRIu32 " to %" PRIu32" for %s\n",
+          //        u32,
+          //        mapped_gid,
+          //        file_info_struct->filename);
+          u32 = mapped_gid;
+        }
+      }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
       }
 
       u32 = file_info_struct->uid;
-      char *username = simple_archiver_hash_map_get(
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *to_cleanup_user = NULL;
+      const char *username = simple_archiver_hash_map_get(
         state->parsed->users_infos.UidToUname, &u32, sizeof(uint32_t));
       if (username) {
+        if ((state->parsed->flags & 0x400) == 0) {
+          uint32_t out_uid;
+          const char *mapped_username = NULL;
+          if (simple_archiver_get_user_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               username,
+                                               &out_uid,
+                                               &mapped_username) == 0
+              && mapped_username) {
+            //fprintf(stderr,
+            //        "NOTICE: Mapped User from %s to %s for %s\n",
+            //        username,
+            //        mapped_username,
+            //        file_info_struct->filename);
+            username = mapped_username;
+            to_cleanup_user = (char *)mapped_username;
+          }
+        }
         unsigned long name_length = strlen(username);
         if (name_length > 0xFFFF) {
           return SDAS_INTERNAL_ERROR;
@@ -4660,9 +4842,29 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
 
       u32 = file_info_struct->gid;
-      char *groupname = simple_archiver_hash_map_get(
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *to_cleanup_group = NULL;
+      const char *groupname = simple_archiver_hash_map_get(
         state->parsed->users_infos.GidToGname, &u32, sizeof(uint32_t));
       if (groupname) {
+        if ((state->parsed->flags & 0x800) == 0) {
+          uint32_t out_gid;
+          const char *mapped_group = NULL;
+          if (simple_archiver_get_group_mapping(state->parsed->mappings,
+                                                state->parsed->users_infos,
+                                                groupname,
+                                                &out_gid,
+                                                &mapped_group) == 0
+              && mapped_group) {
+            //fprintf(stderr,
+            //        "NOTICE: Mapped Group %s to %s for %s\n",
+            //        groupname,
+            //        mapped_group,
+            //        file_info_struct->filename);
+            groupname = mapped_group;
+            to_cleanup_group = (char *)mapped_group;
+          }
+        }
         unsigned long group_length = strlen(groupname);
         if (group_length > 0xFFFF) {
           return SDAS_INTERNAL_ERROR;

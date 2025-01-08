@@ -429,7 +429,7 @@ int main(void) {
 
     // Mappings checks.
     uint32_t out_id;
-    char *out_name = NULL;
+    const char *out_name = NULL;
     CHECK_TRUE(simple_archiver_get_uid_mapping(parsed.mappings,
                                                parsed.users_infos,
                                                1000,
@@ -439,7 +439,7 @@ int main(void) {
     CHECK_TRUE(out_name);
     if (out_name) {
       CHECK_STREQ(out_name, "user1001");
-      free(out_name);
+      free((void *)out_name);
       out_name = NULL;
     }
 
@@ -452,7 +452,7 @@ int main(void) {
     CHECK_TRUE(out_name);
     if (out_name) {
       CHECK_STREQ(out_name, "user0");
-      free(out_name);
+      free((void *)out_name);
       out_name = NULL;
     }
 
@@ -472,7 +472,7 @@ int main(void) {
     CHECK_TRUE(out_name);
     if (out_name) {
       CHECK_STREQ(out_name, "user1003");
-      free(out_name);
+      free((void *)out_name);
       out_name = NULL;
     }
 
@@ -485,7 +485,7 @@ int main(void) {
     CHECK_TRUE(out_name);
     if (out_name) {
       CHECK_STREQ(out_name, "user3");
-      free(out_name);
+      free((void *)out_name);
       out_name = NULL;
     }
 
@@ -684,7 +684,7 @@ int main(void) {
     CHECK_TRUE(out_name);
     if (out_name) {
       CHECK_STREQ(out_name, "one");
-      free(out_name);
+      free((void *)out_name);
       out_name = NULL;
     }
 
@@ -697,7 +697,7 @@ int main(void) {
     CHECK_TRUE(out_name);
     if (out_name) {
       CHECK_STREQ(out_name, "root");
-      free(out_name);
+      free((void *)out_name);
       out_name = NULL;
     }
 
@@ -716,7 +716,7 @@ int main(void) {
     CHECK_TRUE(out_name);
     if (out_name) {
       CHECK_STREQ(out_name, "group200");
-      free(out_name);
+      free((void *)out_name);
       out_name = NULL;
     }
 
@@ -729,7 +729,7 @@ int main(void) {
     CHECK_TRUE(out_name);
     if (out_name) {
       CHECK_STREQ(out_name, "realtime");
-      free(out_name);
+      free((void *)out_name);
       out_name = NULL;
     }
 
