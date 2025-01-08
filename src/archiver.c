@@ -5358,12 +5358,16 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
   simple_archiver_helper_16_bit_be(&u16);
 
   if (u16 == 0) {
+    fprintf(stderr, "File format version 0\n");
     return simple_archiver_parse_archive_version_0(in_f, do_extract, state);
   } else if (u16 == 1) {
+    fprintf(stderr, "File format version 1\n");
     return simple_archiver_parse_archive_version_1(in_f, do_extract, state);
   } else if (u16 == 2) {
+    fprintf(stderr, "File format version 2\n");
     return simple_archiver_parse_archive_version_2(in_f, do_extract, state);
   } else if (u16 == 3) {
+    fprintf(stderr, "File format version 3\n");
     return simple_archiver_parse_archive_version_3(in_f, do_extract, state);
   } else {
     fprintf(stderr, "ERROR Unsupported archive version %" PRIu16 "!\n", u16);
