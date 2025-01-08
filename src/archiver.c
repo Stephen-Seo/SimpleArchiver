@@ -2816,12 +2816,42 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       // Forced UID/GID is already handled by "symlinks_and_files_from_files".
 
       u32 = file_info_struct->uid;
+      if ((state->parsed->flags & 0x400) == 0) {
+        uint32_t mapped_uid;
+        if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            u32,
+                                            &mapped_uid,
+                                            NULL) == 0) {
+          //fprintf(stderr,
+          //        "NOTICE: Mapped UID %" PRIu32 " to %" PRIu32 " for %s\n",
+          //        u32,
+          //        mapped_uid,
+          //        file_info_struct->filename);
+          u32 = mapped_uid;
+        }
+      }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
       }
 
       u32 = file_info_struct->gid;
+      if ((state->parsed->flags & 0x800) == 0) {
+        uint32_t mapped_gid;
+        if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            u32,
+                                            &mapped_gid,
+                                            NULL) == 0) {
+          //fprintf(stderr,
+          //        "NOTICE: Mapped GID %" PRIu32 " to %" PRIu32 " for %s\n",
+          //        u32,
+          //        mapped_gid,
+          //        file_info_struct->filename);
+          u32 = mapped_gid;
+        }
+      }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
         return SDAS_FAILED_TO_WRITE;
