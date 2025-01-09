@@ -7503,76 +7503,22 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
     }
     memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *parsed_abs_path = NULL;
     if (u16 != 0) {
-      __attribute__((
-          cleanup(simple_archiver_helper_cleanup_c_string))) char *path =
-          malloc(u16 + 1);
-      ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                  SIMPLE_ARCHIVER_BUFFER_SIZE, u16 + 1, path);
+      parsed_abs_path = malloc(u16 + 1);
+      ret = read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  u16 + 1,
+                                  parsed_abs_path);
       if (ret != SDAS_SUCCESS) {
         return ret;
       }
-      path[u16] = 0;
-      if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
-          absolute_preferred) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-        simple_archiver_helper_make_dirs_perms(
-          link_name,
-          (state->parsed->flags & 0x2000)
-            ? simple_archiver_internal_permissions_to_mode_t(
-                state->parsed->dir_permissions)
-            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
-          (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
-          (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
-        int_fast8_t link_create_retry = 0;
-      V3_SYMLINK_CREATE_RETRY_0:
-        ret = symlink(path, link_name);
-        if (ret == -1) {
-          if (link_create_retry) {
-            fprintf(
-                stderr,
-                "  WARNING: Failed to create symlink after removing existing "
-                "symlink!\n");
-            goto V3_SYMLINK_CREATE_AFTER_0;
-          } else if (errno == EEXIST) {
-            if ((state->parsed->flags & 8) == 0) {
-              fprintf(stderr,
-                      "  WARNING: Symlink already exists and "
-                      "\"--overwrite-extract\" is not specified, skipping!\n");
-              goto V3_SYMLINK_CREATE_AFTER_0;
-            } else {
-              fprintf(stderr,
-                      "  NOTICE: Symlink already exists and "
-                      "\"--overwrite-extract\" specified, attempting to "
-                      "overwrite...\n");
-              unlink(link_name);
-              link_create_retry = 1;
-              goto V3_SYMLINK_CREATE_RETRY_0;
-            }
-          }
-          return SDAS_FAILED_TO_EXTRACT_SYMLINK;
-        }
-        ret = fchmodat(AT_FDCWD, link_name, permissions, AT_SYMLINK_NOFOLLOW);
-        if (ret == -1) {
-          if (errno == EOPNOTSUPP) {
-            fprintf(stderr,
-                    "  NOTICE: Setting permissions of symlink is not supported "
-                    "by FS/OS!\n");
-          } else {
-            fprintf(stderr,
-                    "  WARNING: Failed to set permissions of symlink (%d)!\n",
-                    errno);
-          }
-        }
-        link_extracted = 1;
-        fprintf(stderr, "  %s -> %s\n", link_name, path);
-      V3_SYMLINK_CREATE_AFTER_0:
-        link_create_retry = 1;
-#endif
-      } else if (!do_extract) {
-        fprintf(stderr, "  Abs path: %s\n", path);
+      parsed_abs_path[u16] = 0;
+      if (!do_extract) {
+        fprintf(stderr, "  Abs path: %s\n", parsed_abs_path);
       }
     } else if (!do_extract) {
       fprintf(stderr, "  No Absolute path.\n");
@@ -7583,77 +7529,21 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
     }
     memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *parsed_rel_path = NULL;
     if (u16 != 0) {
-      __attribute__((
-          cleanup(simple_archiver_helper_cleanup_c_string))) char *path =
-          malloc(u16 + 1);
-      ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                  SIMPLE_ARCHIVER_BUFFER_SIZE, u16 + 1, path);
+      parsed_rel_path = malloc(u16 + 1);
+      ret = read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  u16 + 1,
+                                  parsed_rel_path);
       if (ret != SDAS_SUCCESS) {
         return ret;
       }
-      path[u16] = 0;
-      if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
-          !absolute_preferred) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-        simple_archiver_helper_make_dirs_perms(
-          link_name,
-          (state->parsed->flags & 0x2000)
-            ? simple_archiver_internal_permissions_to_mode_t(
-                state->parsed->dir_permissions)
-            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
-          (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
-          (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
-        int_fast8_t link_create_retry = 0;
-      V3_SYMLINK_CREATE_RETRY_1:
-        ret = symlink(path, link_name);
-        if (ret == -1) {
-          if (link_create_retry) {
-            fprintf(
-                stderr,
-                "  WARNING: Failed to create symlink after removing existing "
-                "symlink!\n");
-            goto V3_SYMLINK_CREATE_AFTER_1;
-          } else if (errno == EEXIST) {
-            if ((state->parsed->flags & 8) == 0) {
-              fprintf(stderr,
-                      "  WARNING: Symlink already exists and "
-                      "\"--overwrite-extract\" is not specified, skipping!\n");
-              goto V3_SYMLINK_CREATE_AFTER_1;
-            } else {
-              fprintf(stderr,
-                      "  NOTICE: Symlink already exists and "
-                      "\"--overwrite-extract\" specified, attempting to "
-                      "overwrite...\n");
-              unlink(link_name);
-              link_create_retry = 1;
-              goto V3_SYMLINK_CREATE_RETRY_1;
-            }
-          }
-          return SDAS_FAILED_TO_EXTRACT_SYMLINK;
-        }
-        ret = fchmodat(AT_FDCWD, link_name, permissions, AT_SYMLINK_NOFOLLOW);
-        if (ret == -1) {
-          if (errno == EOPNOTSUPP) {
-            fprintf(stderr,
-                    "  NOTICE: Setting permissions of symlink is not supported "
-                    "by FS/OS!\n");
-          } else {
-            fprintf(stderr,
-                    "  WARNING: Failed to set permissions of symlink (%d)!\n",
-                    errno);
-          }
-        }
-
-        link_extracted = 1;
-        fprintf(stderr, "  %s -> %s\n", link_name, path);
-      V3_SYMLINK_CREATE_AFTER_1:
-        link_create_retry = 1;
-#endif
-      } else if (!do_extract) {
-        fprintf(stderr, "  Rel path: %s\n", path);
+      parsed_rel_path[u16] = 0;
+      if (!do_extract) {
+        fprintf(stderr, "  Rel path: %s\n", parsed_rel_path);
       }
     } else if (!do_extract) {
       fprintf(stderr, "  No Relative path.\n");
@@ -7707,6 +7597,46 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
         u16 + 1);
     }
 
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *uid_remapped = NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *user_remapped_uid = NULL;
+    uint32_t current_uid = uid;
+    if (state) {
+      uint32_t out_uid;
+      if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                          state->parsed->users_infos,
+                                          uid,
+                                          &out_uid,
+                                          NULL) == 0) {
+        uid_remapped = malloc(sizeof(uint32_t));
+        *uid_remapped = out_uid;
+      }
+      if (username
+          && simple_archiver_get_user_mapping(state->parsed->mappings,
+                                              state->parsed->users_infos,
+                                              username,
+                                              &out_uid,
+                                              NULL) == 0) {
+        user_remapped_uid = malloc(sizeof(uint32_t));
+        *user_remapped_uid = out_uid;
+      }
+
+      if (state->parsed->flags & 0x4000) {
+        if (uid_remapped) {
+          current_uid = *uid_remapped;
+        } else if (user_remapped_uid) {
+          current_uid = *user_remapped_uid;
+        }
+      } else {
+        if (user_remapped_uid) {
+          current_uid = *user_remapped_uid;
+        } else if (uid_remapped) {
+          current_uid = *uid_remapped;
+        }
+      }
+    }
+
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr,
               "  ERROR: Failed to read Groupname length for symlink!\n");
@@ -7738,15 +7668,230 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
         u16 + 1);
     }
 
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *gid_remapped = NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *group_remapped_gid = NULL;
+    uint32_t current_gid = gid;
+    if (state) {
+      uint32_t out_gid;
+      if (simple_archiver_get_gid_mapping(state->parsed->mappings, state->parsed->users_infos, gid, &out_gid, NULL) == 0) {
+        gid_remapped = malloc(sizeof(uint32_t));
+        *gid_remapped = out_gid;
+      }
+      if (groupname
+          && simple_archiver_get_group_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               groupname,
+                                               &out_gid,
+                                               NULL) == 0) {
+        group_remapped_gid = malloc(sizeof(uint32_t));
+        *group_remapped_gid = out_gid;
+      }
+
+      if (state->parsed->flags & 0x8000) {
+        if (gid_remapped) {
+          current_gid = *gid_remapped;
+        } else if (group_remapped_gid) {
+          current_gid = *group_remapped_gid;
+        }
+      } else {
+        if (group_remapped_gid) {
+          current_gid = *group_remapped_gid;
+        } else if (gid_remapped) {
+          current_gid = *gid_remapped;
+        }
+      }
+    }
+
+    if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
+        absolute_preferred && parsed_abs_path) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+  SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+  SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      simple_archiver_helper_make_dirs_perms(
+        link_name,
+        (state->parsed->flags & 0x2000)
+          ? simple_archiver_internal_permissions_to_mode_t(
+              state->parsed->dir_permissions)
+          : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+        (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
+        (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
+      int_fast8_t link_create_retry = 0;
+    V3_SYMLINK_CREATE_RETRY_0:
+      ret = symlink(parsed_abs_path, link_name);
+      if (ret == -1) {
+        if (link_create_retry) {
+          fprintf(
+              stderr,
+              "  WARNING: Failed to create symlink after removing existing "
+              "symlink!\n");
+          goto V3_SYMLINK_CREATE_AFTER_0;
+        } else if (errno == EEXIST) {
+          if ((state->parsed->flags & 8) == 0) {
+            fprintf(stderr,
+                    "  WARNING: Symlink already exists and "
+                    "\"--overwrite-extract\" is not specified, skipping!\n");
+            goto V3_SYMLINK_CREATE_AFTER_0;
+          } else {
+            fprintf(stderr,
+                    "  NOTICE: Symlink already exists and "
+                    "\"--overwrite-extract\" specified, attempting to "
+                    "overwrite...\n");
+            unlink(link_name);
+            link_create_retry = 1;
+            goto V3_SYMLINK_CREATE_RETRY_0;
+          }
+        }
+        return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+      }
+      ret = fchmodat(AT_FDCWD, link_name, permissions, AT_SYMLINK_NOFOLLOW);
+      if (ret == -1) {
+        if (errno == EOPNOTSUPP) {
+          fprintf(stderr,
+                  "  NOTICE: Setting permissions of symlink is not supported "
+                  "by FS/OS!\n");
+        } else {
+          fprintf(stderr,
+                  "  WARNING: Failed to set permissions of symlink (%d)!\n",
+                  errno);
+        }
+      }
+      link_extracted = 1;
+      fprintf(stderr, "  %s -> %s\n", link_name, parsed_abs_path);
+    V3_SYMLINK_CREATE_AFTER_0:
+      link_create_retry = 1;
+#endif
+    } else if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
+        !absolute_preferred && parsed_rel_path) {
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+  SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+  SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      simple_archiver_helper_make_dirs_perms(
+        link_name,
+        (state->parsed->flags & 0x2000)
+          ? simple_archiver_internal_permissions_to_mode_t(
+              state->parsed->dir_permissions)
+          : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+        (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
+        (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
+      int_fast8_t link_create_retry = 0;
+    V3_SYMLINK_CREATE_RETRY_1:
+      ret = symlink(parsed_rel_path, link_name);
+      if (ret == -1) {
+        if (link_create_retry) {
+          fprintf(
+              stderr,
+              "  WARNING: Failed to create symlink after removing existing "
+              "symlink!\n");
+          goto V3_SYMLINK_CREATE_AFTER_1;
+        } else if (errno == EEXIST) {
+          if ((state->parsed->flags & 8) == 0) {
+            fprintf(stderr,
+                    "  WARNING: Symlink already exists and "
+                    "\"--overwrite-extract\" is not specified, skipping!\n");
+            goto V3_SYMLINK_CREATE_AFTER_1;
+          } else {
+            fprintf(stderr,
+                    "  NOTICE: Symlink already exists and "
+                    "\"--overwrite-extract\" specified, attempting to "
+                    "overwrite...\n");
+            unlink(link_name);
+            link_create_retry = 1;
+            goto V3_SYMLINK_CREATE_RETRY_1;
+          }
+        }
+        return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+      }
+      ret = fchmodat(AT_FDCWD, link_name, permissions, AT_SYMLINK_NOFOLLOW);
+      if (ret == -1) {
+        if (errno == EOPNOTSUPP) {
+          fprintf(stderr,
+                  "  NOTICE: Setting permissions of symlink is not supported "
+                  "by FS/OS!\n");
+        } else {
+          fprintf(stderr,
+                  "  WARNING: Failed to set permissions of symlink (%d)!\n",
+                  errno);
+        }
+      }
+
+      link_extracted = 1;
+      fprintf(stderr, "  %s -> %s\n", link_name, parsed_rel_path);
+    V3_SYMLINK_CREATE_AFTER_1:
+      link_create_retry = 1;
+#endif
+    }
+
     if (do_extract && link_extracted && geteuid() == 0) {
-      uint32_t picked_uid =
-        (state->parsed->flags & 0x4000) || !username_uid_mapped
-        ? uid
-        : *username_uid_mapped;
-      uint32_t picked_gid =
-        (state->parsed->flags & 0x8000) || !group_gid_mapped
-        ? gid
-        : *group_gid_mapped;
+      uint32_t picked_uid;
+      if (uid_remapped || user_remapped_uid) {
+        if (state->parsed->flags & 0x4000) {
+          if (uid_remapped) {
+            picked_uid = *uid_remapped;
+          } else if (user_remapped_uid) {
+            picked_uid = *user_remapped_uid;
+          } else {
+            fprintf(stderr,
+                    "ERROR: Failed to pick uid for link \"%s\"!\n",
+                    link_name);
+            return SDAS_INTERNAL_ERROR;
+          }
+        } else {
+          if (user_remapped_uid) {
+            picked_uid = *user_remapped_uid;
+          } else if (uid_remapped) {
+            picked_uid = *uid_remapped;
+          } else {
+            fprintf(stderr,
+                    "ERROR: Failed to pick uid for link \"%s\"!\n",
+                    link_name);
+            return SDAS_INTERNAL_ERROR;
+          }
+        }
+      } else {
+        if (state->parsed->flags & 0x4000) {
+          picked_uid = uid;
+        } else if (username_uid_mapped) {
+          picked_uid = *username_uid_mapped;
+        } else {
+          picked_uid = uid;
+        }
+      }
+      uint32_t picked_gid;
+      if (gid_remapped || group_remapped_gid) {
+        if (state->parsed->flags & 0x8000) {
+          if (gid_remapped) {
+            picked_gid = *gid_remapped;
+          } else if (group_remapped_gid) {
+            picked_gid = *group_remapped_gid;
+          } else {
+            fprintf(stderr,
+                    "ERROR: Failed to pick gid for link \"%s\"!\n",
+                    link_name);
+            return SDAS_INTERNAL_ERROR;
+          }
+        } else {
+          if (group_remapped_gid) {
+            picked_gid = *group_remapped_gid;
+          } else if (gid_remapped) {
+            picked_gid = *gid_remapped;
+          } else {
+            fprintf(stderr,
+                    "ERROR: Failed to pick gid for link \"%s\"!\n",
+                    link_name);
+            return SDAS_INTERNAL_ERROR;
+          }
+        }
+      } else {
+        if (state->parsed->flags & 0x8000) {
+          picked_gid = gid;
+        } else if (group_gid_mapped) {
+          picked_gid = *group_gid_mapped;
+        } else {
+          picked_gid = gid;
+        }
+      }
       ret = fchownat(
           AT_FDCWD,
           link_name,
