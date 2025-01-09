@@ -7603,6 +7603,10 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
     uint32_t *user_remapped_uid = NULL;
     uint32_t current_uid = uid;
     if (state) {
+      if ((state->parsed->flags & 0x4000) == 0 && username_uid_mapped) {
+        current_uid = *username_uid_mapped;
+      }
+
       uint32_t out_uid;
       if (simple_archiver_get_uid_mapping(state->parsed->mappings,
                                           state->parsed->users_infos,
@@ -7674,6 +7678,10 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
     uint32_t *group_remapped_gid = NULL;
     uint32_t current_gid = gid;
     if (state) {
+      if ((state->parsed->flags & 0x8000) == 0 && group_gid_mapped) {
+        current_gid = *group_gid_mapped;
+      }
+
       uint32_t out_gid;
       if (simple_archiver_get_gid_mapping(state->parsed->mappings, state->parsed->users_infos, gid, &out_gid, NULL) == 0) {
         gid_remapped = malloc(sizeof(uint32_t));
@@ -8002,20 +8010,44 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
         return SDAS_INVALID_FILE;
       }
       simple_archiver_helper_32_bit_be(&u32);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_uid = NULL;
       if (state && (state->parsed->flags & 0x400)) {
         file_info->uid = state->parsed->uid;
       } else {
         file_info->uid = u32;
+        uint32_t out_uid;
+        if (state
+            && simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               u32,
+                                               &out_uid,
+                                               NULL) == 0) {
+          remapped_uid = malloc(sizeof(uint32_t));
+          *remapped_uid = out_uid;
+        }
       }
 
       if (fread(&u32, 4, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
       }
       simple_archiver_helper_32_bit_be(&u32);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_gid = NULL;
       if (state && (state->parsed->flags & 0x800)) {
         file_info->gid = state->parsed->gid;
       } else {
         file_info->gid = u32;
+        uint32_t out_gid;
+        if (state
+            && simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               u32,
+                                               &out_gid,
+                                               NULL) == 0) {
+          remapped_gid = malloc(sizeof(uint32_t));
+          *remapped_gid = out_gid;
+        }
       }
 
       if (fread(&u16, 2, 1, in_f) != 1) {
@@ -8037,6 +8069,20 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
         username = NULL;
       }
 
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_username_uid = NULL;
+      if (username && state) {
+        uint32_t out_uid;
+        if (simple_archiver_get_user_mapping(state->parsed->mappings,
+                                             state->parsed->users_infos,
+                                             username,
+                                             &out_uid,
+                                             NULL) == 0) {
+          remapped_username_uid = malloc(sizeof(uint32_t));
+          *remapped_username_uid = out_uid;
+        }
+      }
+
       if (fread(&u16, 2, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
       }
@@ -8056,6 +8102,21 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
         groupname = NULL;
       }
 
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_group_gid = NULL;
+      if (groupname && state) {
+        uint32_t out_gid;
+        if (simple_archiver_get_group_mapping(state->parsed->mappings,
+                                              state->parsed->users_infos,
+                                              groupname,
+                                              &out_gid,
+                                              NULL) == 0) {
+          remapped_group_gid = malloc(sizeof(uint32_t));
+          *remapped_group_gid = out_gid;
+        }
+      }
+
+      // Prefer uid derived from username by default.
       if (state && file_info->username) {
         uint32_t *username_uid = simple_archiver_hash_map_get(
           state->parsed->users_infos.UnameToUid,
@@ -8068,6 +8129,26 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
         }
       }
 
+      // Apply user remapping.
+      if (state) {
+        if (state->parsed->flags & 0x4000) {
+          // Prefer UID first.
+          if (remapped_uid) {
+            file_info->uid = *remapped_uid;
+          } else if (remapped_username_uid) {
+            file_info->uid = *remapped_username_uid;
+          }
+        } else {
+          // Prefer Username first.
+          if (remapped_username_uid) {
+            file_info->uid = *remapped_username_uid;
+          } else if (remapped_uid) {
+            file_info->uid = *remapped_uid;
+          }
+        }
+      }
+
+      // Prefer gid derived from group by default.
       if (state && file_info->groupname) {
         uint32_t *groupname_gid = simple_archiver_hash_map_get(
           state->parsed->users_infos.GnameToGid,
@@ -8077,6 +8158,25 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
             && (state->parsed->flags & 0x8000) == 0
             && groupname_gid) {
           file_info->gid = *groupname_gid;
+        }
+      }
+
+      // Apply group remapping.
+      if (state) {
+        if (state->parsed->flags & 0x8000) {
+          // Prefer GID first.
+          if (remapped_gid) {
+            file_info->gid = *remapped_gid;
+          } else if (remapped_group_gid) {
+            file_info->gid = *remapped_group_gid;
+          }
+        } else {
+          // Prefer Groupname first.
+          if (remapped_group_gid) {
+            file_info->gid = *remapped_group_gid;
+          } else if (remapped_gid) {
+            file_info->gid = *remapped_gid;
+          }
         }
       }
 
@@ -8582,8 +8682,59 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
       groupname = NULL;
     }
 
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *remapped_uid = NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *remapped_user_uid = NULL;
+    if (state) {
+      uint32_t out_uid;
+      if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                          state->parsed->users_infos,
+                                          uid,
+                                          &out_uid,
+                                          NULL) == 0) {
+        remapped_uid = malloc(sizeof(uint32_t));
+        *remapped_uid = out_uid;
+      }
+      if (username
+          && simple_archiver_get_user_mapping(state->parsed->mappings,
+                                              state->parsed->users_infos,
+                                              username,
+                                              &out_uid,
+                                              NULL) == 0) {
+        remapped_user_uid = malloc(sizeof(uint32_t));
+        *remapped_user_uid = out_uid;
+      }
+    }
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *remapped_gid = NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *remapped_group_gid = NULL;
+    if (state) {
+      uint32_t out_gid;
+      if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                          state->parsed->users_infos,
+                                          gid,
+                                          &out_gid,
+                                          NULL) == 0) {
+        remapped_gid = malloc(sizeof(uint32_t));
+        *remapped_gid = out_gid;
+      }
+      if (groupname
+          && simple_archiver_get_group_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               groupname,
+                                               &out_gid,
+                                               NULL) == 0) {
+        remapped_group_gid = malloc(sizeof(uint32_t));
+        *remapped_group_gid = out_gid;
+      }
+    }
+
     if (do_extract) {
       fprintf(stderr, "Creating dir \"%s\"\n", buf);
+      // Use UID derived from Username by default.
       if ((state->parsed->flags & 0x4000) == 0 && username) {
         uint32_t *username_uid = simple_archiver_hash_map_get(
           state->parsed->users_infos.UnameToUid,
@@ -8593,6 +8744,23 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
           uid = *username_uid;
         }
       }
+      // Apply UID/Username remapping.
+      if (state->parsed->flags & 0x4000) {
+        // Prefer UID first.
+        if (remapped_uid) {
+          uid = *remapped_uid;
+        } else if (remapped_user_uid) {
+          uid = *remapped_user_uid;
+        }
+      } else {
+        // Prefer Username first.
+        if (remapped_user_uid) {
+          uid = *remapped_user_uid;
+        } else if (remapped_uid) {
+          uid = *remapped_uid;
+        }
+      }
+      // Use GID derived from Group by default.
       if ((state->parsed->flags & 0x8000) == 0 && groupname) {
         uint32_t *group_gid = simple_archiver_hash_map_get(
           state->parsed->users_infos.GnameToGid,
@@ -8600,6 +8768,22 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
           strlen(groupname) + 1);
         if (group_gid) {
           gid = *group_gid;
+        }
+      }
+      // Apply GID/Groupname remapping.
+      if (state->parsed->flags & 0x8000) {
+        // Prefer GID first.
+        if (remapped_gid) {
+          gid = *remapped_gid;
+        } else if (remapped_group_gid) {
+          gid = *remapped_group_gid;
+        }
+      } else {
+        // Prefer Groupname first.
+        if (remapped_group_gid) {
+          gid = *remapped_group_gid;
+        } else if (remapped_gid) {
+          gid = *remapped_gid;
         }
       }
     } else {
