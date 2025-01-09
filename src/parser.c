@@ -220,7 +220,7 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--extract-prefer-gid : Prefer GID over Group when extracting\n");
   fprintf(stderr,
-          "  Note that by default Group is preferred over UID\n");
+          "  Note that by default Group is preferred over GID\n");
   fprintf(stderr,
           "--map-user <UID/Uname>:<UID/Uname> : Maps a UID/Username to "
           "UID/Username\n");

@@ -44,7 +44,7 @@ API calls.
     --extract-prefer-uid : Prefer UID over Username when extracting
       Note that by default Username is preferred over UID
     --extract-prefer-gid : Prefer GID over Group when extracting
-      Note that by default Group is preferred over UID
+      Note that by default Group is preferred over GID
     --map-user <UID/Uname>:<UID/Uname> : Maps a UID/Username to UID/Username
     --map-group <GID/Gname>:<GID/Gname> : Maps a GID/Group to GID/Group
     --force-file-permissions <3-octal-values> : Force set permissions for files on archive creation/extraction
