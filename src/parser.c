@@ -243,6 +243,10 @@ void simple_archiver_print_usage(void) {
   fprintf(
       stderr,
       "If extracting archive file, remaining args specify files to extract.\n");
+  fprintf(stderr,
+          "Note that permissions/ownership/remapping is saved when archiving, "
+          "but when extracting they are only preserved when extracting as root!"
+          "\n");
 }
 
 SDArchiverParsed simple_archiver_create_parsed(void) {

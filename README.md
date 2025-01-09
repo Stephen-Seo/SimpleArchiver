@@ -45,6 +45,8 @@ API calls.
       Note that by default Username is preferred over UID
     --extract-prefer-gid : Prefer GID over Group when extracting
       Note that by default Group is preferred over UID
+    --map-user <UID/Uname>:<UID/Uname> : Maps a UID/Username to UID/Username
+    --map-group <GID/Gname>:<GID/Gname> : Maps a GID/Group to GID/Group
     --force-file-permissions <3-octal-values> : Force set permissions for files on archive creation/extraction
       Must be three octal characters like "755" or "440"
     --force-dir-permissions <3-octal-values> : Force set permissions for directories on archive creation/extraction
@@ -52,6 +54,7 @@ API calls.
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
     If extracting archive file, remaining args specify files to extract.
+    Note that permissions/ownership/remapping is saved when archiving, but when extracting they are only preserved when extracting as root!
 
 Note that `--compressor` and `--decompressor` cmds must accept data from stdin
 and return processed data to stdout.
