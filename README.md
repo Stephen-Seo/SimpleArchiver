@@ -87,9 +87,20 @@ extraction for symlinks that point to anything that wasn't stored in the
 archive. `--no-abs-symlink` will force `simplearchiver` to store only relative
 symlinks and not absolute-path symlinks on archive creation.
 
+### UID/GID/Username/Group Handling
+
 UID and GID will only be set on extracted files if the EUID is 0. Thus, files
 extracted by non-EUID-0 users will typically have the extracted files UID/GID as
 the extracting user's UID/GID.
+
+For the latest file format version (verison 3), `--map-user` and `--map-group`
+will have differing behavior if the first value specified is a name or a numeric
+id.  If a name is given to map to another value, then it will affect only the
+username/groupname for files/links/dirs in the archive. If a numeric id is given
+as the first value, then it will affect only the UID/GID fro files/links/dirs in
+the archive. For previous file format versions (version 2 and 1), either name or
+numeric id will have an effect since these older file format versions only store
+UID/GID.
 
 ## LICENSE Information
 
