@@ -66,6 +66,13 @@ void simple_archiver_helper_cleanup_chdir_back(char **original) {
   }
 }
 
+void simple_archiver_helper_cleanup_uint32(uint32_t **uint) {
+  if (uint && *uint) {
+    free(*uint);
+    *uint = NULL;
+  }
+}
+
 void simple_archiver_helper_datastructure_cleanup_nop(
     __attribute__((unused)) void *unused) {}
 

@@ -66,6 +66,7 @@ void simple_archiver_helper_cleanup_FILE(FILE **fd);
 void simple_archiver_helper_cleanup_malloced(void **data);
 void simple_archiver_helper_cleanup_c_string(char **str);
 void simple_archiver_helper_cleanup_chdir_back(char **original);
+void simple_archiver_helper_cleanup_uint32(uint32_t **uint);
 
 void simple_archiver_helper_datastructure_cleanup_nop(void *unused);
 

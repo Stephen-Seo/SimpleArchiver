@@ -24,6 +24,19 @@
 
 // Local includes.
 #include "data_structures/linked_list.h"
+#include "data_structures/hash_map.h"
+#include "users.h"
+
+typedef struct SDA_UGMapping {
+  SDArchiverHashMap *UidToUname;
+  SDArchiverHashMap *UnameToUid;
+  SDArchiverHashMap *UidToUid;
+  SDArchiverHashMap *UnameToUname;
+  SDArchiverHashMap *GidToGname;
+  SDArchiverHashMap *GnameToGid;
+  SDArchiverHashMap *GidToGid;
+  SDArchiverHashMap *GnameToGname;
+} SDA_UGMapping;
 
 typedef struct SDArchiverParsed {
   /// Each bit is a flag.
@@ -43,6 +56,8 @@ typedef struct SDArchiverParsed {
   /// 0b xxxx 1xxx xxxx xxxx - Force set GID.
   /// 0b xxx1 xxxx xxxx xxxx - Force set file permissions.
   /// 0b xx1x xxxx xxxx xxxx - Force set directory permissions.
+  /// 0b x1xx xxxx xxxx xxxx - Prefer UID over Username when extracting.
+  /// 0b 1xxx xxxx xxxx xxxx - Prefer GID over Group when extracting.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;
@@ -59,7 +74,7 @@ typedef struct SDArchiverParsed {
   const char *temp_dir;
   /// Dir specified by "-C".
   const char *user_cwd;
-  /// Currently only 0, 1, and 2 is supported.
+  /// Currently only 0, 1, 2, and 3 is supported.
   uint32_t write_version;
   /// The minimum size of a chunk in bytes (the last chunk may be less).
   uint64_t minimum_chunk_size;
@@ -76,6 +91,8 @@ typedef struct SDArchiverParsed {
   /// 0b xxx1 xxxx xxxx - other execute
   uint_fast16_t file_permissions;
   uint_fast16_t dir_permissions;
+  UsersInfos users_infos;
+  SDA_UGMapping mappings;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {
@@ -109,6 +126,44 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed);
 
 /// Each entry in the linked list is an SDArchiverFileInfo object.
 SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
-    const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out);
+  const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out);
 
+int simple_archiver_handle_map_user_or_group(
+  const char *arg,
+  SDArchiverHashMap *IDToName,
+  SDArchiverHashMap *NameToID,
+  SDArchiverHashMap *IDToID,
+  SDArchiverHashMap *NameToName);
+
+/// Returns 0 on success. out_user is used if not NULL. out_user may hold NULL
+/// if username is not found. On success, `*out_user` must be free'd.
+int simple_archiver_get_uid_mapping(SDA_UGMapping mappings,
+                                    UsersInfos users_infos,
+                                    uint32_t uid,
+                                    uint32_t *out_uid,
+                                    const char **out_user);
+
+/// Returns 0 on success. out_user is used if not NULL. out_user may hold NULL
+/// if username is not found. On success, `*out_user` must be free'd.
+int simple_archiver_get_user_mapping(SDA_UGMapping mappings,
+                                     UsersInfos users_infos,
+                                     const char *user,
+                                     uint32_t *out_uid,
+                                     const char **out_user);
+
+/// Returns 0 on success. out_group is used if not NULL. out_group may hold
+/// NULL if groupname is not found. On success `*out_group` must be free'd.
+int simple_archiver_get_gid_mapping(SDA_UGMapping mappings,
+                                    UsersInfos users_infos,
+                                    uint32_t gid,
+                                    uint32_t *out_gid,
+                                    const char **out_group);
+
+/// Returns 0 on success. out_group is used if not NULL. out_group may hold
+/// NULL if groupname is not found. On success `*out_group` must be free'd.
+int simple_archiver_get_group_mapping(SDA_UGMapping mappings,
+                                      UsersInfos users_infos,
+                                      const char *group,
+                                      uint32_t *out_gid,
+                                      const char **out_group);
 #endif

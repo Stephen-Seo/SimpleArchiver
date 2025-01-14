@@ -2,6 +2,37 @@
 
 ## Upcoming Changes
 
+## Version 1.11
+
+Added file format version 3 that supports username and groupname metadata for
+all symlinks, files, and (leaf) directory entries in an archive.
+
+Add `--force-user <username>` and `--force-group <groupname>` which acts just
+like `--force-uid <UID>` and `--force-gid <GID>` but performs a lookup on the
+local system to get the UID/GID.
+
+Fix setting UID/GID for stored directories.
+
+Make extraction prefer username over UID and groupname over GID by default.  
+Added `--extract-prefer-uid` and `--extract-prefer-gid` to change this behavior.
+
+Add `--remap-user <UID/Username>:<UID/Username>` and `--remap-group
+<GID/Groupname>:<GID/Groupname>` that remaps the first item with the last item
+during archival or extraction. Note that if a remap is specified, it always
+takes effect when archiving, but when extracting it only takes effect when the
+effective-user-id is 0/root.
+
+For the latest file format version (verison 3), `--map-user` and `--map-group`
+will have differing behavior if the first value specified is a name or a numeric
+id.  If a name is given to map to another value, then it will affect only the
+username/groupname for files/links/dirs in the archive. If a numeric id is given
+as the first value, then it will affect only the UID/GID fro files/links/dirs in
+the archive. For previous file format versions (version 2 and 1), either name or
+numeric id will have an effect since these older file format versions only store
+UID/GID.
+
+Fix data_structures/priority_heap iter function.
+
 ## Version 1.10
 
 Implemented force-setting permissions for files/dirs and force-setting UID/GID.

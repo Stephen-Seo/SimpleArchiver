@@ -191,13 +191,14 @@ void *simple_archiver_priority_heap_pop(SDArchiverPHeap *priority_heap) {
 }
 
 void simple_archiver_priority_heap_iter(SDArchiverPHeap *priority_heap,
-                                        void(*iter_fn)(void*)) {
+                                        void(*iter_fn)(void*, void*),
+                                        void *user_data) {
   if (priority_heap->size == 0) {
     return;
   }
   for (uint64_t idx = 0; idx < priority_heap->capacity; ++idx) {
     if (priority_heap->nodes[idx].is_valid) {
-      iter_fn(priority_heap->nodes[idx].data);
+      iter_fn(priority_heap->nodes[idx].data, user_data);
     }
   }
   return;

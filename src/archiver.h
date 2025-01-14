@@ -77,6 +77,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
 int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
                              const SDArchiverLinkedList *filenames);
 
+int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
+                             const SDArchiverLinkedList *filenames);
+
 /// Returns zero on success.
 int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                                        const SDArchiverState *state);
@@ -91,6 +94,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
 /// Returns zero on success.
 int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
+                                            const SDArchiverState *state);
+
+/// Returns zero on success.
+int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract,
                                             const SDArchiverState *state);
 
 /// Returns zero on success.

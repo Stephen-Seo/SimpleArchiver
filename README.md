@@ -36,9 +36,17 @@ API calls.
     --force-uid <uid> : Force set UID on archive creation/extraction
       On archive creation, sets UID for all files/dirs in the archive.
       On archive extraction, sets UID for all files/dirs only if EUID is 0.
+    --force-user <username> : Force set UID (same as --force-uid but fetched from username)
     --force-gid <gid> : Force set GID on archive creation/extraction
+    --force-group <groupname> : Force set GID (same as --force-gid but fetched from groupname)
       On archive creation, sets GID for all files/dirs in the archive.
       On archive extraction, sets GID for all files/dirs only if EUID is 0.
+    --extract-prefer-uid : Prefer UID over Username when extracting
+      Note that by default Username is preferred over UID
+    --extract-prefer-gid : Prefer GID over Group when extracting
+      Note that by default Group is preferred over GID
+    --map-user <UID/Uname>:<UID/Uname> : Maps a UID/Username to UID/Username
+    --map-group <GID/Gname>:<GID/Gname> : Maps a GID/Group to GID/Group
     --force-file-permissions <3-octal-values> : Force set permissions for files on archive creation/extraction
       Must be three octal characters like "755" or "440"
     --force-dir-permissions <3-octal-values> : Force set permissions for directories on archive creation/extraction
@@ -46,6 +54,7 @@ API calls.
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
     If extracting archive file, remaining args specify files to extract.
+    Note that permissions/ownership/remapping is saved when archiving, but when extracting they are only preserved when extracting as root!
 
 Note that `--compressor` and `--decompressor` cmds must accept data from stdin
 and return processed data to stdout.
@@ -83,9 +92,20 @@ extraction for symlinks that point to anything that wasn't stored in the
 archive. `--no-abs-symlink` will force `simplearchiver` to store only relative
 symlinks and not absolute-path symlinks on archive creation.
 
+### UID/GID/Username/Group Handling
+
 UID and GID will only be set on extracted files if the EUID is 0. Thus, files
 extracted by non-EUID-0 users will typically have the extracted files UID/GID as
 the extracting user's UID/GID.
+
+For the latest file format version (verison 3), `--map-user` and `--map-group`
+will have differing behavior if the first value specified is a name or a numeric
+id.  If a name is given to map to another value, then it will affect only the
+username/groupname for files/links/dirs in the archive. If a numeric id is given
+as the first value, then it will affect only the UID/GID fro files/links/dirs in
+the archive. For previous file format versions (version 2 and 1), either name or
+numeric id will have an effect since these older file format versions only store
+UID/GID.
 
 ## LICENSE Information
 
