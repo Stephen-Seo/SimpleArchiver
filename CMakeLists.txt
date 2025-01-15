@@ -34,7 +34,6 @@ target_compile_options(simplearchiver PUBLIC
     -Werror=format-security
     -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3
     -D_GLIBCXX_ASSERTIONS
-    -fstrict-flex-arrays=3
     -fstack-clash-protection -fstack-protector-strong
     -Wl,-z,nodlopen -Wl,-z,noexecstack
     -Wl,-z,relro -Wl,-z,now
@@ -47,13 +46,21 @@ target_link_options(simplearchiver PUBLIC
     -Werror=format-security
     -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3
     -D_GLIBCXX_ASSERTIONS
-    -fstrict-flex-arrays=3
     -fstack-clash-protection -fstack-protector-strong
     -Wl,-z,nodlopen -Wl,-z,noexecstack
     -Wl,-z,relro -Wl,-z,now
     -Wl,--as-needed -Wl,--no-copy-dt-needed-entries
     -fPIE -pie
 )
+
+if(NOT DEFINED DISABLE_FLAGS_FOR_COMPAT)
+    target_compile_options(simplearchiver PUBLIC
+        -fstrict-flex-arrays=3
+    )
+    target_link_options(simplearchiver PUBLIC
+        -fstrict-flex-arrays=3
+    )
+endif()
 
 # Inhibit format-string-related warning in src/archiver.c .
 set_source_files_properties(src/archiver.c
@@ -64,12 +71,20 @@ set_source_files_properties(src/archiver.c
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_options(simplearchiver PUBLIC
         -fno-delete-null-pointer-checks -fno-strict-overflow
-        -fno-strict-aliasing -ftrivial-auto-var-init=zero
+        -fno-strict-aliasing
     )
     target_link_options(simplearchiver PUBLIC
         -fno-delete-null-pointer-checks -fno-strict-overflow
-        -fno-strict-aliasing -ftrivial-auto-var-init=zero
+        -fno-strict-aliasing
     )
+    if(NOT DEFINED DISABLE_FLAGS_FOR_COMPAT)
+        target_compile_options(simplearchiver PUBLIC
+            -ftrivial-auto-var-init=zero
+        )
+        target_link_options(simplearchiver PUBLIC
+            -ftrivial-auto-var-init=zero
+        )
+    endif()
 endif()
 
 add_executable(test_datastructures
