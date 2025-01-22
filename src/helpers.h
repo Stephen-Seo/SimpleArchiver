@@ -62,6 +62,32 @@ char *simple_archiver_helper_cut_substr(const char *s, size_t start_idx,
 
 size_t simple_archiver_helper_num_digits(size_t value);
 
+typedef enum SAHelperPrefixValResult {
+  SAHPrefixVal_OK = 0,
+  SAHPrefixVal_NULL,
+  SAHPrefixVal_ZERO_LEN,
+  SAHPrefixVal_ROOT,
+  SAHPrefixVal_DOUBLE_SLASH
+} SAHelperPrefixValResult;
+
+// Returned c-string is a literal.
+const char * simple_archiver_helper_prefix_result_str(
+  SAHelperPrefixValResult result);
+
+SAHelperPrefixValResult simple_archiver_helper_validate_prefix(
+  const char *prefix);
+
+uint16_t simple_archiver_helper_str_slash_count(const char *str);
+
+// Returned c-string must be free'd.
+char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
+                                                        const char *link,
+                                                        const char *path);
+
+// Ensures the path to the filename is resolved, even if "filename" is a
+// symbolic link.
+char *simple_archiver_helper_real_path_to_name(const char *filename);
+
 void simple_archiver_helper_cleanup_FILE(FILE **fd);
 void simple_archiver_helper_cleanup_malloced(void **data);
 void simple_archiver_helper_cleanup_c_string(char **str);

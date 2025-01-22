@@ -93,6 +93,8 @@ typedef struct SDArchiverParsed {
   uint_fast16_t dir_permissions;
   UsersInfos users_infos;
   SDA_UGMapping mappings;
+  /// Prefix for archived/extracted paths.
+  char *prefix;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

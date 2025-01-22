@@ -159,6 +159,9 @@ void simple_archiver_print_usage(void) {
           "-C <dir> : Change current working directory before "
           "archiving/extracting\n");
   fprintf(stderr,
+          "--prefix <prefix> : set prefix for archived/extracted paths (do not"
+          "forget \"/\" if the prefix is a directory)\n");
+  fprintf(stderr,
           "--compressor <full_compress_cmd> : requires --decompressor and cmd "
           "must use stdin/stdout\n");
   fprintf(stderr,
@@ -274,6 +277,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.mappings.GnameToGid = simple_archiver_hash_map_init();
   parsed.mappings.GidToGid = simple_archiver_hash_map_init();
   parsed.mappings.GnameToGname = simple_archiver_hash_map_init();
+  parsed.prefix = NULL;
 
   return parsed;
 }
@@ -345,6 +349,31 @@ int simple_archiver_parse_args(int argc, const char **argv,
           return 1;
         }
         out->user_cwd = argv[1];
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--prefix") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --prefix specified but missing prefix!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        SAHelperPrefixValResult prefix_val_result =
+          simple_archiver_helper_validate_prefix(argv[1]);
+        if (prefix_val_result != SAHPrefixVal_OK) {
+          fprintf(stderr,
+                  "ERROR: Invalid prefix: %s\n",
+                  simple_archiver_helper_prefix_result_str(prefix_val_result));
+          return 1;
+        }
+        const unsigned long prefix_length = strlen(argv[1]);
+        if (argv[1][prefix_length - 1] == '/') {
+          out->prefix = strdup(argv[1]);
+        } else {
+          out->prefix = malloc(prefix_length + 2);
+          memcpy(out->prefix, argv[1], prefix_length);
+          out->prefix[prefix_length] = '/';
+          out->prefix[prefix_length + 1] = 0;
+        }
         --argc;
         ++argv;
       } else if (strcmp(argv[0], "--compressor") == 0) {
@@ -722,6 +751,10 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   }
   if (parsed->mappings.GnameToGname) {
     simple_archiver_hash_map_free(&parsed->mappings.GnameToGname);
+  }
+
+  if (parsed->prefix) {
+    free(parsed->prefix);
   }
 }
 
