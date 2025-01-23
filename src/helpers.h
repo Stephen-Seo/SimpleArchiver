@@ -85,7 +85,7 @@ char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
                                                         const char *path);
 
 // Ensures the path to the filename is resolved, even if "filename" is a
-// symbolic link.
+// symbolic link. Returned c-string must be free'd.
 char *simple_archiver_helper_real_path_to_name(const char *filename);
 
 void simple_archiver_helper_cleanup_FILE(FILE **fd);

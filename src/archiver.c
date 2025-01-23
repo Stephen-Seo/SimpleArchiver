@@ -133,7 +133,7 @@ void cleanup_overwrite_filename_delete_simple(char **filename) {
   }
 }
 
-int write_files_fn(void *data, void *ud) {
+int write_files_fn_file_v0(void *data, void *ud) {
   if (is_sig_int_occurred) {
     return 1;
   }
@@ -398,6 +398,9 @@ int write_files_fn(void *data, void *ud) {
       uint64_t u64;
 
       size_t temp_size = strlen(file_info->filename);
+      if (state->parsed->prefix) {
+        temp_size += strlen(state->parsed->prefix);
+      }
       if (temp_size > 0xFFFF) {
         fprintf(stderr, "ERROR: Filename size is too large to store!\n");
         return 1;
@@ -417,7 +420,16 @@ int write_files_fn(void *data, void *ud) {
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(u16 + 1);
       temp_to_write->size = u16 + 1;
-      memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+      if (state->parsed->prefix) {
+        const unsigned long prefix_length = strlen(state->parsed->prefix);
+        const unsigned long filename_length = strlen(file_info->filename);
+        memcpy(temp_to_write->buf, state->parsed->prefix, prefix_length);
+        memcpy((uint8_t*)temp_to_write->buf + prefix_length,
+               file_info->filename,
+               filename_length + 1);
+      } else {
+        memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+      }
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
       // Write flags.
@@ -537,6 +549,9 @@ int write_files_fn(void *data, void *ud) {
       uint64_t u64;
 
       size_t temp_size = strlen(file_info->filename);
+      if (state->parsed->prefix) {
+        temp_size += strlen(state->parsed->prefix);
+      }
       if (temp_size > 0xFFFF) {
         fprintf(stderr, "ERROR: Filename is too large to store!\n");
         return 1;
@@ -556,7 +571,16 @@ int write_files_fn(void *data, void *ud) {
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(u16 + 1);
       temp_to_write->size = u16 + 1;
-      memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+      if (state->parsed->prefix) {
+        const unsigned long prefix_length = strlen(state->parsed->prefix);
+        const unsigned long filename_length = strlen(file_info->filename);
+        memcpy(temp_to_write->buf, state->parsed->prefix, prefix_length);
+        memcpy((uint8_t*)temp_to_write->buf + prefix_length,
+               file_info->filename,
+               filename_length + 1);
+      } else {
+        memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+      }
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
       // Write flags.
@@ -691,6 +715,9 @@ int write_files_fn(void *data, void *ud) {
     uint16_t u16;
 
     size_t temp_size = strlen(file_info->filename);
+    if (state->parsed->prefix) {
+      temp_size += strlen(state->parsed->prefix);
+    }
     if (temp_size > 0xFFFF) {
       fprintf(stderr, "ERROR: Filename is too large to store!\n");
       return 1;
@@ -710,7 +737,16 @@ int write_files_fn(void *data, void *ud) {
     temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
     temp_to_write->buf = malloc(u16 + 1);
     temp_to_write->size = u16 + 1;
-    memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+    if (state->parsed->prefix) {
+      const unsigned long prefix_length = strlen(state->parsed->prefix);
+      const unsigned long filename_length = strlen(file_info->filename);
+      memcpy(temp_to_write->buf, state->parsed->prefix, prefix_length);
+      memcpy((uint8_t*)temp_to_write->buf + prefix_length,
+             file_info->filename,
+             filename_length + 1);
+    } else {
+      memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+    }
     simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
     // Write flags.
@@ -800,7 +836,7 @@ int write_files_fn(void *data, void *ud) {
         // First get absolute path of link.
         __attribute__((cleanup(
             simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-            simple_archiver_file_abs_path(file_info->filename);
+            simple_archiver_helper_real_path_to_name(file_info->filename);
         if (!link_abs_path) {
           fprintf(stderr, "WARNING: Failed to get absolute path of link!\n");
         } else {
@@ -900,6 +936,12 @@ int write_files_fn(void *data, void *ud) {
       memset(temp_to_write->buf, 0, 2);
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
     } else if ((state->parsed->flags & 0x20) == 0) {
+      if (state->parsed->prefix) {
+        char *abs_path_cached = abs_path;
+        abs_path = simple_archiver_helper_insert_prefix_in_link_path(
+          state->parsed->prefix, file_info->filename, abs_path_cached);
+        free(abs_path_cached);
+      }
       // Write absolute path length.
       size_t temp_size = strlen(abs_path);
       if (temp_size > 0xFFFF) {
@@ -934,6 +976,12 @@ int write_files_fn(void *data, void *ud) {
     }
 
     if (rel_path) {
+      if (state->parsed->prefix) {
+        char *rel_path_cached = rel_path;
+        rel_path = simple_archiver_helper_insert_prefix_in_link_path(
+          state->parsed->prefix, file_info->filename, rel_path_cached);
+        free(rel_path_cached);
+      }
       // Write relative path length.
       size_t temp_size = strlen(rel_path);
       if (temp_size > 0xFFFF) {
@@ -1011,7 +1059,8 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   }
 
   // Get combined full path to file.
-  char *fullpath = simple_archiver_file_abs_path(file_info->filename);
+  char *fullpath =
+    simple_archiver_helper_real_path_to_name(file_info->filename);
   if (!fullpath) {
     return 1;
   }
@@ -2309,7 +2358,7 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
   snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
            state->digits);
   fprintf(stderr, format_str, state->count, state->max);
-  if (simple_archiver_list_get(filenames, write_files_fn, state)) {
+  if (simple_archiver_list_get(filenames, write_files_fn_file_v0, state)) {
     if (is_sig_int_occurred) {
       return SDAS_SIGINT;
     }
@@ -2514,7 +2563,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_file_abs_path(node->data);
+              simple_archiver_helper_real_path_to_name(node->data);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -3424,7 +3473,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_file_abs_path(node->data);
+              simple_archiver_helper_real_path_to_name(node->data);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -4366,7 +4415,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_file_abs_path(node->data);
+              simple_archiver_helper_real_path_to_name(node->data);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -9156,50 +9205,6 @@ char *simple_archiver_filenames_to_relative_path(const char *from_abs,
   } while (has_slash);
 
   return rel_path;
-}
-
-char *simple_archiver_file_abs_path(const char *filename) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-  __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void *path =
-      malloc(strlen(filename) + 1);
-  strncpy(path, filename, strlen(filename) + 1);
-
-  char *path_dir = dirname(path);
-  if (!path_dir) {
-    return NULL;
-  }
-
-  __attribute__((
-      cleanup(simple_archiver_helper_cleanup_malloced))) void *dir_realpath =
-      realpath(path_dir, NULL);
-  if (!dir_realpath) {
-    return NULL;
-  }
-
-  // Recreate "path" since it may have been modified by dirname().
-  simple_archiver_helper_cleanup_malloced(&path);
-  path = malloc(strlen(filename) + 1);
-  strncpy(path, filename, strlen(filename) + 1);
-
-  char *filename_basename = basename(path);
-  if (!filename_basename) {
-    return NULL;
-  }
-
-  // Get combined full path to file.
-  const size_t realpath_size = strlen(dir_realpath) + 1;
-  const size_t basename_size = strlen(filename_basename) + 1;
-  const size_t fullpath_size = realpath_size + basename_size;
-  char *fullpath = malloc(fullpath_size);
-  strncpy(fullpath, dir_realpath, realpath_size);
-  fullpath[realpath_size - 1] = '/';
-  strcpy(fullpath + realpath_size, filename_basename);
-
-  return fullpath;
-#endif
-  return NULL;
 }
 
 int simple_archiver_validate_file_path(const char *filepath) {

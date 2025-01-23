@@ -509,10 +509,16 @@ char *simple_archiver_helper_real_path_to_name(const char *filename) {
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *filename_copy = strdup(filename);
   char *filename_dir = dirname(filename_copy);
+  if (!filename_dir) {
+    return NULL;
+  }
 
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *filename_copy2 = strdup(filename);
   char *filename_base = basename(filename_copy2);
+  if (!filename_base) {
+    return NULL;
+  }
   const unsigned long basename_length = strlen(filename_base);
 
   // Get realpath to dirname.
