@@ -385,6 +385,9 @@ uint16_t simple_archiver_helper_str_slash_count(const char *str) {
 char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
                                                         const char *link,
                                                         const char *path) {
+  if (!prefix) {
+    return NULL;
+  }
   uint16_t prefix_slash_count = simple_archiver_helper_str_slash_count(prefix);
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *cwd = getcwd(NULL, 0);
@@ -400,6 +403,7 @@ char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
     ++cwd_length;
   }
   const unsigned long prefix_length = strlen(prefix);
+  const unsigned long link_length = strlen(link);
   const unsigned long path_length = strlen(path);
   if (path[0] == '/') {
     // Dealing with an absolute path.
@@ -432,20 +436,20 @@ char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
     // Dealing with a relative path.
 
     // First check if "path" is in archive.
+    const unsigned long filename_full_length = cwd_length + link_length;
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-    char *filename_realpath = simple_archiver_helper_real_path_to_name(link);
-    if (!filename_realpath) {
-      return NULL;
-    }
-    const unsigned long filename_realpath_length = strlen(filename_realpath);
+    char *filename_full = malloc(filename_full_length + 1);
+    memcpy(filename_full, cwd, cwd_length);
+    memcpy(filename_full + cwd_length, link, link_length);
+    filename_full[cwd_length + link_length] = 0;
 
     size_t diff_idx = 0;
-    for (; filename_realpath[diff_idx] == cwd[diff_idx]
-           && diff_idx < filename_realpath_length
+    for (; filename_full[diff_idx] == cwd[diff_idx]
+           && diff_idx < filename_full_length
            && diff_idx < cwd_length;
          ++diff_idx);
     int32_t level = simple_archiver_helper_str_slash_count(
-      filename_realpath + diff_idx);
+      filename_full + diff_idx);
     const int32_t level_copy = level;
 
     size_t prev_start_idx = 0;
