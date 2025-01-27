@@ -2,6 +2,17 @@
 
 ## Upcoming Changes
 
+Fix bug where file formats 2 and 3 would create directories in an archive when
+using `-t` mode.
+
+Add new flag `--prefix <prefix>`.
+
+  - When archiving, `--prefix` prepends the given string as a directory to every
+    archived item. This effectively stores entries with the given `prefix`.
+  - When extracting, `--prefix` prepends the given string as a directory to
+    every extracted item. This effectively extracts items with `prefix` as the
+    outermost directory in the current working directory.
+
 ## Version 1.11
 
 Added file format version 3 that supports username and groupname metadata for
