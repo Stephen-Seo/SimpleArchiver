@@ -855,6 +855,7 @@ int write_files_fn_file_v0(void *data, void *ud) {
         !simple_archiver_hash_map_get(state->map, abs_path,
                                       strlen(abs_path) + 1)) {
       // Is not a filename being archived.
+      ((uint8_t *)temp_to_write->buf)[1] |= 0x10;
       if ((state->parsed->flags & 0x80) != 0) {
         // No safe links, set preference to absolute path.
         fprintf(
@@ -891,7 +892,7 @@ int write_files_fn_file_v0(void *data, void *ud) {
                   "will not be stored! (Use \"--no-safe-links\" to disable "
                   "this behavior)\n",
                   file_info->filename);
-          ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x18;
         }
       } else {
         fprintf(stderr,
@@ -2601,6 +2602,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           !simple_archiver_hash_map_get(abs_filenames, abs_path,
                                         strlen(abs_path) + 1)) {
         // Is not a filename being archived.
+        buf[1] |= 0x8;
         if ((state->parsed->flags & 0x80) == 0) {
           // Not a "safe link", mark invalid and continue.
           is_invalid = 1;
@@ -2683,7 +2685,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       }
 #else
       buf[0] = 0xFE;
-      buf[1] = 3;
+      buf[1] = 0xB;
 #endif
 
       if (is_invalid) {
@@ -3613,6 +3615,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
           !simple_archiver_hash_map_get(abs_filenames, abs_path,
                                         strlen(abs_path) + 1)) {
         // Is not a filename being archived.
+        buf[1] |= 0x8;
         if ((state->parsed->flags & 0x80) == 0) {
           // Not a "safe link", mark invalid and continue.
           is_invalid = 1;
@@ -3695,7 +3698,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       }
 #else
       buf[0] = 0xFE;
-      buf[1] = 3;
+      buf[1] = 0xB;
 #endif
 
       if (is_invalid) {
@@ -4656,6 +4659,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
           !simple_archiver_hash_map_get(abs_filenames, abs_path,
                                         strlen(abs_path) + 1)) {
         // Is not a filename being archived.
+        buf[1] |= 8;
         if ((state->parsed->flags & 0x80) == 0) {
           // Not a "safe link", mark invalid and continue.
           is_invalid = 1;
@@ -4738,7 +4742,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
 #else
       buf[0] = 0xFE;
-      buf[1] = 3;
+      buf[1] = 0xB;
 #endif
 
       if (is_invalid) {
@@ -6152,6 +6156,8 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           state->parsed->file_permissions);
     }
 
+    const uint_fast8_t points_to_outside = (buf[1] & 0x10) ? 1 : 0;
+
     if ((buf[0] & 1) == 0) {
       // Not a sybolic link.
       if (fread(&u64, 8, 1, in_f) != 1) {
@@ -6567,11 +6573,16 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             int_fast8_t retry_symlink = 0;
             int ret;
             __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-            char *abs_path_prefixed =
-              state->parsed->prefix
-              ? simple_archiver_helper_insert_prefix_in_link_path(
-                  state->parsed->prefix, out_f_name, abs_path)
-              : NULL;
+            char *abs_path_prefixed = NULL;
+            if (state->parsed->prefix) {
+              if (points_to_outside) {
+                abs_path_prefixed = strdup(abs_path);
+              } else {
+                abs_path_prefixed =
+                  simple_archiver_helper_insert_prefix_in_link_path(
+                    state->parsed->prefix, out_f_name, abs_path);
+              }
+            }
             if (filename_with_prefix && !abs_path_prefixed) {
               fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
                 " abs link with prefix!\n");
@@ -6718,11 +6729,16 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-          char *abs_path_prefixed =
-            state->parsed->prefix
-            ? simple_archiver_helper_insert_prefix_in_link_path(
-                state->parsed->prefix, out_f_name, abs_path)
-            : NULL;
+          char *abs_path_prefixed = NULL;
+          if (state->parsed->prefix) {
+            if (points_to_outside) {
+              abs_path_prefixed = strdup(abs_path);
+            } else {
+              abs_path_prefixed =
+                simple_archiver_helper_insert_prefix_in_link_path(
+                  state->parsed->prefix, out_f_name, abs_path);
+            }
+          }
           if (filename_with_prefix && !abs_path_prefixed) {
             fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
               " abs link with prefix!\n");
@@ -6956,6 +6972,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
+    const uint_fast8_t points_to_outside = (buf[1] & 8) ? 1 : 0;
 
     if (is_invalid) {
       fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
@@ -7054,9 +7071,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
           absolute_preferred) {
         if (state->parsed->prefix) {
-          abs_path_prefixed =
-            simple_archiver_helper_insert_prefix_in_link_path(
-              state->parsed->prefix, link_name, path);
+          if (points_to_outside) {
+            abs_path_prefixed = strdup(path);
+          } else {
+            abs_path_prefixed =
+              simple_archiver_helper_insert_prefix_in_link_path(
+                state->parsed->prefix, link_name, path);
+          }
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to insert prefix to absolute path!\n");
@@ -8272,6 +8293,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
+    const uint_fast8_t points_to_outside = (buf[1] & 8) ? 1 : 0;
 
     if (is_invalid) {
       fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
@@ -8371,9 +8393,13 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       if (state && state->parsed->prefix) {
-        abs_path_prefixed =
-          simple_archiver_helper_insert_prefix_in_link_path(
-            state->parsed->prefix, link_name, parsed_abs_path);
+        if (points_to_outside) {
+          abs_path_prefixed = strdup(parsed_abs_path);
+        } else {
+          abs_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, link_name, parsed_abs_path);
+        }
         if (!abs_path_prefixed) {
           fprintf(stderr,
                   "ERROR: Failed to insert prefix to absolute path!\n");
