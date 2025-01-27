@@ -4515,6 +4515,10 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
     return SDAS_FAILED_TO_WRITE;
   }
 
+  const size_t prefix_length = state->parsed->prefix
+                               ? strlen(state->parsed->prefix)
+                               : 0;
+
   if (state->parsed->compressor && !state->parsed->decompressor) {
     return SDAS_NO_DECOMPRESSOR;
   } else if (!state->parsed->compressor && state->parsed->decompressor) {
@@ -4745,7 +4749,11 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
 
-      size_t len = strlen(node->data);
+      const size_t link_length = strlen(node->data);
+      size_t len = link_length;
+      if (state->parsed->prefix) {
+        len += prefix_length;
+      }
       if (len >= 0xFFFF) {
         fprintf(stderr, "ERROR: Link name is too long!\n");
         return SDAS_INVALID_PARSED_STATE;
@@ -4757,26 +4765,64 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
       simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+      if (state->parsed->prefix) {
+        size_t fwrite_ret = fwrite(state->parsed->prefix,
+                                   1,
+                                   prefix_length,
+                                   out_f);
+        fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
+        if (fwrite_ret != (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
         return SDAS_FAILED_TO_WRITE;
       }
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 && !is_invalid) {
-        len = strlen(abs_path);
-        if (len >= 0xFFFF) {
-          fprintf(stderr,
-                  "ERROR: Symlink destination absolute path is too long!\n");
-          return SDAS_INVALID_PARSED_STATE;
-        }
+        if (state->parsed->prefix) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *abs_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, node->data, abs_path);
+          if (!abs_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to add prefix to abs symlink!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          const size_t abs_path_pref_length = strlen(abs_path_prefixed);
+          if (abs_path_pref_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination absolute path with prefix is "
+                    "too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
 
-        u16 = (uint16_t)len;
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
-        }
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          u16 = (uint16_t)abs_path_pref_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(abs_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+        } else {
+          const size_t abs_path_length = strlen(abs_path);
+          if (abs_path_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination absolute path is too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
+
+          u16 = (uint16_t)abs_path_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
         }
       } else {
         u16 = 0;
@@ -4786,21 +4832,50 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
 
       if (rel_path && !is_invalid) {
-        len = strlen(rel_path);
-        if (len >= 0xFFFF) {
-          fprintf(stderr,
-                  "ERROR: Symlink destination relative path is too long!\n");
-          return SDAS_INVALID_PARSED_STATE;
-        }
+        if (state->parsed->prefix) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *rel_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, node->data, rel_path);
+          if (!rel_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to add prefix to relative symlink!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          const size_t rel_path_pref_length = strlen(rel_path_prefixed);
+          if (rel_path_pref_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination relative path with prefix is "
+                    "too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
 
-        u16 = (uint16_t)len;
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
-        }
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          u16 = (uint16_t)rel_path_pref_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(rel_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+        } else {
+          len = strlen(rel_path);
+          if (len >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination relative path is too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
+
+          u16 = (uint16_t)len;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
         }
       } else {
         u16 = 0;
@@ -5066,21 +5141,47 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       if (non_c_chunk_size) {
         *non_c_chunk_size += file_info_struct->file_size;
       }
-      size_t len = strlen(file_info_struct->filename);
-      if (len >= 0xFFFF) {
-        fprintf(stderr, "ERROR: Filename is too large!\n");
-        return SDAS_INVALID_FILE;
+      const size_t filename_len = strlen(file_info_struct->filename);
+      if (state->parsed->prefix) {
+        const size_t total_length = filename_len + prefix_length;
+        if (total_length >= 0xFFFF) {
+          fprintf(stderr, "ERROR: Filename with prefix is too large!\n");
+          return SDAS_INVALID_FILE;
+        }
+        u16 = (uint16_t)total_length;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(state->parsed->prefix, 1, prefix_length, out_f)
+            != prefix_length) {
+          return SDAS_FAILED_TO_WRITE;
+        } else if (fwrite(file_info_struct->filename,
+                          1,
+                          filename_len + 1,
+                          out_f)
+                     != filename_len + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else {
+        if (filename_len >= 0xFFFF) {
+          fprintf(stderr, "ERROR: Filename is too large!\n");
+          return SDAS_INVALID_FILE;
+        }
+        u16 = (uint16_t)filename_len;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
+            (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
       }
-      u16 = (uint16_t)len;
-      simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(&u16, 2, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
-      }
-      simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
-          (size_t)u16 + 1) {
-        return SDAS_FAILED_TO_WRITE;
-      } else if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
+
+      if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
         return SDAS_FAILED_TO_WRITE;
       }
       // UID and GID.
