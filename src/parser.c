@@ -159,8 +159,8 @@ void simple_archiver_print_usage(void) {
           "-C <dir> : Change current working directory before "
           "archiving/extracting\n");
   fprintf(stderr,
-          "--prefix <prefix> : set prefix for archived/extracted paths (do not"
-          "forget \"/\" if the prefix is a directory)\n");
+          "--prefix <prefix> : set prefix for archived/extracted paths (\"/\" "
+          "will be appended to the end if missing)\n");
   fprintf(stderr,
           "--compressor <full_compress_cmd> : requires --decompressor and cmd "
           "must use stdin/stdout\n");
