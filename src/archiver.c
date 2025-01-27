@@ -7997,6 +7997,11 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
         "/",
         simple_archiver_helper_datastructure_cleanup_nop);
     }
+    if (state && state->parsed->prefix) {
+      simple_archiver_list_add(string_parts,
+                               strdup(state->parsed->prefix),
+                               NULL);
+    }
     simple_archiver_list_add(string_parts, strdup(buf), NULL);
     simple_archiver_list_add(
       string_parts,
