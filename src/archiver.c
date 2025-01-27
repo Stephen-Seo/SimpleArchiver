@@ -421,8 +421,8 @@ int write_files_fn_file_v0(void *data, void *ud) {
       temp_to_write->buf = malloc(u16 + 1);
       temp_to_write->size = u16 + 1;
       if (state->parsed->prefix) {
-        const unsigned long prefix_length = strlen(state->parsed->prefix);
-        const unsigned long filename_length = strlen(file_info->filename);
+        const size_t prefix_length = strlen(state->parsed->prefix);
+        const size_t filename_length = strlen(file_info->filename);
         memcpy(temp_to_write->buf, state->parsed->prefix, prefix_length);
         memcpy((uint8_t*)temp_to_write->buf + prefix_length,
                file_info->filename,
@@ -572,8 +572,8 @@ int write_files_fn_file_v0(void *data, void *ud) {
       temp_to_write->buf = malloc(u16 + 1);
       temp_to_write->size = u16 + 1;
       if (state->parsed->prefix) {
-        const unsigned long prefix_length = strlen(state->parsed->prefix);
-        const unsigned long filename_length = strlen(file_info->filename);
+        const size_t prefix_length = strlen(state->parsed->prefix);
+        const size_t filename_length = strlen(file_info->filename);
         memcpy(temp_to_write->buf, state->parsed->prefix, prefix_length);
         memcpy((uint8_t*)temp_to_write->buf + prefix_length,
                file_info->filename,
@@ -738,8 +738,8 @@ int write_files_fn_file_v0(void *data, void *ud) {
     temp_to_write->buf = malloc(u16 + 1);
     temp_to_write->size = u16 + 1;
     if (state->parsed->prefix) {
-      const unsigned long prefix_length = strlen(state->parsed->prefix);
-      const unsigned long filename_length = strlen(file_info->filename);
+      const size_t prefix_length = strlen(state->parsed->prefix);
+      const size_t filename_length = strlen(file_info->filename);
       memcpy(temp_to_write->buf, state->parsed->prefix, prefix_length);
       memcpy((uint8_t*)temp_to_write->buf + prefix_length,
              file_info->filename,
@@ -5585,8 +5585,8 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       }
 
       if (state && state->parsed->prefix) {
-        const unsigned long buf_str_len = strlen((const char *)buf);
-        const unsigned long prefix_length = strlen(state->parsed->prefix);
+        const size_t buf_str_len = strlen((const char *)buf);
+        const size_t prefix_length = strlen(state->parsed->prefix);
         filename_with_prefix = malloc(buf_str_len + prefix_length + 1);
         memcpy(filename_with_prefix, state->parsed->prefix, prefix_length);
         memcpy(filename_with_prefix + prefix_length, buf, buf_str_len);
@@ -5656,8 +5656,8 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       }
 
       if (state && state->parsed->prefix) {
-        const unsigned long heap_buf_str_len = strlen((const char *)uc_heap_buf);
-        const unsigned long prefix_length = strlen(state->parsed->prefix);
+        const size_t heap_buf_str_len = strlen((const char *)uc_heap_buf);
+        const size_t prefix_length = strlen(state->parsed->prefix);
         filename_with_prefix = malloc(heap_buf_str_len + prefix_length + 1);
         memcpy(filename_with_prefix, state->parsed->prefix, prefix_length);
         memcpy(filename_with_prefix + prefix_length, uc_heap_buf, heap_buf_str_len);
