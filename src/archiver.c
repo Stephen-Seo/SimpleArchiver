@@ -7472,24 +7472,28 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     abs_path[size - 1] = 0;
     //fprintf(stderr, "DEBUG: abs_path is \"%s\"!\n", abs_path);
 
-    int ret = simple_archiver_helper_make_dirs_perms(
-      abs_path,
-      state && (state->parsed->flags & 0x2000)
-        ? simple_archiver_internal_permissions_to_mode_t(
-            state->parsed->dir_permissions)
-        : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
-      state && (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
-      state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
-    if (ret != 0) {
-      fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
-      return SDAS_INTERNAL_ERROR;
+    if (do_extract) {
+      int ret = simple_archiver_helper_make_dirs_perms(
+        abs_path,
+        state && (state->parsed->flags & 0x2000)
+          ? simple_archiver_internal_permissions_to_mode_t(
+              state->parsed->dir_permissions)
+          : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+        state && (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
+        state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
+      if (ret != 0) {
+        fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
+        return SDAS_INTERNAL_ERROR;
+      }
     }
   }
 
   return SDAS_SUCCESS;
 }
 
-int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, const SDArchiverState *state) {
+int simple_archiver_parse_archive_version_3(FILE *in_f,
+                                            int_fast8_t do_extract,
+                                            const SDArchiverState *state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -9032,17 +9036,19 @@ int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract, 
     abs_path[size - 1] = 0;
     //fprintf(stderr, "DEBUG: abs_path is \"%s\"!\n", abs_path);
 
-    int ret = simple_archiver_helper_make_dirs_perms(
-      abs_path,
-      state && (state->parsed->flags & 0x2000)
-        ? simple_archiver_internal_permissions_to_mode_t(
-            state->parsed->dir_permissions)
-        : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
-      state && (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
-      state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
-    if (ret != 0) {
-      fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
-      return SDAS_INTERNAL_ERROR;
+    if (do_extract) {
+      int ret = simple_archiver_helper_make_dirs_perms(
+        abs_path,
+        state && (state->parsed->flags & 0x2000)
+          ? simple_archiver_internal_permissions_to_mode_t(
+              state->parsed->dir_permissions)
+          : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+        state && (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
+        state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
+      if (ret != 0) {
+        fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
+        return SDAS_INTERNAL_ERROR;
+      }
     }
   }
 
