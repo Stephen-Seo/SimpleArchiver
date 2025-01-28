@@ -68,7 +68,7 @@ set_source_files_properties(src/archiver.c
         COMPILE_FLAGS -Wno-format-nonliteral
 )
 
-if(IS_EXECUTABLE /usr/bin/git)
+if(EXISTS /usr/bin/git)
     execute_process(COMMAND /usr/bin/git describe --long --tags
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         OUTPUT_VARIABLE SIMPLE_ARCHIVER_GIT_VER
