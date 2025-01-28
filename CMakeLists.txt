@@ -72,7 +72,11 @@ if(IS_EXECUTABLE /usr/bin/git)
     execute_process(COMMAND /usr/bin/git describe --long --tags
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         OUTPUT_VARIABLE SIMPLE_ARCHIVER_GIT_VER
+        ERROR_VARIABLE SIMPLE_ARCHIVER_GIT_VER_ERROR
         OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if (NOT SIMPLE_ARCHIVER_GIT_VER)
+        set(SIMPLE_ARCHIVER_GIT_VER "${SimpleArchiver_VERSION}")
+    endif()
     message("Got version \"${SIMPLE_ARCHIVER_GIT_VER}\"")
     set_source_files_properties(src/parser.c
         PROPERTIES
