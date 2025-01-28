@@ -40,6 +40,7 @@
 #include "data_structures/linked_list.h"
 #include "helpers.h"
 #include "parser_internal.h"
+#include "version.h"
 
 /// Gets the first non "./"-like character in the filename.
 size_t simple_archiver_parser_internal_get_first_non_current_idx(
@@ -238,6 +239,7 @@ void simple_archiver_print_usage(void) {
           "--force-dir-permissions <3-octal-values> : Force set permissions "
           "for directories on archive creation/extraction\n"
           "  Must be three octal characters like \"755\" or \"440\"\n");
+  fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
   fprintf(
@@ -645,6 +647,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--version") == 0) {
+        fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
+        exit(0);
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;
       } else if (argv[0][0] != '-') {

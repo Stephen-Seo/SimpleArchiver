@@ -1,5 +1,9 @@
 COSMOCC ?= ${HOME}/Downloads/cosmocc/bin/cosmocc
 
+VERSION_STR := $(shell /usr/bin/git describe --long --tags || /usr/bin/echo 1.11)
+
+OTHER_FLAGS := -DSIMPLE_ARCHIVER_VERSION_STR=\"${VERSION_STR}\"
+
 OBJDIR = objdir
 OUTDIR = out
 
@@ -24,7 +28,8 @@ HEADERS = \
 		../src/data_structures/hash_map.h \
 		../src/data_structures/priority_heap.h \
 		../src/platforms.h \
-		../src/users.h
+		../src/users.h \
+		../src/version.h
 
 OBJECTS = $(addprefix ${OBJDIR}/,$(subst ..,PREVDIR,$(patsubst %.c,%.c.o,${SOURCES})))
 
