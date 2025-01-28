@@ -19,6 +19,7 @@
 #include "helpers.h"
 
 #include <ctype.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -321,4 +322,230 @@ size_t simple_archiver_helper_num_digits(size_t value) {
   } while (value != 0);
 
   return digits;
+}
+
+const char * simple_archiver_helper_prefix_result_str(
+    SAHelperPrefixValResult result) {
+  switch (result) {
+  case SAHPrefixVal_OK:
+    return "OK";
+  case SAHPrefixVal_NULL:
+    return "Prefix is NULL";
+  case SAHPrefixVal_ZERO_LEN:
+    return "Prefix has zero length";
+  case SAHPrefixVal_ROOT:
+    return "Prefix starts with slash (root)";
+  case SAHPrefixVal_DOUBLE_SLASH:
+    return "Prefix has multiple consecutive slashes";
+  default:
+    return "Unknown";
+  }
+}
+
+SAHelperPrefixValResult simple_archiver_helper_validate_prefix(
+    const char *prefix) {
+  if (!prefix) {
+    return SAHPrefixVal_NULL;
+  }
+  const unsigned long length = strlen(prefix);
+  if (length == 0) {
+    return SAHPrefixVal_ZERO_LEN;
+  } else if (prefix[0] == '/') {
+    return SAHPrefixVal_ROOT;
+  }
+
+  uint_fast8_t was_slash = 0;
+  for (unsigned long idx = 0; idx < length; ++idx) {
+    if (prefix[idx] == '/') {
+      if (was_slash) {
+        return SAHPrefixVal_DOUBLE_SLASH;
+      }
+      was_slash = 1;
+    } else {
+      was_slash = 0;
+    }
+  }
+
+  return SAHPrefixVal_OK;
+}
+
+uint16_t simple_archiver_helper_str_slash_count(const char *str) {
+  uint16_t count = 0;
+
+  const unsigned long length = strlen(str);
+  for (unsigned long idx = 0; idx < length; ++idx) {
+    if (str[idx] == '/') {
+      ++count;
+    }
+  }
+
+  return count;
+}
+
+char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
+                                                        const char *link,
+                                                        const char *path) {
+  if (!prefix) {
+    return NULL;
+  }
+  uint16_t prefix_slash_count = simple_archiver_helper_str_slash_count(prefix);
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *cwd = getcwd(NULL, 0);
+  unsigned long cwd_length = strlen(cwd);
+  if (cwd[cwd_length - 1] != '/') {
+    // Ensure the cwd ends with a '/'.
+    char *new_cwd = malloc(cwd_length + 2);
+    memcpy(new_cwd, cwd, cwd_length);
+    new_cwd[cwd_length] = '/';
+    new_cwd[cwd_length + 1] = 0;
+    free(cwd);
+    cwd = new_cwd;
+    ++cwd_length;
+  }
+  const unsigned long prefix_length = strlen(prefix);
+  const unsigned long link_length = strlen(link);
+  const unsigned long path_length = strlen(path);
+  if (path[0] == '/') {
+    // Dealing with an absolute path.
+
+    // First check if "path" is in archive.
+    size_t diff_idx = 0;
+    for (; cwd[diff_idx] == path[diff_idx]
+           && diff_idx < cwd_length
+           && diff_idx < path_length;
+         ++diff_idx);
+
+    if (diff_idx == cwd_length) {
+      // "path" is in archive.
+      char *result_path = malloc(path_length + prefix_length + 1);
+      // Part of path matching cwd.
+      memcpy(result_path, path, cwd_length);
+      // Insert prefix.
+      memcpy(result_path + cwd_length, prefix, prefix_length);
+      // Rest of path.
+      memcpy(result_path + cwd_length + prefix_length,
+             path + cwd_length,
+             path_length - cwd_length);
+      result_path[path_length + prefix_length] = 0;
+      return result_path;
+    } else {
+      // "path" is not in archive, no need to insert prefix.
+      return strdup(path);
+    }
+  } else {
+    // Dealing with a relative path.
+
+    // First check if "path" is in archive.
+    const unsigned long filename_full_length = cwd_length + link_length;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *filename_full = malloc(filename_full_length + 1);
+    memcpy(filename_full, cwd, cwd_length);
+    memcpy(filename_full + cwd_length, link, link_length);
+    filename_full[cwd_length + link_length] = 0;
+
+    size_t diff_idx = 0;
+    for (; filename_full[diff_idx] == cwd[diff_idx]
+           && diff_idx < filename_full_length
+           && diff_idx < cwd_length;
+         ++diff_idx);
+    int32_t level = simple_archiver_helper_str_slash_count(
+      filename_full + diff_idx);
+    const int32_t level_copy = level;
+
+    size_t prev_start_idx = 0;
+    for (size_t path_idx = 0; path_idx < path_length; ++path_idx) {
+      if (path[path_idx] == '/') {
+        if (path_idx - prev_start_idx == 2
+          && path[path_idx - 2] == '.'
+          && path[path_idx - 1] == '.') {
+          --level;
+          if (level < 0) {
+            break;
+          }
+        } else {
+          ++level;
+        }
+        prev_start_idx = path_idx + 1;
+      }
+    }
+
+    if (level >= 0) {
+      // Relative path is in cwd, no need to insert prefix.
+      return strdup(path);
+    } else {
+      // Relative path refers to something outside of archive, "insert" prefix.
+      char *result = malloc(path_length + 1 + 3 * (size_t)prefix_slash_count);
+      memcpy(result, path, path_length);
+      level = level_copy;
+      size_t start_side_idx = 0;
+      for (size_t idx = 0; idx < path_length; ++idx) {
+        if (path[idx] == '/') {
+          if (idx - start_side_idx == 2
+                && path[start_side_idx] == '.'
+                && path[start_side_idx + 1] == '.') {
+            --level;
+            if (level == -1) {
+              char *buf = malloc(path_length - idx - 1);
+              memcpy(buf, result + idx + 1, path_length - idx - 1);
+              for (size_t l_idx = 0;
+                   l_idx < (size_t)prefix_slash_count;
+                   ++l_idx) {
+                memcpy(result + idx + 1 + l_idx * 3, "../", 3);
+              }
+              memcpy(result + idx + 1 + (size_t)prefix_slash_count * 3,
+                     buf,
+                     path_length - idx - 1);
+              free(buf);
+              result[path_length + 3 * (size_t)prefix_slash_count] = 0;
+              return result;
+            }
+          }
+          start_side_idx = idx + 1;
+        }
+      }
+      free(result);
+      return NULL;
+    }
+  }
+}
+
+char *simple_archiver_helper_real_path_to_name(const char *filename) {
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *filename_copy = strdup(filename);
+  char *filename_dir = dirname(filename_copy);
+  if (!filename_dir) {
+    return NULL;
+  }
+
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *filename_copy2 = strdup(filename);
+  char *filename_base = basename(filename_copy2);
+  if (!filename_base) {
+    return NULL;
+  }
+  const unsigned long basename_length = strlen(filename_base);
+
+  // Get realpath to dirname.
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *dir_realpath = realpath(filename_dir, NULL);
+  if (!dir_realpath) {
+    return NULL;
+  }
+  const unsigned long dir_realpath_length = strlen(dir_realpath);
+
+  // Concatenate dirname-realpath and basename.
+  if (dir_realpath[dir_realpath_length - 1] != '/') {
+    char *result = malloc(dir_realpath_length + basename_length + 2);
+    memcpy(result, dir_realpath, dir_realpath_length);
+    result[dir_realpath_length] = '/';
+    memcpy(result + dir_realpath_length + 1, filename_base, basename_length);
+    result[dir_realpath_length + 1 + basename_length] = 0;
+    return result;
+  } else {
+    char *result = malloc(dir_realpath_length + basename_length + 1);
+    memcpy(result, dir_realpath, dir_realpath_length);
+    memcpy(result + dir_realpath_length, filename_base, basename_length);
+    result[dir_realpath_length + basename_length] = 0;
+    return result;
+  }
 }

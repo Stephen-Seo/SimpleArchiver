@@ -2,10 +2,10 @@
 
 ## Upcoming Changes
 
+## Version 1.12
+
 Fix bug where file formats 2 and 3 would create directories in an archive when
 using `-t` mode.
-
-In `dev`:
 
 Add new flag `--prefix <prefix>`.
 

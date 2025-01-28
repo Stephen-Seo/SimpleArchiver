@@ -22,6 +22,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
 
 // Local includes.
 #include "archiver.h"
@@ -851,6 +854,58 @@ int main(void) {
     CHECK_TRUE(out);
     CHECK_STREQ(out, "one three.");
     free(out);
+  }
+
+  // Test insert prefix in link path.
+  {
+    char *cwd = getcwd(NULL, 0);
+    int ret = chdir("/tmp");
+    CHECK_TRUE(ret == 0);
+    if (ret != 0) {
+      goto TEST_HELPERS_PREFIX_END;
+    }
+    ret = mkdir("/tmp/fifty", S_IRWXU);
+    CHECK_TRUE(ret == 0 || errno == EEXIST);
+    if (ret != 0 && errno != EEXIST) {
+      goto TEST_HELPERS_PREFIX_END;
+    }
+
+    char *result = simple_archiver_helper_insert_prefix_in_link_path(
+      "one/two/three/", "fifty/link", "/tmp/fifty/link_target");
+    CHECK_TRUE(result);
+    if (result) {
+      CHECK_STREQ(result, "/tmp/one/two/three/fifty/link_target");
+      free(result);
+    }
+
+    result = simple_archiver_helper_insert_prefix_in_link_path(
+      "one/two/three/", "fifty/link", "/other");
+    CHECK_TRUE(result);
+    if (result) {
+      CHECK_STREQ(result, "/other");
+      free(result);
+    }
+
+    result = simple_archiver_helper_insert_prefix_in_link_path(
+      "one/two/three/", "fifty/link", "sixty/seventy/other");
+    CHECK_TRUE(result);
+    if (result) {
+      CHECK_STREQ(result, "sixty/seventy/other");
+      free(result);
+    }
+
+    result = simple_archiver_helper_insert_prefix_in_link_path(
+      "one/two/three/", "fifty/link", "../../other");
+    CHECK_TRUE(result);
+    if (result) {
+      CHECK_STREQ(result, "../../../../../other");
+      free(result);
+    }
+
+TEST_HELPERS_PREFIX_END:
+    rmdir("/tmp/fifty");
+    chdir(cwd);
+    free(cwd);
   }
 
   // Test archiver.

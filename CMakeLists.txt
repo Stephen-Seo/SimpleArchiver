@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 1.10)
+set(SimpleArchiver_VERSION 1.12)
 
 set(SimpleArchiver_SOURCES
     src/main.c
@@ -67,6 +67,24 @@ set_source_files_properties(src/archiver.c
     PROPERTIES
         COMPILE_FLAGS -Wno-format-nonliteral
 )
+
+if(IS_EXECUTABLE /usr/bin/git)
+    execute_process(COMMAND /usr/bin/git describe --long --tags
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE SIMPLE_ARCHIVER_GIT_VER
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message("Got version \"${SIMPLE_ARCHIVER_GIT_VER}\"")
+    set_source_files_properties(src/parser.c
+        PROPERTIES
+            COMPILE_FLAGS "-DSIMPLE_ARCHIVER_VERSION_STR=\\\"${SIMPLE_ARCHIVER_GIT_VER}\\\""
+    )
+else()
+    message("Setting version \"${SimpleArchiver_VERSION}\"")
+    set_source_files_properties(src/parser.c
+        PROPERTIES
+            COMPILE_FLAGS "-DSIMPLE_ARCHIVER_VERSION_STR=\\\"${SimpleArchiver_VERSION}\\\""
+    )
+endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_options(simplearchiver PUBLIC

@@ -133,7 +133,7 @@ void cleanup_overwrite_filename_delete_simple(char **filename) {
   }
 }
 
-int write_files_fn(void *data, void *ud) {
+int write_files_fn_file_v0(void *data, void *ud) {
   if (is_sig_int_occurred) {
     return 1;
   }
@@ -398,6 +398,9 @@ int write_files_fn(void *data, void *ud) {
       uint64_t u64;
 
       size_t temp_size = strlen(file_info->filename);
+      if (state->parsed->prefix) {
+        temp_size += strlen(state->parsed->prefix);
+      }
       if (temp_size > 0xFFFF) {
         fprintf(stderr, "ERROR: Filename size is too large to store!\n");
         return 1;
@@ -417,7 +420,16 @@ int write_files_fn(void *data, void *ud) {
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(u16 + 1);
       temp_to_write->size = u16 + 1;
-      memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+      if (state->parsed->prefix) {
+        const size_t prefix_length = strlen(state->parsed->prefix);
+        const size_t filename_length = strlen(file_info->filename);
+        memcpy(temp_to_write->buf, state->parsed->prefix, prefix_length);
+        memcpy((uint8_t*)temp_to_write->buf + prefix_length,
+               file_info->filename,
+               filename_length + 1);
+      } else {
+        memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+      }
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
       // Write flags.
@@ -537,6 +549,9 @@ int write_files_fn(void *data, void *ud) {
       uint64_t u64;
 
       size_t temp_size = strlen(file_info->filename);
+      if (state->parsed->prefix) {
+        temp_size += strlen(state->parsed->prefix);
+      }
       if (temp_size > 0xFFFF) {
         fprintf(stderr, "ERROR: Filename is too large to store!\n");
         return 1;
@@ -556,7 +571,16 @@ int write_files_fn(void *data, void *ud) {
       temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
       temp_to_write->buf = malloc(u16 + 1);
       temp_to_write->size = u16 + 1;
-      memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+      if (state->parsed->prefix) {
+        const size_t prefix_length = strlen(state->parsed->prefix);
+        const size_t filename_length = strlen(file_info->filename);
+        memcpy(temp_to_write->buf, state->parsed->prefix, prefix_length);
+        memcpy((uint8_t*)temp_to_write->buf + prefix_length,
+               file_info->filename,
+               filename_length + 1);
+      } else {
+        memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+      }
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
       // Write flags.
@@ -691,6 +715,9 @@ int write_files_fn(void *data, void *ud) {
     uint16_t u16;
 
     size_t temp_size = strlen(file_info->filename);
+    if (state->parsed->prefix) {
+      temp_size += strlen(state->parsed->prefix);
+    }
     if (temp_size > 0xFFFF) {
       fprintf(stderr, "ERROR: Filename is too large to store!\n");
       return 1;
@@ -710,7 +737,16 @@ int write_files_fn(void *data, void *ud) {
     temp_to_write = malloc(sizeof(SDArchiverInternalToWrite));
     temp_to_write->buf = malloc(u16 + 1);
     temp_to_write->size = u16 + 1;
-    memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+    if (state->parsed->prefix) {
+      const size_t prefix_length = strlen(state->parsed->prefix);
+      const size_t filename_length = strlen(file_info->filename);
+      memcpy(temp_to_write->buf, state->parsed->prefix, prefix_length);
+      memcpy((uint8_t*)temp_to_write->buf + prefix_length,
+             file_info->filename,
+             filename_length + 1);
+    } else {
+      memcpy(temp_to_write->buf, file_info->filename, u16 + 1);
+    }
     simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
 
     // Write flags.
@@ -800,7 +836,7 @@ int write_files_fn(void *data, void *ud) {
         // First get absolute path of link.
         __attribute__((cleanup(
             simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-            simple_archiver_file_abs_path(file_info->filename);
+            simple_archiver_helper_real_path_to_name(file_info->filename);
         if (!link_abs_path) {
           fprintf(stderr, "WARNING: Failed to get absolute path of link!\n");
         } else {
@@ -819,6 +855,7 @@ int write_files_fn(void *data, void *ud) {
         !simple_archiver_hash_map_get(state->map, abs_path,
                                       strlen(abs_path) + 1)) {
       // Is not a filename being archived.
+      ((uint8_t *)temp_to_write->buf)[1] |= 0x10;
       if ((state->parsed->flags & 0x80) != 0) {
         // No safe links, set preference to absolute path.
         fprintf(
@@ -855,7 +892,7 @@ int write_files_fn(void *data, void *ud) {
                   "will not be stored! (Use \"--no-safe-links\" to disable "
                   "this behavior)\n",
                   file_info->filename);
-          ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x18;
         }
       } else {
         fprintf(stderr,
@@ -900,6 +937,12 @@ int write_files_fn(void *data, void *ud) {
       memset(temp_to_write->buf, 0, 2);
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
     } else if ((state->parsed->flags & 0x20) == 0) {
+      if (state->parsed->prefix) {
+        char *abs_path_cached = abs_path;
+        abs_path = simple_archiver_helper_insert_prefix_in_link_path(
+          state->parsed->prefix, file_info->filename, abs_path_cached);
+        free(abs_path_cached);
+      }
       // Write absolute path length.
       size_t temp_size = strlen(abs_path);
       if (temp_size > 0xFFFF) {
@@ -934,6 +977,12 @@ int write_files_fn(void *data, void *ud) {
     }
 
     if (rel_path) {
+      if (state->parsed->prefix) {
+        char *rel_path_cached = rel_path;
+        rel_path = simple_archiver_helper_insert_prefix_in_link_path(
+          state->parsed->prefix, file_info->filename, rel_path_cached);
+        free(rel_path_cached);
+      }
       // Write relative path length.
       size_t temp_size = strlen(rel_path);
       if (temp_size > 0xFFFF) {
@@ -1011,7 +1060,8 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   }
 
   // Get combined full path to file.
-  char *fullpath = simple_archiver_file_abs_path(file_info->filename);
+  char *fullpath =
+    simple_archiver_helper_real_path_to_name(file_info->filename);
   if (!fullpath) {
     return 1;
   }
@@ -1824,7 +1874,7 @@ void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
   }
 }
 
-int internal_write_dir_entries(void *data, void *ud) {
+int internal_write_dir_entries_v2_v3(void *data, void *ud) {
   const char *dir = data;
   void **ptrs = ud;
   FILE *out_f = ptrs[0];
@@ -1832,13 +1882,18 @@ int internal_write_dir_entries(void *data, void *ud) {
 
   fprintf(stderr, "  %s\n", dir);
 
-  unsigned long dir_name_length = strlen(dir);
-  if (dir_name_length > 0xFFFF) {
+  const size_t prefix_length = state->parsed->prefix
+                               ? strlen(state->parsed->prefix)
+                               : 0;
+
+  const size_t dir_name_length = strlen(dir);
+  size_t total_name_length = dir_name_length + prefix_length;
+  if (total_name_length >= 0xFFFF) {
     fprintf(stderr, "ERROR: Dirname \"%s\" is too long!\n", dir);
     return 1;
   }
 
-  uint16_t u16 = (uint16_t)dir_name_length;
+  uint16_t u16 = (uint16_t)total_name_length;
 
   simple_archiver_helper_16_bit_be(&u16);
   if (fwrite(&u16, 2, 1, out_f) != 1) {
@@ -1846,7 +1901,22 @@ int internal_write_dir_entries(void *data, void *ud) {
     return 1;
   }
 
-  if (fwrite(dir, 1, dir_name_length + 1, out_f) != dir_name_length + 1) {
+  if (state->parsed->prefix) {
+    if (fwrite(state->parsed->prefix, 1, prefix_length, out_f)
+        != prefix_length) {
+      fprintf(stderr,
+              "ERROR: Failed to write prefix part of dirname \"%s\"!\n",
+              dir);
+      return 1;
+    } else if (fwrite(dir, 1, dir_name_length + 1, out_f)
+               != dir_name_length + 1) {
+      fprintf(stderr,
+              "ERROR: Failed to write (after prefix) dirname for \"%s\"!\n",
+              dir);
+      return 1;
+    }
+  } else if (fwrite(dir, 1, dir_name_length + 1, out_f)
+             != dir_name_length + 1) {
     fprintf(stderr, "ERROR: Failed to write dirname for \"%s\"!\n", dir);
     return 1;
   }
@@ -2309,7 +2379,7 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
   snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
            state->digits);
   fprintf(stderr, format_str, state->count, state->max);
-  if (simple_archiver_list_get(filenames, write_files_fn, state)) {
+  if (simple_archiver_list_get(filenames, write_files_fn_file_v0, state)) {
     if (is_sig_int_occurred) {
       return SDAS_SIGINT;
     }
@@ -2474,6 +2544,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
 #endif
   }
 
+  const size_t prefix_length = state->parsed->prefix
+                               ? strlen(state->parsed->prefix)
+                               : 0;
   {
     const SDArchiverLLNode *node = symlinks_list->head;
     for (u32 = 0;
@@ -2514,7 +2587,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_file_abs_path(node->data);
+              simple_archiver_helper_real_path_to_name(node->data);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -2529,6 +2602,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           !simple_archiver_hash_map_get(abs_filenames, abs_path,
                                         strlen(abs_path) + 1)) {
         // Is not a filename being archived.
+        buf[1] |= 0x8;
         if ((state->parsed->flags & 0x80) == 0) {
           // Not a "safe link", mark invalid and continue.
           is_invalid = 1;
@@ -2611,7 +2685,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       }
 #else
       buf[0] = 0xFE;
-      buf[1] = 3;
+      buf[1] = 0xB;
 #endif
 
       if (is_invalid) {
@@ -2622,7 +2696,11 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
 
-      size_t len = strlen(node->data);
+      const size_t link_length = strlen(node->data);
+      size_t len = link_length;
+      if (state->parsed->prefix) {
+        len += prefix_length;
+      }
       if (len >= 0xFFFF) {
         fprintf(stderr, "ERROR: Link name is too long!\n");
         return SDAS_INVALID_PARSED_STATE;
@@ -2634,26 +2712,64 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
       simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+      if (state->parsed->prefix) {
+        size_t fwrite_ret = fwrite(state->parsed->prefix,
+                                   1,
+                                   prefix_length,
+                                   out_f);
+        fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
+        if (fwrite_ret != (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
         return SDAS_FAILED_TO_WRITE;
       }
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 && !is_invalid) {
-        len = strlen(abs_path);
-        if (len >= 0xFFFF) {
-          fprintf(stderr,
-                  "ERROR: Symlink destination absolute path is too long!\n");
-          return SDAS_INVALID_PARSED_STATE;
-        }
+        if (state->parsed->prefix) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *abs_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, node->data, abs_path);
+          if (!abs_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to add prefix to abs symlink!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          const size_t abs_path_pref_length = strlen(abs_path_prefixed);
+          if (abs_path_pref_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination absolute path with prefix is "
+                    "too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
 
-        u16 = (uint16_t)len;
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
-        }
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          u16 = (uint16_t)abs_path_pref_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(abs_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+        } else {
+          const size_t abs_path_length = strlen(abs_path);
+          if (abs_path_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination absolute path is too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
+
+          u16 = (uint16_t)abs_path_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
         }
       } else {
         u16 = 0;
@@ -2663,21 +2779,50 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       }
 
       if (rel_path && !is_invalid) {
-        len = strlen(rel_path);
-        if (len >= 0xFFFF) {
-          fprintf(stderr,
-                  "ERROR: Symlink destination relative path is too long!\n");
-          return SDAS_INVALID_PARSED_STATE;
-        }
+        if (state->parsed->prefix) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *rel_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, node->data, rel_path);
+          if (!rel_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to add prefix to relative symlink!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          const size_t rel_path_pref_length = strlen(rel_path_prefixed);
+          if (rel_path_pref_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination relative path with prefix is "
+                    "too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
 
-        u16 = (uint16_t)len;
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
-        }
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          u16 = (uint16_t)rel_path_pref_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(rel_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+        } else {
+          len = strlen(rel_path);
+          if (len >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination relative path is too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
+
+          u16 = (uint16_t)len;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
         }
       } else {
         u16 = 0;
@@ -2794,23 +2939,50 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       if (non_c_chunk_size) {
         *non_c_chunk_size += file_info_struct->file_size;
       }
-      size_t len = strlen(file_info_struct->filename);
-      if (len >= 0xFFFF) {
-        fprintf(stderr, "ERROR: Filename is too large!\n");
-        return SDAS_INVALID_FILE;
+      const size_t filename_len = strlen(file_info_struct->filename);
+      if (state->parsed->prefix) {
+        const size_t total_length = filename_len + prefix_length;
+        if (total_length >= 0xFFFF) {
+          fprintf(stderr, "ERROR: Filename with prefix is too large!\n");
+          return SDAS_INVALID_FILE;
+        }
+        u16 = (uint16_t)total_length;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(state->parsed->prefix, 1, prefix_length, out_f)
+            != prefix_length) {
+          return SDAS_FAILED_TO_WRITE;
+        } else if (fwrite(file_info_struct->filename,
+                          1,
+                          filename_len + 1,
+                          out_f)
+                     != filename_len + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else {
+        if (filename_len >= 0xFFFF) {
+          fprintf(stderr, "ERROR: Filename is too large!\n");
+          return SDAS_INVALID_FILE;
+        }
+        u16 = (uint16_t)filename_len;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
+            (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
       }
-      u16 = (uint16_t)len;
-      simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(&u16, 2, 1, out_f) != 1) {
+
+      if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
         return SDAS_FAILED_TO_WRITE;
       }
-      simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
-          (size_t)u16 + 1) {
-        return SDAS_FAILED_TO_WRITE;
-      } else if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
-        return SDAS_FAILED_TO_WRITE;
-      }
+
       // UID and GID.
 
       // Forced UID/GID is already handled by "symlinks_and_files_from_files".
@@ -3294,6 +3466,10 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
     return SDAS_FAILED_TO_WRITE;
   }
 
+  const size_t prefix_length = state->parsed->prefix
+                               ? strlen(state->parsed->prefix)
+                               : 0;
+
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16 = 2;
 
@@ -3424,7 +3600,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_file_abs_path(node->data);
+              simple_archiver_helper_real_path_to_name(node->data);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -3439,6 +3615,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
           !simple_archiver_hash_map_get(abs_filenames, abs_path,
                                         strlen(abs_path) + 1)) {
         // Is not a filename being archived.
+        buf[1] |= 0x8;
         if ((state->parsed->flags & 0x80) == 0) {
           // Not a "safe link", mark invalid and continue.
           is_invalid = 1;
@@ -3521,7 +3698,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       }
 #else
       buf[0] = 0xFE;
-      buf[1] = 3;
+      buf[1] = 0xB;
 #endif
 
       if (is_invalid) {
@@ -3532,7 +3709,11 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
 
-      size_t len = strlen(node->data);
+      const size_t link_length = strlen(node->data);
+      size_t len = link_length;
+      if (state->parsed->prefix) {
+        len += prefix_length;
+      }
       if (len >= 0xFFFF) {
         fprintf(stderr, "ERROR: Link name is too long!\n");
         return SDAS_INVALID_PARSED_STATE;
@@ -3544,26 +3725,64 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
       simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+      if (state->parsed->prefix) {
+        size_t fwrite_ret = fwrite(state->parsed->prefix,
+                                   1,
+                                   prefix_length,
+                                   out_f);
+        fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
+        if (fwrite_ret != (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
         return SDAS_FAILED_TO_WRITE;
       }
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 && !is_invalid) {
-        len = strlen(abs_path);
-        if (len >= 0xFFFF) {
-          fprintf(stderr,
-                  "ERROR: Symlink destination absolute path is too long!\n");
-          return SDAS_INVALID_PARSED_STATE;
-        }
+        if (state->parsed->prefix) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *abs_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, node->data, abs_path);
+          if (!abs_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to add prefix to abs symlink!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          const size_t abs_path_pref_length = strlen(abs_path_prefixed);
+          if (abs_path_pref_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination absolute path with prefix is "
+                    "too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
 
-        u16 = (uint16_t)len;
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
-        }
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          u16 = (uint16_t)abs_path_pref_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(abs_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+        } else {
+          const size_t abs_path_length = strlen(abs_path);
+          if (abs_path_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination absolute path is too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
+
+          u16 = (uint16_t)abs_path_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
         }
       } else {
         u16 = 0;
@@ -3573,21 +3792,50 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       }
 
       if (rel_path && !is_invalid) {
-        len = strlen(rel_path);
-        if (len >= 0xFFFF) {
-          fprintf(stderr,
-                  "ERROR: Symlink destination relative path is too long!\n");
-          return SDAS_INVALID_PARSED_STATE;
-        }
+        if (state->parsed->prefix) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *rel_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, node->data, rel_path);
+          if (!rel_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to add prefix to relative symlink!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          const size_t rel_path_pref_length = strlen(rel_path_prefixed);
+          if (rel_path_pref_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination relative path with prefix is "
+                    "too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
 
-        u16 = (uint16_t)len;
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
-        }
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          u16 = (uint16_t)rel_path_pref_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(rel_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+        } else {
+          len = strlen(rel_path);
+          if (len >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination relative path is too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
+
+          u16 = (uint16_t)len;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
         }
       } else {
         u16 = 0;
@@ -3709,21 +3957,47 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       if (non_c_chunk_size) {
         *non_c_chunk_size += file_info_struct->file_size;
       }
-      size_t len = strlen(file_info_struct->filename);
-      if (len >= 0xFFFF) {
-        fprintf(stderr, "ERROR: Filename is too large!\n");
-        return SDAS_INVALID_FILE;
+      const size_t filename_len = strlen(file_info_struct->filename);
+      if (state->parsed->prefix) {
+        const size_t total_length = filename_len + prefix_length;
+        if (total_length >= 0xFFFF) {
+          fprintf(stderr, "ERROR: Filename with prefix is too large!\n");
+          return SDAS_INVALID_FILE;
+        }
+        u16 = (uint16_t)total_length;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(state->parsed->prefix, 1, prefix_length, out_f)
+            != prefix_length) {
+          return SDAS_FAILED_TO_WRITE;
+        } else if (fwrite(file_info_struct->filename,
+                          1,
+                          filename_len + 1,
+                          out_f)
+                     != filename_len + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else {
+        if (filename_len >= 0xFFFF) {
+          fprintf(stderr, "ERROR: Filename is too large!\n");
+          return SDAS_INVALID_FILE;
+        }
+        u16 = (uint16_t)filename_len;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
+            (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
       }
-      u16 = (uint16_t)len;
-      simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(&u16, 2, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
-      }
-      simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
-          (size_t)u16 + 1) {
-        return SDAS_FAILED_TO_WRITE;
-      } else if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
+
+      if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
         return SDAS_FAILED_TO_WRITE;
       }
       // UID and GID.
@@ -4152,7 +4426,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries,
+                               internal_write_dir_entries_v2_v3,
                                void_ptrs)) {
     free(void_ptrs);
     return SDAS_INTERNAL_ERROR;
@@ -4243,6 +4517,10 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   if (fwrite(&u16, 2, 1, out_f) != 1) {
     return SDAS_FAILED_TO_WRITE;
   }
+
+  const size_t prefix_length = state->parsed->prefix
+                               ? strlen(state->parsed->prefix)
+                               : 0;
 
   if (state->parsed->compressor && !state->parsed->decompressor) {
     return SDAS_NO_DECOMPRESSOR;
@@ -4366,7 +4644,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_file_abs_path(node->data);
+              simple_archiver_helper_real_path_to_name(node->data);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -4381,6 +4659,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
           !simple_archiver_hash_map_get(abs_filenames, abs_path,
                                         strlen(abs_path) + 1)) {
         // Is not a filename being archived.
+        buf[1] |= 8;
         if ((state->parsed->flags & 0x80) == 0) {
           // Not a "safe link", mark invalid and continue.
           is_invalid = 1;
@@ -4463,7 +4742,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
 #else
       buf[0] = 0xFE;
-      buf[1] = 3;
+      buf[1] = 0xB;
 #endif
 
       if (is_invalid) {
@@ -4474,7 +4753,11 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
 
-      size_t len = strlen(node->data);
+      const size_t link_length = strlen(node->data);
+      size_t len = link_length;
+      if (state->parsed->prefix) {
+        len += prefix_length;
+      }
       if (len >= 0xFFFF) {
         fprintf(stderr, "ERROR: Link name is too long!\n");
         return SDAS_INVALID_PARSED_STATE;
@@ -4486,26 +4769,64 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
       simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+      if (state->parsed->prefix) {
+        size_t fwrite_ret = fwrite(state->parsed->prefix,
+                                   1,
+                                   prefix_length,
+                                   out_f);
+        fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
+        if (fwrite_ret != (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
         return SDAS_FAILED_TO_WRITE;
       }
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 && !is_invalid) {
-        len = strlen(abs_path);
-        if (len >= 0xFFFF) {
-          fprintf(stderr,
-                  "ERROR: Symlink destination absolute path is too long!\n");
-          return SDAS_INVALID_PARSED_STATE;
-        }
+        if (state->parsed->prefix) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *abs_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, node->data, abs_path);
+          if (!abs_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to add prefix to abs symlink!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          const size_t abs_path_pref_length = strlen(abs_path_prefixed);
+          if (abs_path_pref_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination absolute path with prefix is "
+                    "too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
 
-        u16 = (uint16_t)len;
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
-        }
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          u16 = (uint16_t)abs_path_pref_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(abs_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+        } else {
+          const size_t abs_path_length = strlen(abs_path);
+          if (abs_path_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination absolute path is too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
+
+          u16 = (uint16_t)abs_path_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
         }
       } else {
         u16 = 0;
@@ -4515,21 +4836,50 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
 
       if (rel_path && !is_invalid) {
-        len = strlen(rel_path);
-        if (len >= 0xFFFF) {
-          fprintf(stderr,
-                  "ERROR: Symlink destination relative path is too long!\n");
-          return SDAS_INVALID_PARSED_STATE;
-        }
+        if (state->parsed->prefix) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *rel_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, node->data, rel_path);
+          if (!rel_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to add prefix to relative symlink!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+          const size_t rel_path_pref_length = strlen(rel_path_prefixed);
+          if (rel_path_pref_length >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination relative path with prefix is "
+                    "too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
 
-        u16 = (uint16_t)len;
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
-        }
-        simple_archiver_helper_16_bit_be(&u16);
-        if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          u16 = (uint16_t)rel_path_pref_length;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(rel_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+        } else {
+          len = strlen(rel_path);
+          if (len >= 0xFFFF) {
+            fprintf(stderr,
+                    "ERROR: Symlink destination relative path is too long!\n");
+            return SDAS_INVALID_PARSED_STATE;
+          }
+
+          u16 = (uint16_t)len;
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(&u16, 2, 1, out_f) != 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
+          simple_archiver_helper_16_bit_be(&u16);
+          if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+            return SDAS_FAILED_TO_WRITE;
+          }
         }
       } else {
         u16 = 0;
@@ -4795,21 +5145,47 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       if (non_c_chunk_size) {
         *non_c_chunk_size += file_info_struct->file_size;
       }
-      size_t len = strlen(file_info_struct->filename);
-      if (len >= 0xFFFF) {
-        fprintf(stderr, "ERROR: Filename is too large!\n");
-        return SDAS_INVALID_FILE;
+      const size_t filename_len = strlen(file_info_struct->filename);
+      if (state->parsed->prefix) {
+        const size_t total_length = filename_len + prefix_length;
+        if (total_length >= 0xFFFF) {
+          fprintf(stderr, "ERROR: Filename with prefix is too large!\n");
+          return SDAS_INVALID_FILE;
+        }
+        u16 = (uint16_t)total_length;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(state->parsed->prefix, 1, prefix_length, out_f)
+            != prefix_length) {
+          return SDAS_FAILED_TO_WRITE;
+        } else if (fwrite(file_info_struct->filename,
+                          1,
+                          filename_len + 1,
+                          out_f)
+                     != filename_len + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+      } else {
+        if (filename_len >= 0xFFFF) {
+          fprintf(stderr, "ERROR: Filename is too large!\n");
+          return SDAS_INVALID_FILE;
+        }
+        u16 = (uint16_t)filename_len;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
+            (size_t)u16 + 1) {
+          return SDAS_FAILED_TO_WRITE;
+        }
       }
-      u16 = (uint16_t)len;
-      simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(&u16, 2, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
-      }
-      simple_archiver_helper_16_bit_be(&u16);
-      if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
-          (size_t)u16 + 1) {
-        return SDAS_FAILED_TO_WRITE;
-      } else if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
+
+      if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
         return SDAS_FAILED_TO_WRITE;
       }
       // UID and GID.
@@ -5324,7 +5700,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries,
+                               internal_write_dir_entries_v2_v3,
                                void_ptrs)) {
     free(void_ptrs);
     return SDAS_INTERNAL_ERROR;
@@ -5494,12 +5870,12 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *links_list =
-      state && state->parsed && state->parsed->flags & 0x80
+      state && state->parsed && (state->parsed->flags & 0x80)
           ? NULL
           : simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *files_map =
-      state && state->parsed && state->parsed->flags & 0x80
+      state && state->parsed && (state->parsed->flags & 0x80)
           ? NULL
           : simple_archiver_hash_map_init();
 
@@ -5522,6 +5898,8 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     __attribute__((cleanup(
         cleanup_overwrite_filename_delete_simple))) char *to_overwrite_dest =
         NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *filename_with_prefix = NULL;
     if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         return SDAS_INVALID_FILE;
@@ -5533,10 +5911,23 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
         skip = 1;
       }
 
+      if (state && state->parsed->prefix) {
+        const size_t buf_str_len = strlen((const char *)buf);
+        const size_t prefix_length = strlen(state->parsed->prefix);
+        filename_with_prefix = malloc(buf_str_len + prefix_length + 1);
+        memcpy(filename_with_prefix, state->parsed->prefix, prefix_length);
+        memcpy(filename_with_prefix + prefix_length, buf, buf_str_len);
+        filename_with_prefix[prefix_length + buf_str_len] = 0;
+      }
+
       if (do_extract && !skip) {
         if ((state->parsed->flags & 0x8) == 0) {
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-          FILE *test_fd = fopen((const char *)buf, "rb");
+          FILE *test_fd =
+            fopen(filename_with_prefix
+                    ? filename_with_prefix
+                    : (const char *)buf,
+                  "rb");
           if (test_fd) {
             skip = 1;
             fprintf(stderr,
@@ -5547,23 +5938,32 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           }
         } else {
           skip = 0;
-          int fd = open((const char *)buf, O_RDONLY | O_NOFOLLOW);
+          int fd =
+            open(filename_with_prefix
+                   ? filename_with_prefix
+                   : (const char *)buf,
+                 O_RDONLY | O_NOFOLLOW);
           if (fd == -1) {
             if (errno == ELOOP) {
               // Is an existing symbolic file.
               // Defer deletion to after "is invalid" check.
-              to_overwrite_dest = strdup((const char *)buf);
+              to_overwrite_dest = strdup(filename_with_prefix
+                                         ? filename_with_prefix
+                                         : (const char *)buf);
             }
           } else {
             close(fd);
             // Is an existing file.
             // Defer deletion to after "is invalid" check.
-            to_overwrite_dest = strdup((const char *)buf);
+            to_overwrite_dest = strdup(filename_with_prefix
+                                       ? filename_with_prefix
+                                       : (const char *)buf);
           }
         }
         if (!skip) {
-          out_f_name = malloc(strlen((const char *)buf) + 1);
-          memcpy(out_f_name, buf, strlen((const char *)buf) + 1);
+          // Don't replace with "filename_with_prefix" here,
+          // original filename is needed later on.
+          out_f_name = strdup((const char *)buf);
         }
       }
     } else {
@@ -5582,10 +5982,22 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
         skip = 1;
       }
 
+      if (state && state->parsed->prefix) {
+        const size_t heap_buf_str_len = strlen((const char *)uc_heap_buf);
+        const size_t prefix_length = strlen(state->parsed->prefix);
+        filename_with_prefix = malloc(heap_buf_str_len + prefix_length + 1);
+        memcpy(filename_with_prefix, state->parsed->prefix, prefix_length);
+        memcpy(filename_with_prefix + prefix_length, uc_heap_buf, heap_buf_str_len);
+        filename_with_prefix[prefix_length + heap_buf_str_len] = 0;
+      }
+
       if (do_extract && !skip) {
         if ((state->parsed->flags & 0x8) == 0) {
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-          FILE *test_fd = fopen((const char *)uc_heap_buf, "rb");
+          FILE *test_fd = fopen(filename_with_prefix
+                                  ? filename_with_prefix
+                                  : (const char *)uc_heap_buf,
+                                "rb");
           if (test_fd) {
             skip = 1;
             fprintf(stderr,
@@ -5596,24 +6008,31 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           }
         } else {
           skip = 0;
-          int fd = open((const char *)uc_heap_buf, O_RDONLY | O_NOFOLLOW);
+          int fd = open(filename_with_prefix
+                          ? filename_with_prefix
+                          : (const char *)uc_heap_buf,
+                        O_RDONLY | O_NOFOLLOW);
           if (fd == -1) {
             if (errno == ELOOP) {
               // Is an existing symbolic file.
               // Defer deletion to after "is invalid" check.
-              to_overwrite_dest = strdup((const char *)uc_heap_buf);
+              to_overwrite_dest = strdup(filename_with_prefix
+                                         ? filename_with_prefix
+                                         : (const char *)uc_heap_buf);
             }
           } else {
             close(fd);
             // Is an existing file.
             // Defer deletion to after "is invalid" check.
-            to_overwrite_dest = strdup((const char *)uc_heap_buf);
+            to_overwrite_dest = strdup(filename_with_prefix
+                                       ? filename_with_prefix
+                                       : (const char *)uc_heap_buf);
           }
         }
         if (!skip) {
-          out_f_name = malloc(strlen((const char *)uc_heap_buf) + 1);
-          memcpy(out_f_name, uc_heap_buf,
-                 strlen((const char *)uc_heap_buf) + 1);
+          // Don't replace with "filename_with_prefix" here,
+          // original filename is needed later on.
+          out_f_name = strdup((const char *)uc_heap_buf);
         }
       }
     }
@@ -5634,7 +6053,10 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     }
 
     if (files_map && !skip && out_f_name) {
-      simple_archiver_internal_paths_to_files_map(files_map, out_f_name);
+      simple_archiver_internal_paths_to_files_map(files_map,
+                                                  filename_with_prefix
+                                                    ? filename_with_prefix
+                                                    : out_f_name);
     }
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
@@ -5734,6 +6156,8 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           state->parsed->file_permissions);
     }
 
+    const uint_fast8_t points_to_outside = (buf[1] & 0x10) ? 1 : 0;
+
     if ((buf[0] & 1) == 0) {
       // Not a sybolic link.
       if (fread(&u64, 8, 1, in_f) != 1) {
@@ -5759,7 +6183,9 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
         fprintf(stderr, "  Extracting...\n");
 
         simple_archiver_helper_make_dirs_perms(
-          (const char *)out_f_name,
+          filename_with_prefix
+            ? filename_with_prefix
+            : (const char *)out_f_name,
           (state->parsed->flags & 0x2000)
             ? simple_archiver_internal_permissions_to_mode_t(
                 state->parsed->dir_permissions)
@@ -5767,17 +6193,24 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
 
-        out_f = fopen(out_f_name, "wb");
+        out_f = fopen(filename_with_prefix
+                        ? filename_with_prefix
+                        : out_f_name,
+                      "wb");
         if (!out_f) {
           fprintf(stderr,
                   "WARNING: Failed to open \"%s\" for writing! (No write "
                   "permissions?)\n",
-                  (char *)out_f_name);
+                  filename_with_prefix
+                    ? filename_with_prefix
+                    : (char *)out_f_name);
         }
         __attribute__((
             cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
             malloc(sizeof(void *) * 2);
-        ptrs_array[0] = out_f_name;
+        ptrs_array[0] = filename_with_prefix
+                          ? filename_with_prefix
+                          : out_f_name;
         ptrs_array[1] = &out_f;
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -6031,7 +6464,10 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           }
         }
 
-        if (chmod((const char *)out_f_name, permissions) == -1) {
+        if (chmod(filename_with_prefix
+                    ? filename_with_prefix
+                    : (const char *)out_f_name,
+                  permissions) == -1) {
           // Error.
           return SDAS_INTERNAL_ERROR;
         }
@@ -6120,7 +6556,9 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 
       if (do_extract && !skip) {
         simple_archiver_helper_make_dirs_perms(
-          (const char *)out_f_name,
+          filename_with_prefix
+            ? filename_with_prefix
+            : (const char *)out_f_name,
           (state->parsed->flags & 0x2000)
             ? simple_archiver_internal_permissions_to_mode_t(
                 state->parsed->dir_permissions)
@@ -6134,8 +6572,26 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
             int_fast8_t retry_symlink = 0;
             int ret;
+            __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+            char *abs_path_prefixed = NULL;
+            if (state->parsed->prefix) {
+              if (points_to_outside) {
+                abs_path_prefixed = strdup(abs_path);
+              } else {
+                abs_path_prefixed =
+                  simple_archiver_helper_insert_prefix_in_link_path(
+                    state->parsed->prefix, out_f_name, abs_path);
+              }
+            }
+            if (filename_with_prefix && !abs_path_prefixed) {
+              fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
+                " abs link with prefix!\n");
+              return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+            }
           V0_SYMLINK_CREATE_RETRY_0:
-            ret = symlink(abs_path, out_f_name);
+            ret = symlink(
+              abs_path_prefixed ? abs_path_prefixed : abs_path,
+              filename_with_prefix ? filename_with_prefix : out_f_name);
             if (ret == -1) {
               if (retry_symlink) {
                 fprintf(stderr,
@@ -6154,7 +6610,9 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                           "  NOTICE: Symlink already exists and "
                           "\"--overwrite-extract\" specified, attempting to "
                           "overwrite...\n");
-                  unlink(out_f_name);
+                  unlink(filename_with_prefix
+                         ? filename_with_prefix
+                         : out_f_name);
                   retry_symlink = 1;
                   goto V0_SYMLINK_CREATE_RETRY_0;
                 }
@@ -6163,9 +6621,17 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
               }
             }
             if (links_list) {
-              simple_archiver_list_add(links_list, strdup(out_f_name), NULL);
+              simple_archiver_list_add(links_list,
+                                       filename_with_prefix
+                                         ? strdup(filename_with_prefix)
+                                         : strdup(out_f_name),
+                                       NULL);
             }
-            ret = fchmodat(AT_FDCWD, out_f_name, permissions,
+            ret = fchmodat(AT_FDCWD,
+                           filename_with_prefix
+                             ? filename_with_prefix
+                             : out_f_name,
+                           permissions,
                            AT_SYMLINK_NOFOLLOW);
             if (ret == -1) {
               if (errno == EOPNOTSUPP) {
@@ -6188,8 +6654,19 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
             int_fast8_t retry_symlink = 0;
             int ret;
+            __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+            char *rel_path_prefixed =
+              simple_archiver_helper_insert_prefix_in_link_path(
+                state->parsed->prefix, out_f_name, rel_path);
+            if (filename_with_prefix && !rel_path_prefixed) {
+              fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
+                " relative link with prefix!\n");
+              return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+            }
           V0_SYMLINK_CREATE_RETRY_1:
-            ret = symlink(rel_path, out_f_name);
+            ret = symlink(
+              rel_path_prefixed ? rel_path_prefixed : rel_path,
+              filename_with_prefix ? filename_with_prefix : out_f_name);
             if (ret == -1) {
               if (retry_symlink) {
                 fprintf(stderr,
@@ -6208,7 +6685,9 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                           "  NOTICE: Symlink already exists and "
                           "\"--overwrite-extract\" specified, attempting to "
                           "overwrite...\n");
-                  unlink(out_f_name);
+                  unlink(filename_with_prefix
+                         ? filename_with_prefix
+                         : out_f_name);
                   retry_symlink = 1;
                   goto V0_SYMLINK_CREATE_RETRY_1;
                 }
@@ -6217,9 +6696,17 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
               }
             }
             if (links_list) {
-              simple_archiver_list_add(links_list, strdup(out_f_name), NULL);
+              simple_archiver_list_add(links_list,
+                                       filename_with_prefix
+                                         ? strdup(filename_with_prefix)
+                                         : strdup(out_f_name),
+                                       NULL);
             }
-            ret = fchmodat(AT_FDCWD, out_f_name, permissions,
+            ret = fchmodat(AT_FDCWD,
+                           filename_with_prefix
+                             ? filename_with_prefix
+                             : out_f_name,
+                           permissions,
                            AT_SYMLINK_NOFOLLOW);
             if (ret == -1) {
               if (errno == EOPNOTSUPP) {
@@ -6241,15 +6728,46 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-          int ret = symlink(abs_path, out_f_name);
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *abs_path_prefixed = NULL;
+          if (state->parsed->prefix) {
+            if (points_to_outside) {
+              abs_path_prefixed = strdup(abs_path);
+            } else {
+              abs_path_prefixed =
+                simple_archiver_helper_insert_prefix_in_link_path(
+                  state->parsed->prefix, out_f_name, abs_path);
+            }
+          }
+          if (filename_with_prefix && !abs_path_prefixed) {
+            fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
+              " abs link with prefix!\n");
+            return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+          }
+          int ret = symlink(
+            abs_path_prefixed
+              ? abs_path_prefixed
+              : abs_path,
+            filename_with_prefix
+              ? filename_with_prefix
+              : out_f_name);
           if (ret == -1) {
             return SDAS_FAILED_TO_EXTRACT_SYMLINK;
           }
           if (links_list) {
-            simple_archiver_list_add(links_list, strdup(out_f_name), NULL);
+            simple_archiver_list_add(
+              links_list,
+              filename_with_prefix
+                ? strdup(filename_with_prefix)
+                : strdup(out_f_name),
+              NULL);
           }
-          ret =
-              fchmodat(AT_FDCWD, out_f_name, permissions, AT_SYMLINK_NOFOLLOW);
+          ret = fchmodat(AT_FDCWD,
+                         filename_with_prefix
+                           ? filename_with_prefix
+                           : out_f_name,
+                         permissions,
+                         AT_SYMLINK_NOFOLLOW);
           if (ret == -1) {
             if (errno == EOPNOTSUPP) {
               fprintf(
@@ -6267,15 +6785,39 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-          int ret = symlink(rel_path, out_f_name);
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *rel_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, out_f_name, rel_path);
+          if (filename_with_prefix && !rel_path_prefixed) {
+            fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
+              " relative link with prefix!\n");
+            return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+          }
+          int ret = symlink(
+            rel_path_prefixed
+              ? rel_path_prefixed
+              : rel_path,
+            filename_with_prefix
+              ? filename_with_prefix
+              : out_f_name);
           if (ret == -1) {
             return SDAS_FAILED_TO_EXTRACT_SYMLINK;
           }
           if (links_list) {
-            simple_archiver_list_add(links_list, strdup(out_f_name), NULL);
+            simple_archiver_list_add(
+              links_list,
+              filename_with_prefix
+                ? strdup(filename_with_prefix)
+                : strdup(out_f_name),
+              NULL);
           }
-          ret =
-              fchmodat(AT_FDCWD, out_f_name, permissions, AT_SYMLINK_NOFOLLOW);
+          ret = fchmodat(AT_FDCWD,
+                         filename_with_prefix
+                           ? filename_with_prefix
+                           : out_f_name,
+                         permissions,
+                         AT_SYMLINK_NOFOLLOW);
           if (ret == -1) {
             if (errno == EOPNOTSUPP) {
               fprintf(
@@ -6409,6 +6951,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     return SDAS_SIGINT;
   }
 
+  const size_t prefix_length = state && state->parsed->prefix
+                               ? strlen(state->parsed->prefix)
+                               : 0;
+
   // Link count.
   if (fread(buf, 1, 4, in_f) != 4) {
     return SDAS_INVALID_FILE;
@@ -6426,6 +6972,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
+    const uint_fast8_t points_to_outside = (buf[1] & 8) ? 1 : 0;
 
     if (is_invalid) {
       fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
@@ -6447,15 +6994,21 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
 
+    const size_t link_name_length = u16;
+
     __attribute__((
         cleanup(simple_archiver_helper_cleanup_c_string))) char *link_name =
-        malloc(u16 + 1);
+        malloc(link_name_length + 1);
 
-    int ret = read_buf_full_from_fd(
-        in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE, u16 + 1, link_name);
+    int ret = read_buf_full_from_fd(in_f,
+                                    (char *)buf,
+                                    SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                    link_name_length + 1,
+                                    link_name);
     if (ret != SDAS_SUCCESS) {
       return ret;
     }
+    link_name[link_name_length] = 0;
 
     if (!do_extract) {
       fprintf(stderr, "  Link name: %s\n", link_name);
@@ -6473,6 +7026,15 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 #endif
     }
 
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *link_name_prefixed = NULL;
+    if (state && state->parsed->prefix) {
+      link_name_prefixed = malloc(prefix_length + link_name_length + 1);
+      memcpy(link_name_prefixed, state->parsed->prefix, prefix_length);
+      memcpy(link_name_prefixed + prefix_length, link_name, link_name_length + 1);
+      link_name_prefixed[prefix_length + link_name_length] = 0;
+    }
+
     if (simple_archiver_validate_file_path(link_name)) {
       fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
       skip_due_to_invalid = 1;
@@ -6485,28 +7047,48 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       fprintf(stderr, "  Skipping not specified in args...\n");
     }
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_path_prefixed = NULL;
+
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
     if (u16 != 0) {
+      const size_t path_length = u16;
       __attribute__((
           cleanup(simple_archiver_helper_cleanup_c_string))) char *path =
-          malloc(u16 + 1);
-      ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                  SIMPLE_ARCHIVER_BUFFER_SIZE, u16 + 1, path);
+          malloc(path_length + 1);
+      ret = read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  path_length + 1,
+                                  path);
       if (ret != SDAS_SUCCESS) {
         return ret;
       }
-      path[u16] = 0;
+      path[path_length] = 0;
       if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
           absolute_preferred) {
+        if (state->parsed->prefix) {
+          if (points_to_outside) {
+            abs_path_prefixed = strdup(path);
+          } else {
+            abs_path_prefixed =
+              simple_archiver_helper_insert_prefix_in_link_path(
+                state->parsed->prefix, link_name, path);
+          }
+          if (!abs_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to insert prefix to absolute path!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+        }
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
         simple_archiver_helper_make_dirs_perms(
-          link_name,
+          link_name_prefixed ? link_name_prefixed : link_name,
           (state->parsed->flags & 0x2000)
             ? simple_archiver_internal_permissions_to_mode_t(
                 state->parsed->dir_permissions)
@@ -6515,7 +7097,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         int_fast8_t link_create_retry = 0;
       V1_SYMLINK_CREATE_RETRY_0:
-        ret = symlink(path, link_name);
+        ret = symlink(
+          abs_path_prefixed ? abs_path_prefixed : path,
+          link_name_prefixed ? link_name_prefixed : link_name
+        );
         if (ret == -1) {
           if (link_create_retry) {
             fprintf(
@@ -6534,14 +7119,17 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                       "  NOTICE: Symlink already exists and "
                       "\"--overwrite-extract\" specified, attempting to "
                       "overwrite...\n");
-              unlink(link_name);
+              unlink(link_name_prefixed ? link_name_prefixed : link_name);
               link_create_retry = 1;
               goto V1_SYMLINK_CREATE_RETRY_0;
             }
           }
           return SDAS_FAILED_TO_EXTRACT_SYMLINK;
         }
-        ret = fchmodat(AT_FDCWD, link_name, permissions, AT_SYMLINK_NOFOLLOW);
+        ret = fchmodat(AT_FDCWD,
+                       link_name_prefixed ? link_name_prefixed : link_name,
+                       permissions,
+                       AT_SYMLINK_NOFOLLOW);
         if (ret == -1) {
           if (errno == EOPNOTSUPP) {
             fprintf(stderr,
@@ -6554,7 +7142,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           }
         }
         link_extracted = 1;
-        fprintf(stderr, "  %s -> %s\n", link_name, path);
+        fprintf(stderr,
+                "  %s -> %s\n",
+                link_name_prefixed ? link_name_prefixed : link_name,
+                abs_path_prefixed ? abs_path_prefixed : path);
       V1_SYMLINK_CREATE_AFTER_0:
         link_create_retry = 1;
 #endif
@@ -6565,28 +7156,45 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       fprintf(stderr, "  No Absolute path.\n");
     }
 
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *rel_path_prefixed = NULL;
+
     if (fread(buf, 1, 2, in_f) != 2) {
       return SDAS_INVALID_FILE;
     }
     memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
     if (u16 != 0) {
+      const size_t path_length = u16;
       __attribute__((
           cleanup(simple_archiver_helper_cleanup_c_string))) char *path =
-          malloc(u16 + 1);
-      ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                  SIMPLE_ARCHIVER_BUFFER_SIZE, u16 + 1, path);
+          malloc(path_length + 1);
+      ret = read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  path_length + 1,
+                                  path);
       if (ret != SDAS_SUCCESS) {
         return ret;
       }
-      path[u16] = 0;
+      path[path_length] = 0;
       if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
           !absolute_preferred) {
+        if (state->parsed->prefix) {
+          rel_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, link_name, path);
+          if (!rel_path_prefixed) {
+            fprintf(stderr,
+                    "ERROR: Failed to insert prefix to relative path!\n");
+            return SDAS_INTERNAL_ERROR;
+          }
+        }
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
         simple_archiver_helper_make_dirs_perms(
-          link_name,
+          link_name_prefixed ? link_name_prefixed : link_name,
           (state->parsed->flags & 0x2000)
             ? simple_archiver_internal_permissions_to_mode_t(
                 state->parsed->dir_permissions)
@@ -6595,7 +7203,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         int_fast8_t link_create_retry = 0;
       V1_SYMLINK_CREATE_RETRY_1:
-        ret = symlink(path, link_name);
+        ret = symlink(
+          rel_path_prefixed ? rel_path_prefixed : path,
+          link_name_prefixed ? link_name_prefixed : link_name);
         if (ret == -1) {
           if (link_create_retry) {
             fprintf(
@@ -6614,14 +7224,17 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                       "  NOTICE: Symlink already exists and "
                       "\"--overwrite-extract\" specified, attempting to "
                       "overwrite...\n");
-              unlink(link_name);
+              unlink(link_name_prefixed ? link_name_prefixed : link_name);
               link_create_retry = 1;
               goto V1_SYMLINK_CREATE_RETRY_1;
             }
           }
           return SDAS_FAILED_TO_EXTRACT_SYMLINK;
         }
-        ret = fchmodat(AT_FDCWD, link_name, permissions, AT_SYMLINK_NOFOLLOW);
+        ret = fchmodat(AT_FDCWD,
+                       link_name_prefixed ? link_name_prefixed : link_name,
+                       permissions,
+                       AT_SYMLINK_NOFOLLOW);
         if (ret == -1) {
           if (errno == EOPNOTSUPP) {
             fprintf(stderr,
@@ -6637,7 +7250,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             && (state->parsed->flags & 0x400 || state->parsed->flags & 0x800)) {
           ret = fchownat(
               AT_FDCWD,
-              link_name,
+              link_name_prefixed ? link_name_prefixed : link_name,
               state->parsed->flags & 0x400 ? state->parsed->uid : getuid(),
               state->parsed->flags & 0x800 ? state->parsed->gid : getgid(),
               AT_SYMLINK_NOFOLLOW);
@@ -6645,12 +7258,15 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             fprintf(stderr,
                     "  WARNING: Failed to force set UID/GID of symlink \"%s\""
                     "(errno %d)!\n",
-                    link_name,
+                    link_name_prefixed ? link_name_prefixed : link_name,
                     errno);
           }
         }
         link_extracted = 1;
-        fprintf(stderr, "  %s -> %s\n", link_name, path);
+        fprintf(stderr,
+                "  %s -> %s\n",
+                link_name_prefixed ? link_name_prefixed : link_name,
+                rel_path_prefixed ? rel_path_prefixed : path);
       V1_SYMLINK_CREATE_AFTER_1:
         link_create_retry = 1;
 #endif
@@ -7005,10 +7621,21 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                 file_count,
                 file_info->filename);
 
+        const size_t filename_length = strlen(file_info->filename);
+
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *filename_prefixed = NULL;
+        if (state && state->parsed->prefix) {
+          filename_prefixed = malloc(prefix_length + filename_length + 1);
+          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
+          memcpy(filename_prefixed + prefix_length, file_info->filename, filename_length + 1);
+          filename_prefixed[prefix_length + filename_length] = 0;
+        }
+
         uint_fast8_t skip_due_to_map = 0;
         if (working_files_map && simple_archiver_hash_map_get(
                                      working_files_map, file_info->filename,
-                                     strlen(file_info->filename) + 1) == NULL) {
+                                     filename_length + 1) == NULL) {
           skip_due_to_map = 1;
           fprintf(stderr, "    Skipping not specified in args...\n");
         } else if ((file_info->other_flags & 1) != 0) {
@@ -7034,7 +7661,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-            FILE *temp_fd = fopen(file_info->filename, "r");
+            FILE *temp_fd = fopen(
+              filename_prefixed ? filename_prefixed : file_info->filename,
+              "r");
             if (temp_fd) {
               fprintf(stderr,
                       "  WARNING: File already exists and "
@@ -7052,31 +7681,49 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           }
 
           simple_archiver_helper_make_dirs_perms(
-            file_info->filename,
+            filename_prefixed ? filename_prefixed : file_info->filename,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
               : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
-            (state->parsed->flags & 0x400) ? state->parsed->uid : file_info->uid,
-            (state->parsed->flags & 0x800) ? state->parsed->gid : file_info->gid);
+            (state->parsed->flags & 0x400)
+              ? state->parsed->uid
+              : file_info->uid,
+            (state->parsed->flags & 0x800)
+              ? state->parsed->gid
+              : file_info->gid);
           int ret = read_decomp_to_out_file(
-              file_info->filename, pipe_outof_read, (char *)buf,
-              SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
-              &pipe_into_write, &chunk_remaining, in_f, hold_buf, &has_hold);
+              filename_prefixed ? filename_prefixed : file_info->filename,
+              pipe_outof_read,
+              (char *)buf,
+              SIMPLE_ARCHIVER_BUFFER_SIZE,
+              file_info->file_size,
+              &pipe_into_write,
+              &chunk_remaining,
+              in_f,
+              hold_buf,
+              &has_hold);
           if (ret != SDAS_SUCCESS) {
             return ret;
           }
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-          if (chmod(file_info->filename, permissions) == -1) {
+          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+                    permissions)
+                == -1) {
             return SDAS_INTERNAL_ERROR;
           } else if (geteuid() == 0 &&
-                     chown(file_info->filename, file_info->uid,
+                     chown(filename_prefixed
+                             ? filename_prefixed
+                             : file_info->filename,
+                           file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
-                    file_info->filename);
+                    filename_prefixed
+                      ? filename_prefixed
+                      : file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
 #endif
@@ -7142,10 +7789,21 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           return SDAS_INTERNAL_ERROR;
         }
 
+        const size_t filename_length = strlen(file_info->filename);
+
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *filename_prefixed = NULL;
+        if (state && state->parsed->prefix) {
+          filename_prefixed = malloc(prefix_length + filename_length + 1);
+          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
+          memcpy(filename_prefixed + prefix_length, file_info->filename, filename_length + 1);
+          filename_prefixed[prefix_length + filename_length] = 0;
+        }
+
         uint_fast8_t skip_due_to_map = 0;
         if (working_files_map && simple_archiver_hash_map_get(
                                      working_files_map, file_info->filename,
-                                     strlen(file_info->filename) + 1) == NULL) {
+                                     filename_length + 1) == NULL) {
           skip_due_to_map = 1;
           fprintf(stderr, "    Skipping not specified in args...\n");
         } else if (file_info->other_flags & 1) {
@@ -7173,7 +7831,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-            FILE *temp_fd = fopen(file_info->filename, "r");
+            FILE *temp_fd = fopen(filename_prefixed
+                                    ? filename_prefixed
+                                    : file_info->filename,
+                                  "r");
             if (temp_fd) {
               fprintf(stderr,
                       "  WARNING: File already exists and "
@@ -7188,15 +7849,22 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             }
           }
           simple_archiver_helper_make_dirs_perms(
-            file_info->filename,
+            filename_prefixed ? filename_prefixed : file_info->filename,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
               : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
-            (state->parsed->flags & 0x400) ? state->parsed->uid : file_info->uid,
-            (state->parsed->flags & 0x800) ? state->parsed->gid : file_info->gid);
+            (state->parsed->flags & 0x400)
+              ? state->parsed->uid
+              : file_info->uid,
+            (state->parsed->flags & 0x800)
+              ? state->parsed->gid
+              : file_info->gid);
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-          FILE *out_fd = fopen(file_info->filename, "wb");
+          FILE *out_fd = fopen(filename_prefixed
+                                 ? filename_prefixed
+                                 : file_info->filename,
+                               "wb");
           int ret = read_fd_to_out_fd(in_f, out_fd, (char *)buf,
                                       SIMPLE_ARCHIVER_BUFFER_SIZE,
                                       file_info->file_size);
@@ -7207,13 +7875,19 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-          if (chmod(file_info->filename, permissions) == -1) {
+          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+                    permissions) == -1) {
             fprintf(stderr,
                     "ERROR Failed to set permissions of file \"%s\"!\n",
-                    file_info->filename);
+                    filename_prefixed
+                      ? filename_prefixed
+                      : file_info->filename);
             return SDAS_INTERNAL_ERROR;
           } else if (geteuid() == 0 &&
-                     chown(file_info->filename, file_info->uid,
+                     chown(filename_prefixed
+                             ? filename_prefixed
+                             : file_info->filename,
+                           file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
@@ -7445,6 +8119,11 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
         "/",
         simple_archiver_helper_datastructure_cleanup_nop);
     }
+    if (state && state->parsed->prefix) {
+      simple_archiver_list_add(string_parts,
+                               strdup(state->parsed->prefix),
+                               NULL);
+    }
     simple_archiver_list_add(string_parts, strdup(buf), NULL);
     simple_archiver_list_add(
       string_parts,
@@ -7592,6 +8271,10 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     return SDAS_SIGINT;
   }
 
+  const size_t prefix_length = state && state->parsed->prefix
+                               ? strlen(state->parsed->prefix)
+                               : 0;
+
   // Link count.
   if (fread(buf, 1, 4, in_f) != 4) {
     return SDAS_INVALID_FILE;
@@ -7610,6 +8293,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
+    const uint_fast8_t points_to_outside = (buf[1] & 8) ? 1 : 0;
 
     if (is_invalid) {
       fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
@@ -7625,21 +8309,25 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     uint_fast8_t skip_due_to_map = 0;
     uint_fast8_t skip_due_to_invalid = is_invalid ? 1 : 0;
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
 
-    __attribute__((
-        cleanup(simple_archiver_helper_cleanup_c_string))) char *link_name =
-        malloc(u16 + 1);
+    const size_t link_name_length = u16;
 
-    int ret = read_buf_full_from_fd(
-        in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE, u16 + 1, link_name);
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *link_name = malloc(link_name_length + 1);
+
+    int ret = read_buf_full_from_fd(in_f,
+                                    (char *)buf,
+                                    SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                    link_name_length + 1,
+                                    link_name);
     if (ret != SDAS_SUCCESS) {
       return ret;
     }
+    link_name[link_name_length] = 0;
 
     if (!do_extract) {
       fprintf(stderr, "  Link name: %s\n", link_name);
@@ -7657,6 +8345,15 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 #endif
     }
 
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *link_name_prefixed = NULL;
+    if (state && state->parsed->prefix) {
+      link_name_prefixed = malloc(prefix_length + link_name_length + 1);
+      memcpy(link_name_prefixed, state->parsed->prefix, prefix_length);
+      memcpy(link_name_prefixed + prefix_length, link_name, link_name_length + 1);
+      link_name_prefixed[prefix_length + link_name_length] = 0;
+    }
+
     if (simple_archiver_validate_file_path(link_name)) {
       fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
       skip_due_to_invalid = 1;
@@ -7669,27 +8366,45 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       fprintf(stderr, "  Skipping not specified in args...\n");
     }
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_path_prefixed = NULL;
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *parsed_abs_path = NULL;
     if (u16 != 0) {
-      parsed_abs_path = malloc(u16 + 1);
+      const size_t path_length = u16;
+      parsed_abs_path = malloc(path_length + 1);
       ret = read_buf_full_from_fd(in_f,
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                  u16 + 1,
+                                  path_length + 1,
                                   parsed_abs_path);
       if (ret != SDAS_SUCCESS) {
         return ret;
       }
-      parsed_abs_path[u16] = 0;
+      parsed_abs_path[path_length] = 0;
       if (!do_extract) {
         fprintf(stderr, "  Abs path: %s\n", parsed_abs_path);
+      }
+
+      if (state && state->parsed->prefix) {
+        if (points_to_outside) {
+          abs_path_prefixed = strdup(parsed_abs_path);
+        } else {
+          abs_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, link_name, parsed_abs_path);
+        }
+        if (!abs_path_prefixed) {
+          fprintf(stderr,
+                  "ERROR: Failed to insert prefix to absolute path!\n");
+          return SDAS_INTERNAL_ERROR;
+        }
       }
     } else if (!do_extract) {
       fprintf(stderr, "  No Absolute path.\n");
@@ -7700,21 +8415,37 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
     memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *rel_path_prefixed = NULL;
+
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *parsed_rel_path = NULL;
     if (u16 != 0) {
-      parsed_rel_path = malloc(u16 + 1);
+      const size_t path_length = u16;
+      parsed_rel_path = malloc(path_length + 1);
       ret = read_buf_full_from_fd(in_f,
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                  u16 + 1,
+                                  path_length + 1,
                                   parsed_rel_path);
       if (ret != SDAS_SUCCESS) {
         return ret;
       }
-      parsed_rel_path[u16] = 0;
+      parsed_rel_path[path_length] = 0;
       if (!do_extract) {
         fprintf(stderr, "  Rel path: %s\n", parsed_rel_path);
+      }
+
+      if (state && state->parsed->prefix) {
+        rel_path_prefixed =
+          simple_archiver_helper_insert_prefix_in_link_path(
+            state->parsed->prefix, link_name, parsed_rel_path);
+        if (!rel_path_prefixed) {
+          fprintf(stderr,
+                  "ERROR: Failed to insert prefix to relative path!\n");
+          return SDAS_INTERNAL_ERROR;
+        }
       }
     } else if (!do_extract) {
       fprintf(stderr, "  No Relative path.\n");
@@ -7889,7 +8620,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
   SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
   SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       simple_archiver_helper_make_dirs_perms(
-        link_name,
+        link_name_prefixed ? link_name_prefixed : link_name,
         (state->parsed->flags & 0x2000)
           ? simple_archiver_internal_permissions_to_mode_t(
               state->parsed->dir_permissions)
@@ -7898,7 +8629,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
       int_fast8_t link_create_retry = 0;
     V3_SYMLINK_CREATE_RETRY_0:
-      ret = symlink(parsed_abs_path, link_name);
+      ret = symlink(
+        abs_path_prefixed ? abs_path_prefixed : parsed_abs_path,
+        link_name_prefixed ? link_name_prefixed : link_name);
       if (ret == -1) {
         if (link_create_retry) {
           fprintf(
@@ -7917,14 +8650,17 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                     "  NOTICE: Symlink already exists and "
                     "\"--overwrite-extract\" specified, attempting to "
                     "overwrite...\n");
-            unlink(link_name);
+            unlink(link_name_prefixed ? link_name_prefixed : link_name);
             link_create_retry = 1;
             goto V3_SYMLINK_CREATE_RETRY_0;
           }
         }
         return SDAS_FAILED_TO_EXTRACT_SYMLINK;
       }
-      ret = fchmodat(AT_FDCWD, link_name, permissions, AT_SYMLINK_NOFOLLOW);
+      ret = fchmodat(AT_FDCWD,
+                     link_name_prefixed ? link_name_prefixed : link_name,
+                     permissions,
+                     AT_SYMLINK_NOFOLLOW);
       if (ret == -1) {
         if (errno == EOPNOTSUPP) {
           fprintf(stderr,
@@ -7937,7 +8673,10 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         }
       }
       link_extracted = 1;
-      fprintf(stderr, "  %s -> %s\n", link_name, parsed_abs_path);
+      fprintf(stderr,
+              "  %s -> %s\n",
+              link_name_prefixed ? link_name_prefixed : link_name,
+              abs_path_prefixed ? abs_path_prefixed : parsed_abs_path);
     V3_SYMLINK_CREATE_AFTER_0:
       link_create_retry = 1;
 #endif
@@ -7947,7 +8686,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
   SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
   SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       simple_archiver_helper_make_dirs_perms(
-        link_name,
+        link_name_prefixed ? link_name_prefixed : link_name,
         (state->parsed->flags & 0x2000)
           ? simple_archiver_internal_permissions_to_mode_t(
               state->parsed->dir_permissions)
@@ -7956,7 +8695,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
       int_fast8_t link_create_retry = 0;
     V3_SYMLINK_CREATE_RETRY_1:
-      ret = symlink(parsed_rel_path, link_name);
+      ret = symlink(
+        rel_path_prefixed ? rel_path_prefixed : parsed_rel_path,
+        link_name_prefixed ? link_name_prefixed : link_name);
       if (ret == -1) {
         if (link_create_retry) {
           fprintf(
@@ -7975,14 +8716,17 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                     "  NOTICE: Symlink already exists and "
                     "\"--overwrite-extract\" specified, attempting to "
                     "overwrite...\n");
-            unlink(link_name);
+            unlink(link_name_prefixed ? link_name_prefixed : link_name);
             link_create_retry = 1;
             goto V3_SYMLINK_CREATE_RETRY_1;
           }
         }
         return SDAS_FAILED_TO_EXTRACT_SYMLINK;
       }
-      ret = fchmodat(AT_FDCWD, link_name, permissions, AT_SYMLINK_NOFOLLOW);
+      ret = fchmodat(AT_FDCWD,
+                     link_name_prefixed ? link_name_prefixed : link_name,
+                     permissions,
+                     AT_SYMLINK_NOFOLLOW);
       if (ret == -1) {
         if (errno == EOPNOTSUPP) {
           fprintf(stderr,
@@ -7996,7 +8740,10 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       link_extracted = 1;
-      fprintf(stderr, "  %s -> %s\n", link_name, parsed_rel_path);
+      fprintf(stderr,
+              "  %s -> %s\n",
+              link_name_prefixed ? link_name_prefixed : link_name,
+              rel_path_prefixed ? rel_path_prefixed : parsed_rel_path);
     V3_SYMLINK_CREATE_AFTER_1:
       link_create_retry = 1;
 #endif
@@ -8073,7 +8820,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
       ret = fchownat(
           AT_FDCWD,
-          link_name,
+          link_name_prefixed ? link_name_prefixed : link_name,
           state->parsed->flags & 0x400 ? state->parsed->uid : picked_uid,
           state->parsed->flags & 0x800 ? state->parsed->gid : picked_gid,
           AT_SYMLINK_NOFOLLOW);
@@ -8492,10 +9239,23 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                 file_count,
                 file_info->filename);
 
+        const size_t filename_length = strlen(file_info->filename);
+
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *filename_prefixed = NULL;
+        if (state && state->parsed->prefix) {
+          filename_prefixed = malloc(prefix_length + filename_length + 1);
+          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
+          memcpy(filename_prefixed + prefix_length,
+                 file_info->filename,
+                 filename_length + 1);
+          filename_prefixed[prefix_length + filename_length] = 0;
+        }
+
         uint_fast8_t skip_due_to_map = 0;
         if (working_files_map && simple_archiver_hash_map_get(
                                      working_files_map, file_info->filename,
-                                     strlen(file_info->filename) + 1) == NULL) {
+                                     filename_length + 1) == NULL) {
           skip_due_to_map = 1;
           fprintf(stderr, "    Skipping not specified in args...\n");
         } else if ((file_info->other_flags & 1) != 0) {
@@ -8521,7 +9281,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-            FILE *temp_fd = fopen(file_info->filename, "r");
+            FILE *temp_fd = fopen(
+              filename_prefixed ? filename_prefixed : file_info->filename,
+              "r");
             if (temp_fd) {
               fprintf(stderr,
                       "  WARNING: File already exists and "
@@ -8539,7 +9301,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           }
 
           simple_archiver_helper_make_dirs_perms(
-            file_info->filename,
+            filename_prefixed ? filename_prefixed : file_info->filename,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
@@ -8547,24 +9309,37 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             (state->parsed->flags & 0x400) ? state->parsed->uid : file_info->uid,
             (state->parsed->flags & 0x800) ? state->parsed->gid : file_info->gid);
           int ret = read_decomp_to_out_file(
-              file_info->filename, pipe_outof_read, (char *)buf,
-              SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
-              &pipe_into_write, &chunk_remaining, in_f, hold_buf, &has_hold);
+              filename_prefixed ? filename_prefixed : file_info->filename,
+              pipe_outof_read,
+              (char *)buf,
+              SIMPLE_ARCHIVER_BUFFER_SIZE,
+              file_info->file_size,
+              &pipe_into_write,
+              &chunk_remaining,
+              in_f,
+              hold_buf,
+              &has_hold);
           if (ret != SDAS_SUCCESS) {
             return ret;
           }
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-          if (chmod(file_info->filename, permissions) == -1) {
+          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+                    permissions)
+                == -1) {
             return SDAS_INTERNAL_ERROR;
           } else if (geteuid() == 0 &&
-                     chown(file_info->filename,
+                     chown(filename_prefixed
+                             ? filename_prefixed
+                             : file_info->filename,
                            file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
-                    file_info->filename);
+                    filename_prefixed
+                      ? filename_prefixed
+                      : file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
 #endif
@@ -8640,10 +9415,23 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           return SDAS_INTERNAL_ERROR;
         }
 
+        const size_t filename_length = strlen(file_info->filename);
+
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *filename_prefixed = NULL;
+        if (state && state->parsed->prefix) {
+          filename_prefixed = malloc(prefix_length + filename_length + 1);
+          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
+          memcpy(filename_prefixed + prefix_length,
+                 file_info->filename,
+                 filename_length + 1);
+          filename_prefixed[prefix_length + filename_length] = 0;
+        }
+
         uint_fast8_t skip_due_to_map = 0;
         if (working_files_map && simple_archiver_hash_map_get(
                                      working_files_map, file_info->filename,
-                                     strlen(file_info->filename) + 1) == NULL) {
+                                     filename_length + 1) == NULL) {
           skip_due_to_map = 1;
           fprintf(stderr, "    Skipping not specified in args...\n");
         } else if (file_info->other_flags & 1) {
@@ -8671,7 +9459,10 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-            FILE *temp_fd = fopen(file_info->filename, "r");
+            FILE *temp_fd = fopen(filename_prefixed
+                                    ? filename_prefixed
+                                    : file_info->filename,
+                                  "r");
             if (temp_fd) {
               fprintf(stderr,
                       "  WARNING: File already exists and "
@@ -8686,7 +9477,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             }
           }
           simple_archiver_helper_make_dirs_perms(
-            file_info->filename,
+            filename_prefixed ? filename_prefixed : file_info->filename,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
@@ -8694,7 +9485,10 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             (state->parsed->flags & 0x400) ? state->parsed->uid : file_info->uid,
             (state->parsed->flags & 0x800) ? state->parsed->gid : file_info->gid);
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-          FILE *out_fd = fopen(file_info->filename, "wb");
+          FILE *out_fd = fopen(filename_prefixed
+                                 ? filename_prefixed
+                                 : file_info->filename,
+                               "wb");
           int ret = read_fd_to_out_fd(in_f, out_fd, (char *)buf,
                                       SIMPLE_ARCHIVER_BUFFER_SIZE,
                                       file_info->file_size);
@@ -8705,18 +9499,24 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-          if (chmod(file_info->filename, permissions) == -1) {
-            fprintf(stderr,
-                    "ERROR Failed to set permissions of file \"%s\"!\n",
-                    file_info->filename);
+          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+                    permissions)
+                == -1) {
+            fprintf(
+              stderr,
+              "ERROR Failed to set permissions of file \"%s\"!\n",
+              filename_prefixed ? filename_prefixed : file_info->filename);
             return SDAS_INTERNAL_ERROR;
           } else if (geteuid() == 0 &&
-                     chown(file_info->filename,
+                     chown(filename_prefixed
+                             ? filename_prefixed
+                             : file_info->filename,
                            file_info->uid,
                            file_info->gid) != 0) {
-            fprintf(stderr,
-                    "    ERROR Failed to set UID/GID of file \"%s\"!\n",
-                    file_info->filename);
+            fprintf(
+              stderr,
+              "    ERROR Failed to set UID/GID of file \"%s\"!\n",
+              filename_prefixed ? filename_prefixed : file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
 #endif
@@ -9009,6 +9809,11 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         "/",
         simple_archiver_helper_datastructure_cleanup_nop);
     }
+    if (state && state->parsed->prefix) {
+      simple_archiver_list_add(string_parts,
+                               strdup(state->parsed->prefix),
+                               NULL);
+    }
     simple_archiver_list_add(string_parts, strdup((char *)buf), NULL);
     simple_archiver_list_add(
       string_parts,
@@ -9162,50 +9967,6 @@ char *simple_archiver_filenames_to_relative_path(const char *from_abs,
   } while (has_slash);
 
   return rel_path;
-}
-
-char *simple_archiver_file_abs_path(const char *filename) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-  __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void *path =
-      malloc(strlen(filename) + 1);
-  strncpy(path, filename, strlen(filename) + 1);
-
-  char *path_dir = dirname(path);
-  if (!path_dir) {
-    return NULL;
-  }
-
-  __attribute__((
-      cleanup(simple_archiver_helper_cleanup_malloced))) void *dir_realpath =
-      realpath(path_dir, NULL);
-  if (!dir_realpath) {
-    return NULL;
-  }
-
-  // Recreate "path" since it may have been modified by dirname().
-  simple_archiver_helper_cleanup_malloced(&path);
-  path = malloc(strlen(filename) + 1);
-  strncpy(path, filename, strlen(filename) + 1);
-
-  char *filename_basename = basename(path);
-  if (!filename_basename) {
-    return NULL;
-  }
-
-  // Get combined full path to file.
-  const size_t realpath_size = strlen(dir_realpath) + 1;
-  const size_t basename_size = strlen(filename_basename) + 1;
-  const size_t fullpath_size = realpath_size + basename_size;
-  char *fullpath = malloc(fullpath_size);
-  strncpy(fullpath, dir_realpath, realpath_size);
-  fullpath[realpath_size - 1] = '/';
-  strcpy(fullpath + realpath_size, filename_basename);
-
-  return fullpath;
-#endif
-  return NULL;
 }
 
 int simple_archiver_validate_file_path(const char *filepath) {

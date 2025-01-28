@@ -62,6 +62,8 @@ Following the file-count bytes, the following bytes are added for each file:
            this specification and skip to the next entry; if marked invalid,
            the following specification bytes for this file/symlink entry must
            not exist.
+        5. The fifth bit is set if this symlink points to something outside of
+           this archive.
     3. The third byte.
         1. Currently unused.
     4. The fourth byte.
@@ -136,6 +138,8 @@ Following the link-count bytes, the following bytes are added for each symlink:
         3. If this bit is set, then this entry is marked invalid. The link name
            will be preserved in this entry, but the following link target paths
            will be set to zero-length and will not be stored.
+        4. If this bit is set, then this entry points to something outside of
+           this archive.
 2. 2 bytes 16-bit unsigned integer "link name" in big-endian. This does not
    include the NULL at the end of the string. Must not be zero.
 3. X bytes of link-name (length defined by previous value). Is a NULL-terminated
@@ -307,6 +311,8 @@ Following the link-count bytes, the following bytes are added for each symlink:
         3. If this bit is set, then this entry is marked invalid. The link name
            will be preserved in this entry, but the following link target paths
            will be set to zero-length and will not be stored.
+        4. If this bit is set, then this symlink points to something outside of
+           this archive.
 2. 2 bytes 16-bit unsigned integer "link name" in big-endian. This does not
    include the NULL at the end of the string. Must not be zero.
 3. X bytes of link-name (length defined by previous value). Is a NULL-terminated
