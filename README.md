@@ -52,6 +52,7 @@ API calls.
       Must be three octal characters like "755" or "440"
     --force-dir-permissions <3-octal-values> : Force set permissions for directories on archive creation/extraction
       Must be three octal characters like "755" or "440"
+    --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
     If extracting archive file, remaining args specify files to extract.
