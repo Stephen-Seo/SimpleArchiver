@@ -15,6 +15,8 @@ Add new flag `--prefix <prefix>`.
     every extracted item. This effectively extracts items with `prefix` as the
     outermost directory in the current working directory.
 
+Add new flag `--version`.
+
 ## Version 1.11
 
 Added file format version 3 that supports username and groupname metadata for
