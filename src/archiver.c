@@ -6189,7 +6189,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x2000)
             ? simple_archiver_internal_permissions_to_mode_t(
                 state->parsed->dir_permissions)
-            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+            : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
           (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
 
@@ -6562,7 +6562,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x2000)
             ? simple_archiver_internal_permissions_to_mode_t(
                 state->parsed->dir_permissions)
-            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+            : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
           (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         if (abs_path && rel_path) {
@@ -7092,7 +7092,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x2000)
             ? simple_archiver_internal_permissions_to_mode_t(
                 state->parsed->dir_permissions)
-            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+            : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
           (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         int_fast8_t link_create_retry = 0;
@@ -7198,7 +7198,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x2000)
             ? simple_archiver_internal_permissions_to_mode_t(
                 state->parsed->dir_permissions)
-            : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+            : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
           (state->parsed->flags & 0x400) ? state->parsed->uid : getuid(),
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         int_fast8_t link_create_retry = 0;
@@ -7685,7 +7685,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
-              : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+              : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
             (state->parsed->flags & 0x400)
               ? state->parsed->uid
               : file_info->uid,
@@ -7853,7 +7853,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
-              : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+              : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
             (state->parsed->flags & 0x400)
               ? state->parsed->uid
               : file_info->uid,
@@ -8157,7 +8157,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
         state && (state->parsed->flags & 0x2000)
           ? simple_archiver_internal_permissions_to_mode_t(
               state->parsed->dir_permissions)
-          : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+          : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
         state && (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
         state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
       if (ret != 0) {
@@ -8624,7 +8624,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         (state->parsed->flags & 0x2000)
           ? simple_archiver_internal_permissions_to_mode_t(
               state->parsed->dir_permissions)
-          : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+          : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
         (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
         (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
       int_fast8_t link_create_retry = 0;
@@ -8690,7 +8690,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         (state->parsed->flags & 0x2000)
           ? simple_archiver_internal_permissions_to_mode_t(
               state->parsed->dir_permissions)
-          : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+          : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
         (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
         (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
       int_fast8_t link_create_retry = 0;
@@ -9305,7 +9305,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
-              : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+              : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
             (state->parsed->flags & 0x400) ? state->parsed->uid : file_info->uid,
             (state->parsed->flags & 0x800) ? state->parsed->gid : file_info->gid);
           int ret = read_decomp_to_out_file(
@@ -9481,7 +9481,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
-              : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+              : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
             (state->parsed->flags & 0x400) ? state->parsed->uid : file_info->uid,
             (state->parsed->flags & 0x800) ? state->parsed->gid : file_info->gid);
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
@@ -9847,7 +9847,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         state && (state->parsed->flags & 0x2000)
           ? simple_archiver_internal_permissions_to_mode_t(
               state->parsed->dir_permissions)
-          : (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH),
+          : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
         state && (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
         state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
       if (ret != 0) {

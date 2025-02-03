@@ -212,7 +212,7 @@ int simple_archiver_helper_make_dirs(const char *file_path) {
         return ret;
       }
       // Now make dir.
-      ret = mkdir(dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+      ret = mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
       if (ret != 0) {
         // Error.
         return 2;
