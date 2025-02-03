@@ -2,6 +2,13 @@
 
 ## Upcoming Changes
 
+## Version 1.13
+
+Stricter default directory permissions when directories are created.
+
+  - Previous impl used: `rwxrwxr-x`
+  - Current impl uses: `rwxr-xr-x`
+
 ## Version 1.12
 
 Fix bug where file formats 2 and 3 would create directories in an archive when
