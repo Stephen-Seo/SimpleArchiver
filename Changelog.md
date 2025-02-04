@@ -2,6 +2,11 @@
 
 ## Upcoming Changes
 
+## Version 1.14
+
+Fix not setting empty directory permissions when extracted.  
+The previous behavior just used the default (or forced) permissions.
+
 ## Version 1.13
 
 Stricter default directory permissions when directories are created.
