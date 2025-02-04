@@ -2162,6 +2162,19 @@ mode_t simple_archiver_internal_permissions_to_mode_t(uint_fast16_t permissions)
     | ((permissions & 0x100) ? S_IXOTH : 0);
 }
 
+mode_t simple_archiver_internal_bits_to_mode_t(const uint8_t perms[restrict 2])
+{
+  return ((perms[0] & 1) ? S_IRUSR : 0)
+       | ((perms[0] & 2) ? S_IWUSR : 0)
+       | ((perms[0] & 4) ? S_IXUSR : 0)
+       | ((perms[0] & 8) ? S_IRGRP : 0)
+       | ((perms[0] & 0x10) ? S_IWGRP : 0)
+       | ((perms[0] & 0x20) ? S_IXGRP : 0)
+       | ((perms[0] & 0x40) ? S_IROTH : 0)
+       | ((perms[0] & 0x80) ? S_IWOTH : 0)
+       | ((perms[1] & 1)    ? S_IXOTH : 0);
+}
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -8125,10 +8138,6 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
                                NULL);
     }
     simple_archiver_list_add(string_parts, strdup(buf), NULL);
-    simple_archiver_list_add(
-      string_parts,
-      "/UNUSED",
-      simple_archiver_helper_datastructure_cleanup_nop);
 
     size_t size = 0;
     for (SDArchiverLLNode *node = string_parts->head->next;
@@ -8139,21 +8148,47 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     ++size;
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-    char *abs_path = malloc(size);
+    char *abs_dir_path = malloc(size);
     size_t idx = 0;
     for (SDArchiverLLNode *node = string_parts->head->next;
          node->data != NULL;
          node = node->next) {
       const size_t part_len = strlen(node->data);
-      memcpy(abs_path + idx, node->data, part_len);
+      memcpy(abs_dir_path + idx, node->data, part_len);
       idx += part_len;
     }
-    abs_path[size - 1] = 0;
-    //fprintf(stderr, "DEBUG: abs_path is \"%s\"!\n", abs_path);
+    abs_dir_path[size - 1] = 0;
+
+    simple_archiver_list_add(
+      string_parts,
+      "/UNUSED",
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    size = 0;
+    for (SDArchiverLLNode *node = string_parts->head->next;
+         node->data != NULL;
+         node = node->next) {
+      size += strlen(node->data);
+    }
+    ++size;
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_dir_path_with_suffix = malloc(size);
+    idx = 0;
+    for (SDArchiverLLNode *node = string_parts->head->next;
+         node->data != NULL;
+         node = node->next) {
+      const size_t part_len = strlen(node->data);
+      memcpy(abs_dir_path_with_suffix + idx, node->data, part_len);
+      idx += part_len;
+    }
+    abs_dir_path_with_suffix[size - 1] = 0;
+    //fprintf(stderr, "DEBUG: abs_dir_path_with_suffix is \"%s\"!\n",
+    // abs_dir_path_with_suffix);
 
     if (do_extract) {
       int ret = simple_archiver_helper_make_dirs_perms(
-        abs_path,
+        abs_dir_path_with_suffix,
         state && (state->parsed->flags & 0x2000)
           ? simple_archiver_internal_permissions_to_mode_t(
               state->parsed->dir_permissions)
@@ -8164,6 +8199,17 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
         fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
         return SDAS_INTERNAL_ERROR;
       }
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
+      ret = chmod(abs_dir_path, perms);
+      if (ret != 0) {
+        fprintf(stderr,
+                "WARNING: Failed to set permissions on dir \"%s\"!\n",
+                abs_dir_path);
+      }
+#endif
     }
   }
 
@@ -9815,10 +9861,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                                NULL);
     }
     simple_archiver_list_add(string_parts, strdup((char *)buf), NULL);
-    simple_archiver_list_add(
-      string_parts,
-      "/UNUSED",
-      simple_archiver_helper_datastructure_cleanup_nop);
 
     size_t size = 0;
     for (SDArchiverLLNode *node = string_parts->head->next;
@@ -9827,23 +9869,48 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       size += strlen(node->data);
     }
     ++size;
-
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-    char *abs_path = malloc(size);
+    char *abs_dir_path = malloc(size);
     size_t idx = 0;
     for (SDArchiverLLNode *node = string_parts->head->next;
          node->data != NULL;
          node = node->next) {
       const size_t part_len = strlen(node->data);
-      memcpy(abs_path + idx, node->data, part_len);
+      memcpy(abs_dir_path + idx, node->data, part_len);
       idx += part_len;
     }
-    abs_path[size - 1] = 0;
-    //fprintf(stderr, "DEBUG: abs_path is \"%s\"!\n", abs_path);
+    abs_dir_path[size - 1] = 0;
+
+    simple_archiver_list_add(
+      string_parts,
+      "/UNUSED",
+      simple_archiver_helper_datastructure_cleanup_nop);
+
+    size = 0;
+    for (SDArchiverLLNode *node = string_parts->head->next;
+         node->data != NULL;
+         node = node->next) {
+      size += strlen(node->data);
+    }
+    ++size;
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_dir_path_with_suffix = malloc(size);
+    idx = 0;
+    for (SDArchiverLLNode *node = string_parts->head->next;
+         node->data != NULL;
+         node = node->next) {
+      const size_t part_len = strlen(node->data);
+      memcpy(abs_dir_path_with_suffix + idx, node->data, part_len);
+      idx += part_len;
+    }
+    abs_dir_path_with_suffix[size - 1] = 0;
+    //fprintf(stderr, "DEBUG: abs_dir_path_with_suffix is \"%s\"!\n",
+    // abs_dir_path_with_suffix);
 
     if (do_extract) {
       int ret = simple_archiver_helper_make_dirs_perms(
-        abs_path,
+        abs_dir_path_with_suffix,
         state && (state->parsed->flags & 0x2000)
           ? simple_archiver_internal_permissions_to_mode_t(
               state->parsed->dir_permissions)
@@ -9854,6 +9921,17 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
         return SDAS_INTERNAL_ERROR;
       }
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+      mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
+      ret = chmod(abs_dir_path, perms);
+      if (ret != 0) {
+        fprintf(stderr,
+                "WARNING: Failed to set permissions on dir \"%s\"!\n",
+                abs_dir_path);
+      }
+#endif
     }
   }
 
