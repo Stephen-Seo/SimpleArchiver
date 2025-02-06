@@ -23,6 +23,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
+// Local includes.
+#include "data_structures/linked_list.h"
+
 static const uint32_t MAX_SYMBOLIC_LINK_SIZE = 512;
 
 /// Returns non-zero if this system is big-endian.
@@ -95,5 +98,25 @@ void simple_archiver_helper_cleanup_chdir_back(char **original);
 void simple_archiver_helper_cleanup_uint32(uint32_t **uint);
 
 void simple_archiver_helper_datastructure_cleanup_nop(void *unused);
+
+typedef struct SAHelperStringParts {
+  SDArchiverLinkedList *parts;
+} SAHelperStringParts;
+
+typedef struct SAHelperStringPart {
+  char *buf;
+  size_t size;
+} SAHelperStringPart;
+
+// Must be free'd by `simple_archiver_helper_string_parts_free`.
+SAHelperStringParts simple_archiver_helper_string_parts_init(void);
+void simple_archiver_helper_string_parts_free(
+  SAHelperStringParts *string_parts);
+// Makes a copy of the given c-string.
+void simple_archiver_helper_string_parts_add(SAHelperStringParts string_parts,
+                                             const char *c_string);
+// Returned c-string must be free'd.
+char *simple_archiver_helper_string_parts_combine(
+  SAHelperStringParts string_parts);
 
 #endif
