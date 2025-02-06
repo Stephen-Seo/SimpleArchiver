@@ -934,6 +934,36 @@ TEST_HELPERS_PREFIX_END:
     CHECK_TRUE(simple_archiver_validate_file_path("strange/.."));
   }
 
+  // Test string parts.
+  {
+    __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
+    SAHelperStringParts string_parts = simple_archiver_helper_string_parts_init();
+
+    simple_archiver_helper_string_parts_add(string_parts, "a");
+
+    char *buf = simple_archiver_helper_string_parts_combine(string_parts);
+    CHECK_STREQ(buf, "a");
+    free(buf);
+
+    simple_archiver_helper_string_parts_add(string_parts, "/b");
+
+    buf = simple_archiver_helper_string_parts_combine(string_parts);
+    CHECK_STREQ(buf, "a/b");
+    free(buf);
+
+    simple_archiver_helper_string_parts_add(string_parts, "/");
+
+    buf = simple_archiver_helper_string_parts_combine(string_parts);
+    CHECK_STREQ(buf, "a/b/");
+    free(buf);
+
+    simple_archiver_helper_string_parts_add(string_parts, "c");
+
+    buf = simple_archiver_helper_string_parts_combine(string_parts);
+    CHECK_STREQ(buf, "a/b/c");
+    free(buf);
+  }
+
   printf("Checks checked: %" PRId32 "\n", checks_checked);
   printf("Checks passed:  %" PRId32 "\n", checks_passed);
   return checks_passed == checks_checked ? 0 : 1;
