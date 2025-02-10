@@ -9806,7 +9806,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       return SDAS_INTERNAL_ERROR;
     }
 
-    // TODO separate out string_parts stuff into a helper function(s).
     __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
     SAHelperStringParts string_parts =
       simple_archiver_helper_string_parts_init();
