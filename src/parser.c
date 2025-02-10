@@ -678,9 +678,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
           ++ptr;
         }
 
-        // TODO verify this is necessary, using different variables.
-        ptr = out->working_files;
-        out->working_files = realloc(ptr, sizeof(char *) * (working_size + 1));
+        out->working_files = realloc(out->working_files, sizeof(char *) * (working_size + 1));
 
         // Set new actual last element to NULL.
         out->working_files[working_size] = NULL;
@@ -958,7 +956,10 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
               // Is a directory.
               simple_archiver_list_add_front(dir_list, combined_path, NULL);
             } else {
-              // Unhandled type. TODO handle this.
+              fprintf(stderr,
+                      "NOTICE: Not a file, symlink, or directory: \"%s\"."
+                        " Skipping...\n",
+                      combined_path);
               free(combined_path);
             }
           }
@@ -984,7 +985,10 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
         }
       }
     } else {
-      // Unhandled type. TODO handle this.
+      fprintf(stderr,
+              "NOTICE: Not a file, symlink, or directory: \"%s\"."
+                " Skipping...\n",
+              file_path);
     }
   }
 #endif
