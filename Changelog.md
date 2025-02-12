@@ -2,6 +2,11 @@
 
 ## Upcoming Changes
 
+Add flag "--force-empty-dir-permissions <3-octal-values>" that force sets the
+permissions for all extracted empty directories.
+
+Internal refactorings/fixes.
+
 ## Version 1.14
 
 Fix not setting empty directory permissions when extracted.  
