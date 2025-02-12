@@ -239,6 +239,10 @@ void simple_archiver_print_usage(void) {
           "--force-dir-permissions <3-octal-values> : Force set permissions "
           "for directories on archive creation/extraction\n"
           "  Must be three octal characters like \"755\" or \"440\"\n");
+  fprintf(stderr,
+          "--force-empty-dir-permissions <3-octal-values> : Force set EMPTY "
+          "dir permissions. Like \"--force-dir-permissions\", but for empty "
+          "directories.\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -270,6 +274,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.gid = 0;
   parsed.file_permissions = 0;
   parsed.dir_permissions = 0;
+  parsed.empty_dir_permissions = 0;
   parsed.users_infos = simple_archiver_users_get_system_info();
   parsed.mappings.UidToUname = simple_archiver_hash_map_init();
   parsed.mappings.UnameToUid = simple_archiver_hash_map_init();
@@ -644,6 +649,39 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->dir_permissions |= (value & 1) ? 0x100 : 0;
 
         out->flags |= 0x2000;
+
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--force-empty-dir-permissions") == 0) {
+        if (argc < 2
+            || strlen(argv[1]) != 3
+            || (!(argv[1][0] >= '0' && argv[1][0] <= '7'))
+            || (!(argv[1][1] >= '0' && argv[1][1] <= '7'))
+            || (!(argv[1][2] >= '0' && argv[1][2] <= '7'))
+              ) {
+          fprintf(stderr,
+                  "ERROR: --force-empty-dir-permissions expects 3 octal values"
+                  " (e.g. \"755\" or \"440\")!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        uint_fast8_t value = (uint_fast8_t)(argv[1][0] - '0');
+        out->empty_dir_permissions |= (value & 4) ? 1 : 0;
+        out->empty_dir_permissions |= (value & 2) ? 2 : 0;
+        out->empty_dir_permissions |= (value & 1) ? 4 : 0;
+
+        value = (uint_fast8_t)(argv[1][1] - '0');
+        out->empty_dir_permissions |= (value & 4) ? 8 : 0;
+        out->empty_dir_permissions |= (value & 2) ? 0x10 : 0;
+        out->empty_dir_permissions |= (value & 1) ? 0x20 : 0;
+
+        value = (uint_fast8_t)(argv[1][2] - '0');
+        out->empty_dir_permissions |= (value & 4) ? 0x40 : 0;
+        out->empty_dir_permissions |= (value & 2) ? 0x80 : 0;
+        out->empty_dir_permissions |= (value & 1) ? 0x100 : 0;
+
+        out->flags |= 0x10000;
 
         --argc;
         ++argv;

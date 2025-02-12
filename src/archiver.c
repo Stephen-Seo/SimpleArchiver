@@ -8165,7 +8165,11 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
-      ret = chmod(abs_dir_path, perms);
+      ret = chmod(abs_dir_path,
+                  state && (state->parsed->flags & 0x10000)
+                    ? simple_archiver_internal_permissions_to_mode_t(
+                        state->parsed->empty_dir_permissions)
+                    : perms);
       if (ret != 0) {
         fprintf(stderr,
                 "WARNING: Failed to set permissions on dir \"%s\"!\n",
@@ -9850,7 +9854,11 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
-      ret = chmod(abs_dir_path, perms);
+      ret = chmod(abs_dir_path,
+                  state && (state->parsed->flags & 0x10000)
+                    ? simple_archiver_internal_permissions_to_mode_t(
+                        state->parsed->empty_dir_permissions)
+                    : perms);
       if (ret != 0) {
         fprintf(stderr,
                 "WARNING: Failed to set permissions on dir \"%s\"!\n",
