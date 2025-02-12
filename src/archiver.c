@@ -1937,8 +1937,8 @@ int internal_write_dir_entries_v2_v3(void *data, void *ud) {
 
   uint8_t u8 = 0;
 
-  if (state && state->parsed->flags & 0x2000) {
-    u8 = state->parsed->dir_permissions & 0xFF;
+  if (state && state->parsed->flags & 0x10000) {
+    u8 = state->parsed->empty_dir_permissions & 0xFF;
   } else {
     if ((stat_buf.st_mode & S_IRUSR) != 0) {
       u8 |= 1;
@@ -1974,8 +1974,8 @@ int internal_write_dir_entries_v2_v3(void *data, void *ud) {
   }
 
   u8 = 0;
-  if (state && state->parsed->flags & 0x2000) {
-    u8 = (state->parsed->dir_permissions & 0x100) >> 8;
+  if (state && state->parsed->flags & 0x10000) {
+    u8 = (state->parsed->empty_dir_permissions & 0x100) >> 8;
   } else {
     if ((stat_buf.st_mode & S_IXOTH) != 0) {
       u8 |= 1;
