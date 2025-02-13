@@ -2,8 +2,12 @@
 
 ## Upcoming Changes
 
-Add flag "--force-empty-dir-permissions <3-octal-values>" that force sets the
+Add flag `--force-empty-dir-permissions <3-octal-values>` that force sets the
 permissions for all extracted empty directories.
+
+Changes behavior to force set empty dir permissions on archive creation only if
+`--force-empty-dir-permissions <...>` is used instead of
+`--force-dir-permissions <...>`.
 
 Internal refactorings/fixes.
 
