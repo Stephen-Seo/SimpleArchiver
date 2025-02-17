@@ -147,7 +147,7 @@ char *simple_archiver_parsed_status_to_str(SDArchiverParsedStatus status) {
 }
 
 void simple_archiver_print_usage(void) {
-  fprintf(stderr, "Usage flags:\n");
+  fprintf(stderr, "\nUsage flags:\n");
   fprintf(stderr, "-c : create archive file\n");
   fprintf(stderr, "-x : extract archive file\n");
   fprintf(stderr, "-t : examine archive file\n");
