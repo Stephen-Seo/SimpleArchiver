@@ -147,7 +147,7 @@ char *simple_archiver_parsed_status_to_str(SDArchiverParsedStatus status) {
 }
 
 void simple_archiver_print_usage(void) {
-  fprintf(stderr, "Usage flags:\n");
+  fprintf(stderr, "\nUsage flags:\n");
   fprintf(stderr, "-c : create archive file\n");
   fprintf(stderr, "-x : extract archive file\n");
   fprintf(stderr, "-t : examine archive file\n");
@@ -239,6 +239,10 @@ void simple_archiver_print_usage(void) {
           "--force-dir-permissions <3-octal-values> : Force set permissions "
           "for directories on archive creation/extraction\n"
           "  Must be three octal characters like \"755\" or \"440\"\n");
+  fprintf(stderr,
+          "--force-empty-dir-permissions <3-octal-values> : Force set EMPTY "
+          "dir permissions. Like \"--force-dir-permissions\", but for empty "
+          "directories.\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -270,6 +274,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.gid = 0;
   parsed.file_permissions = 0;
   parsed.dir_permissions = 0;
+  parsed.empty_dir_permissions = 0;
   parsed.users_infos = simple_archiver_users_get_system_info();
   parsed.mappings.UidToUname = simple_archiver_hash_map_init();
   parsed.mappings.UnameToUid = simple_archiver_hash_map_init();
@@ -647,6 +652,39 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--force-empty-dir-permissions") == 0) {
+        if (argc < 2
+            || strlen(argv[1]) != 3
+            || (!(argv[1][0] >= '0' && argv[1][0] <= '7'))
+            || (!(argv[1][1] >= '0' && argv[1][1] <= '7'))
+            || (!(argv[1][2] >= '0' && argv[1][2] <= '7'))
+              ) {
+          fprintf(stderr,
+                  "ERROR: --force-empty-dir-permissions expects 3 octal values"
+                  " (e.g. \"755\" or \"440\")!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        uint_fast8_t value = (uint_fast8_t)(argv[1][0] - '0');
+        out->empty_dir_permissions |= (value & 4) ? 1 : 0;
+        out->empty_dir_permissions |= (value & 2) ? 2 : 0;
+        out->empty_dir_permissions |= (value & 1) ? 4 : 0;
+
+        value = (uint_fast8_t)(argv[1][1] - '0');
+        out->empty_dir_permissions |= (value & 4) ? 8 : 0;
+        out->empty_dir_permissions |= (value & 2) ? 0x10 : 0;
+        out->empty_dir_permissions |= (value & 1) ? 0x20 : 0;
+
+        value = (uint_fast8_t)(argv[1][2] - '0');
+        out->empty_dir_permissions |= (value & 4) ? 0x40 : 0;
+        out->empty_dir_permissions |= (value & 2) ? 0x80 : 0;
+        out->empty_dir_permissions |= (value & 1) ? 0x100 : 0;
+
+        out->flags |= 0x10000;
+
+        --argc;
+        ++argv;
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);
@@ -678,9 +716,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
           ++ptr;
         }
 
-        // TODO verify this is necessary, using different variables.
-        ptr = out->working_files;
-        out->working_files = realloc(ptr, sizeof(char *) * (working_size + 1));
+        out->working_files = realloc(out->working_files, sizeof(char *) * (working_size + 1));
 
         // Set new actual last element to NULL.
         out->working_files[working_size] = NULL;
@@ -958,7 +994,10 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
               // Is a directory.
               simple_archiver_list_add_front(dir_list, combined_path, NULL);
             } else {
-              // Unhandled type. TODO handle this.
+              fprintf(stderr,
+                      "NOTICE: Not a file, symlink, or directory: \"%s\"."
+                        " Skipping...\n",
+                      combined_path);
               free(combined_path);
             }
           }
@@ -984,7 +1023,10 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
         }
       }
     } else {
-      // Unhandled type. TODO handle this.
+      fprintf(stderr,
+              "NOTICE: Not a file, symlink, or directory: \"%s\"."
+                " Skipping...\n",
+              file_path);
     }
   }
 #endif

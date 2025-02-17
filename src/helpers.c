@@ -549,3 +549,65 @@ char *simple_archiver_helper_real_path_to_name(const char *filename) {
     return result;
   }
 }
+
+SAHelperStringParts simple_archiver_helper_string_parts_init(void) {
+  SAHelperStringParts parts;
+  parts.parts = simple_archiver_list_init();
+  return parts;
+}
+
+void simple_archiver_helper_string_parts_free(SAHelperStringParts *string_parts)
+{
+  if (string_parts && string_parts->parts) {
+    simple_archiver_list_free(&string_parts->parts);
+  }
+}
+
+void simple_archiver_helper_string_part_free(void *v_part) {
+  SAHelperStringPart *part = v_part;
+  if (part) {
+    if (part->buf) {
+      free(part->buf);
+    }
+    free(part);
+  }
+}
+
+void simple_archiver_helper_string_parts_add(SAHelperStringParts string_parts,
+                                             const char *c_string) {
+  if (!c_string || c_string[0] == 0) {
+    return;
+  }
+  SAHelperStringPart *part = malloc(sizeof(SAHelperStringPart));
+  part->buf = strdup(c_string);
+  part->size = strlen(part->buf);
+  simple_archiver_list_add(string_parts.parts,
+                           part,
+                           simple_archiver_helper_string_part_free);
+}
+
+char *simple_archiver_helper_string_parts_combine(
+    SAHelperStringParts string_parts) {
+  size_t size = 0;
+  for (SDArchiverLLNode *node = string_parts.parts->head->next;
+       node->next != NULL;
+       node = node->next) {
+    if (node->data) {
+      SAHelperStringPart *part = node->data;
+      size += part->size;
+    }
+  }
+  char *buf = malloc(size + 1);
+  size_t idx = 0;
+  for (SDArchiverLLNode *node = string_parts.parts->head->next;
+       node->next != NULL;
+       node = node->next) {
+    if (node->data) {
+      SAHelperStringPart *part = node->data;
+      memcpy(buf + idx, part->buf, part->size);
+      idx += part->size;
+    }
+  }
+  buf[size] = 0;
+  return buf;
+}

@@ -59,6 +59,18 @@ int main(int argc, const char **argv) {
     return 6;
   }
 
+  if ((parsed.flags & 0x3) == 0 && (parsed.flags & 0x2000) != 0) {
+    fprintf(stderr,
+            "WARNING: --force-dir-permissions specified, but has no effect "
+            "during archive creation!\nNOTE: Use "
+            "\"--force-empty-dir-permissions\" for empty directories!\n");
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+    sleep(2);
+#endif
+  }
+
   if ((parsed.flags & 0x3) == 0 && (parsed.flags & 0x4) == 0) {
     FILE *file = fopen(parsed.filename, "r");
     if (file != NULL) {

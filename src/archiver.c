@@ -1937,8 +1937,8 @@ int internal_write_dir_entries_v2_v3(void *data, void *ud) {
 
   uint8_t u8 = 0;
 
-  if (state && state->parsed->flags & 0x2000) {
-    u8 = state->parsed->dir_permissions & 0xFF;
+  if (state && state->parsed->flags & 0x10000) {
+    u8 = state->parsed->empty_dir_permissions & 0xFF;
   } else {
     if ((stat_buf.st_mode & S_IRUSR) != 0) {
       u8 |= 1;
@@ -1974,8 +1974,8 @@ int internal_write_dir_entries_v2_v3(void *data, void *ud) {
   }
 
   u8 = 0;
-  if (state && state->parsed->flags & 0x2000) {
-    u8 = (state->parsed->dir_permissions & 0x100) >> 8;
+  if (state && state->parsed->flags & 0x10000) {
+    u8 = (state->parsed->empty_dir_permissions & 0x100) >> 8;
   } else {
     if ((stat_buf.st_mode & S_IXOTH) != 0) {
       u8 |= 1;
@@ -8121,70 +8121,32 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
       return SDAS_INTERNAL_ERROR;
     }
 
-    // TODO separate out string_parts stuff into a helper function(s).
-    __attribute__((cleanup(simple_archiver_list_free)))
-    SDArchiverLinkedList *string_parts = simple_archiver_list_init();
+    __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
+    SAHelperStringParts string_parts =
+      simple_archiver_helper_string_parts_init();
 
-    simple_archiver_list_add(string_parts, strdup(abs_path_dir), NULL);
+    simple_archiver_helper_string_parts_add(string_parts, abs_path_dir);
+
     if (abs_path_dir[strlen(abs_path_dir) - 1] != '/') {
-      simple_archiver_list_add(
-        string_parts,
-        "/",
-        simple_archiver_helper_datastructure_cleanup_nop);
+      simple_archiver_helper_string_parts_add(string_parts, "/");
     }
+
     if (state && state->parsed->prefix) {
-      simple_archiver_list_add(string_parts,
-                               strdup(state->parsed->prefix),
-                               NULL);
+      simple_archiver_helper_string_parts_add(string_parts,
+                                              state->parsed->prefix);
     }
-    simple_archiver_list_add(string_parts, strdup(buf), NULL);
 
-    size_t size = 0;
-    for (SDArchiverLLNode *node = string_parts->head->next;
-         node->data != NULL;
-         node = node->next) {
-      size += strlen(node->data);
-    }
-    ++size;
+    simple_archiver_helper_string_parts_add(string_parts, buf);
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-    char *abs_dir_path = malloc(size);
-    size_t idx = 0;
-    for (SDArchiverLLNode *node = string_parts->head->next;
-         node->data != NULL;
-         node = node->next) {
-      const size_t part_len = strlen(node->data);
-      memcpy(abs_dir_path + idx, node->data, part_len);
-      idx += part_len;
-    }
-    abs_dir_path[size - 1] = 0;
+    char *abs_dir_path =
+      simple_archiver_helper_string_parts_combine(string_parts);
 
-    simple_archiver_list_add(
-      string_parts,
-      "/UNUSED",
-      simple_archiver_helper_datastructure_cleanup_nop);
-
-    size = 0;
-    for (SDArchiverLLNode *node = string_parts->head->next;
-         node->data != NULL;
-         node = node->next) {
-      size += strlen(node->data);
-    }
-    ++size;
+    simple_archiver_helper_string_parts_add(string_parts, "/UNUSED");
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-    char *abs_dir_path_with_suffix = malloc(size);
-    idx = 0;
-    for (SDArchiverLLNode *node = string_parts->head->next;
-         node->data != NULL;
-         node = node->next) {
-      const size_t part_len = strlen(node->data);
-      memcpy(abs_dir_path_with_suffix + idx, node->data, part_len);
-      idx += part_len;
-    }
-    abs_dir_path_with_suffix[size - 1] = 0;
-    //fprintf(stderr, "DEBUG: abs_dir_path_with_suffix is \"%s\"!\n",
-    // abs_dir_path_with_suffix);
+    char *abs_dir_path_with_suffix =
+      simple_archiver_helper_string_parts_combine(string_parts);
 
     if (do_extract) {
       int ret = simple_archiver_helper_make_dirs_perms(
@@ -8203,7 +8165,11 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
-      ret = chmod(abs_dir_path, perms);
+      ret = chmod(abs_dir_path,
+                  state && (state->parsed->flags & 0x10000)
+                    ? simple_archiver_internal_permissions_to_mode_t(
+                        state->parsed->empty_dir_permissions)
+                    : perms);
       if (ret != 0) {
         fprintf(stderr,
                 "WARNING: Failed to set permissions on dir \"%s\"!\n",
@@ -9844,69 +9810,32 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       return SDAS_INTERNAL_ERROR;
     }
 
-    // TODO separate out string_parts stuff into a helper function(s).
-    __attribute__((cleanup(simple_archiver_list_free)))
-    SDArchiverLinkedList *string_parts = simple_archiver_list_init();
+    __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
+    SAHelperStringParts string_parts =
+      simple_archiver_helper_string_parts_init();
 
-    simple_archiver_list_add(string_parts, strdup(abs_path_dir), NULL);
+    simple_archiver_helper_string_parts_add(string_parts, abs_path_dir);
+
     if (abs_path_dir[strlen(abs_path_dir) - 1] != '/') {
-      simple_archiver_list_add(
-        string_parts,
-        "/",
-        simple_archiver_helper_datastructure_cleanup_nop);
+      simple_archiver_helper_string_parts_add(string_parts, "/");
     }
+
     if (state && state->parsed->prefix) {
-      simple_archiver_list_add(string_parts,
-                               strdup(state->parsed->prefix),
-                               NULL);
+      simple_archiver_helper_string_parts_add(string_parts,
+                                              state->parsed->prefix);
     }
-    simple_archiver_list_add(string_parts, strdup((char *)buf), NULL);
 
-    size_t size = 0;
-    for (SDArchiverLLNode *node = string_parts->head->next;
-         node->data != NULL;
-         node = node->next) {
-      size += strlen(node->data);
-    }
-    ++size;
-    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-    char *abs_dir_path = malloc(size);
-    size_t idx = 0;
-    for (SDArchiverLLNode *node = string_parts->head->next;
-         node->data != NULL;
-         node = node->next) {
-      const size_t part_len = strlen(node->data);
-      memcpy(abs_dir_path + idx, node->data, part_len);
-      idx += part_len;
-    }
-    abs_dir_path[size - 1] = 0;
-
-    simple_archiver_list_add(
-      string_parts,
-      "/UNUSED",
-      simple_archiver_helper_datastructure_cleanup_nop);
-
-    size = 0;
-    for (SDArchiverLLNode *node = string_parts->head->next;
-         node->data != NULL;
-         node = node->next) {
-      size += strlen(node->data);
-    }
-    ++size;
+    simple_archiver_helper_string_parts_add(string_parts, (char *)buf);
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-    char *abs_dir_path_with_suffix = malloc(size);
-    idx = 0;
-    for (SDArchiverLLNode *node = string_parts->head->next;
-         node->data != NULL;
-         node = node->next) {
-      const size_t part_len = strlen(node->data);
-      memcpy(abs_dir_path_with_suffix + idx, node->data, part_len);
-      idx += part_len;
-    }
-    abs_dir_path_with_suffix[size - 1] = 0;
-    //fprintf(stderr, "DEBUG: abs_dir_path_with_suffix is \"%s\"!\n",
-    // abs_dir_path_with_suffix);
+    char *abs_dir_path =
+      simple_archiver_helper_string_parts_combine(string_parts);
+
+    simple_archiver_helper_string_parts_add(string_parts, "/UNUSED");
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_dir_path_with_suffix =
+      simple_archiver_helper_string_parts_combine(string_parts);
 
     if (do_extract) {
       int ret = simple_archiver_helper_make_dirs_perms(
@@ -9925,7 +9854,11 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
-      ret = chmod(abs_dir_path, perms);
+      ret = chmod(abs_dir_path,
+                  state && (state->parsed->flags & 0x10000)
+                    ? simple_archiver_internal_permissions_to_mode_t(
+                        state->parsed->empty_dir_permissions)
+                    : perms);
       if (ret != 0) {
         fprintf(stderr,
                 "WARNING: Failed to set permissions on dir \"%s\"!\n",

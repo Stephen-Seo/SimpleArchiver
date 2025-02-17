@@ -58,6 +58,7 @@ typedef struct SDArchiverParsed {
   /// 0b xx1x xxxx xxxx xxxx - Force set directory permissions.
   /// 0b x1xx xxxx xxxx xxxx - Prefer UID over Username when extracting.
   /// 0b 1xxx xxxx xxxx xxxx - Prefer GID over Group when extracting.
+  /// 0b xxxx xxx1 xxxx xxxx xxxx xxxx - Force set empty directory permissions.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;
@@ -91,6 +92,7 @@ typedef struct SDArchiverParsed {
   /// 0b xxx1 xxxx xxxx - other execute
   uint_fast16_t file_permissions;
   uint_fast16_t dir_permissions;
+  uint_fast16_t empty_dir_permissions;
   UsersInfos users_infos;
   SDA_UGMapping mappings;
   /// Prefix for archived/extracted paths.
