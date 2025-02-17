@@ -8,17 +8,17 @@ jobs:
   build-and-run-unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Clone repo
-        run: git clone --depth=1 --no-single-branch https://github.com/Stephen-Seo/SimpleArchiver.git
-      - name: Checkout the branch
-        run: cd SimpleArchiver && git checkout "${GITHUB_REF_NAME}"
       - name: Get cmake/gcc
         run: sudo apt-get -y install cmake gcc sed
+      - name: Clone repo
+        run: git clone https://github.com/Stephen-Seo/SimpleArchiver.git
+      - name: Checkout the branch
+        run: cd SimpleArchiver && git checkout "${GITHUB_REF_NAME}"
       - name: Patch CMakeLists.txt to remove "-fstrict-flex-arrays=3" which is unavailable in ubuntu-latest
         run: sed -i 's/-fstrict-flex-arrays=3//g' SimpleArchiver/CMakeLists.txt
       - name: Prepare and Build
-        run: cmake -S SimpleArchiver -B build -DCMAKE_BUILD_TYPE=Debug && make -C build
+        run: cmake -S SimpleArchiver -B SimpleArchiver/build -DCMAKE_BUILD_TYPE=Debug && make -C SimpleArchiver/build
       - name: Run data structures unit tests
-        run: ./build/test_datastructures
+        run: ./SimpleArchiver/build/test_datastructures
       - name: Run regular unit tests
-        run: ./build/test_simplearchiver
+        run: ./SimpleArchiver/build/test_simplearchiver
