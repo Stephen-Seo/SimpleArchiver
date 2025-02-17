@@ -1700,8 +1700,92 @@ int symlinks_and_files_from_files(void *data, void *ud) {
   SDArchiverPHeap *pheap = ptr_array[3];
   SDArchiverLinkedList *dirs_list = ptr_array[4];
   const SDArchiverState *state = ptr_array[5];
+  uint64_t *from_files_count = ptr_array[6];
 
   if (file_info->filename) {
+    // Check white/black lists.
+    if (state->parsed->whitelist_contains) {
+      for (SDArchiverLLNode *node =
+            state->parsed->whitelist_contains->head->next;
+          node != state->parsed->whitelist_contains->tail;
+          node = node->next) {
+        if (node->data) {
+          if (!simple_archiver_helper_string_contains(file_info->filename,
+                                                      node->data)) {
+            // Skipping since filename does not contain whitelist text.
+            return 0;
+          }
+        }
+      }
+    }
+    if (state->parsed->whitelist_begins) {
+      for (SDArchiverLLNode *node = state->parsed->whitelist_begins->head->next;
+          node != state->parsed->whitelist_begins->tail;
+          node = node->next) {
+        if (node->data) {
+          if (!simple_archiver_helper_string_starts(file_info->filename,
+                                                    node->data)) {
+            // Skipping since filename does not start with whitelist text.
+            return 0;
+          }
+        }
+      }
+    }
+    if (state->parsed->whitelist_ends) {
+      for (SDArchiverLLNode *node = state->parsed->whitelist_ends->head->next;
+          node != state->parsed->whitelist_ends->tail;
+          node = node->next) {
+        if (node->data) {
+          if (!simple_archiver_helper_string_ends(file_info->filename,
+                                                  node->data)) {
+            // Skipping since filename does not end with whitelist text.
+            return 0;
+          }
+        }
+      }
+    }
+
+    if (state->parsed->blacklist_contains) {
+      for (SDArchiverLLNode *node =
+            state->parsed->blacklist_contains->head->next;
+          node != state->parsed->blacklist_contains->tail;
+          node = node->next) {
+        if (node->data) {
+          if (simple_archiver_helper_string_contains(file_info->filename,
+                                                     node->data)) {
+            // Skipping since filename contains blacklist text.
+            return 0;
+          }
+        }
+      }
+    }
+    if (state->parsed->blacklist_begins) {
+      for (SDArchiverLLNode *node = state->parsed->blacklist_begins->head->next;
+          node != state->parsed->blacklist_begins->tail;
+          node = node->next) {
+        if (node->data) {
+          if (simple_archiver_helper_string_starts(file_info->filename,
+                                                   node->data)) {
+            // Skipping since filename starts with blacklist text.
+            return 0;
+          }
+        }
+      }
+    }
+    if (state->parsed->blacklist_ends) {
+      for (SDArchiverLLNode *node = state->parsed->blacklist_ends->head->next;
+          node != state->parsed->blacklist_ends->tail;
+          node = node->next) {
+        if (node->data) {
+          if (simple_archiver_helper_string_ends(file_info->filename,
+                                                 node->data)) {
+            // Skipping since filename ends with blacklist text.
+            return 0;
+          }
+        }
+      }
+    }
+
     if (file_info->link_dest) {
       // Is a symbolic link.
       simple_archiver_list_add(
@@ -1821,6 +1905,7 @@ int symlinks_and_files_from_files(void *data, void *ud) {
     }
   }
 
+  ++(*from_files_count);
   return 0;
 }
 
@@ -2431,14 +2516,16 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       (state->parsed->flags & 0x40)
           ? simple_archiver_priority_heap_init_less_fn(greater_fn)
           : NULL;
+  uint64_t from_files_count = 0;
 
-  ptr_array = malloc(sizeof(void *) * 6);
+  ptr_array = malloc(sizeof(void *) * 7);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
   ptr_array[3] = files_pheap;
   ptr_array[4] = NULL;
   ptr_array[5] = state;
+  ptr_array[6] = &from_files_count;
 
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
@@ -2456,7 +2543,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     simple_archiver_priority_heap_free(&files_pheap);
   }
 
-  if (symlinks_list->count + files_list->count != filenames->count) {
+  if (symlinks_list->count + files_list->count != from_files_count) {
     fprintf(stderr,
             "ERROR: Count mismatch between files and symlinks and files from "
             "parser!\n");
@@ -3434,14 +3521,16 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       (state->parsed->flags & 0x40)
           ? simple_archiver_priority_heap_init_less_fn(greater_fn)
           : NULL;
+  uint64_t from_files_count = 0;
 
-  ptr_array = malloc(sizeof(void *) * 6);
+  ptr_array = malloc(sizeof(void *) * 7);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
   ptr_array[3] = files_pheap;
   ptr_array[4] = dirs_list;
   ptr_array[5] = state;
+  ptr_array[6] = &from_files_count;
 
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
@@ -3461,7 +3550,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
 
   if (symlinks_list->count
       + files_list->count
-      + dirs_list->count != filenames->count) {
+      + dirs_list->count != from_files_count) {
     fprintf(stderr,
             "ERROR: Count mismatch between files and symlinks and files from "
             "parser!\n");
@@ -4477,14 +4566,16 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       (state->parsed->flags & 0x40)
           ? simple_archiver_priority_heap_init_less_fn(greater_fn)
           : NULL;
+  uint64_t from_files_count = 0;
 
-  ptr_array = malloc(sizeof(void *) * 6);
+  ptr_array = malloc(sizeof(void *) * 7);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
   ptr_array[3] = files_pheap;
   ptr_array[4] = dirs_list;
   ptr_array[5] = state;
+  ptr_array[6] = &from_files_count;
 
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
@@ -4504,7 +4595,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
 
   if (symlinks_list->count
       + files_list->count
-      + dirs_list->count != filenames->count) {
+      + dirs_list->count != from_files_count) {
     fprintf(stderr,
             "ERROR: Count mismatch between files and symlinks and files from "
             "parser!\n");
