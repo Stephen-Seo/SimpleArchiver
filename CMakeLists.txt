@@ -70,7 +70,7 @@ set_source_files_properties(src/archiver.c
 
 if(EXISTS /usr/bin/git AND EXISTS /usr/bin/sh AND EXISTS /usr/bin/cat AND EXISTS /usr/bin/xargs AND EXISTS /usr/bin/sed)
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
-        COMMAND /usr/bin/sh ARGS -c "/usr/bin/git describe --long --tags >${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
+        COMMAND /usr/bin/sh ARGS -c "/usr/bin/git describe --long --tags >${CMAKE_CURRENT_BINARY_DIR}/version_string.txt || /usr/bin/echo ${SimpleArchiver_VERSION} >${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
         COMMAND /usr/bin/sh ARGS -c "/usr/bin/cat ${CMAKE_CURRENT_BINARY_DIR}/version_string.txt | /usr/bin/xargs -Iderp sed -i \"/^#define SIMPLE_ARCHIVER_VERSION_STR /c #define SIMPLE_ARCHIVER_VERSION_STR \\\"derp\\\"\" ${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
         COMMAND /usr/bin/rm ARGS -f "${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
         VERBATIM)

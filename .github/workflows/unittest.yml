@@ -11,7 +11,7 @@ jobs:
       - name: Get cmake/gcc
         run: sudo apt-get -y install cmake gcc sed
       - name: Clone repo
-        run: git clone https://github.com/Stephen-Seo/SimpleArchiver.git
+        run: git clone --depth=1 --no-single-branch https://github.com/Stephen-Seo/SimpleArchiver.git
       - name: Checkout the branch
         run: cd SimpleArchiver && git checkout "${GITHUB_REF_NAME}"
       - name: Patch CMakeLists.txt to remove "-fstrict-flex-arrays=3" which is unavailable in ubuntu-latest
