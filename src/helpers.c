@@ -611,3 +611,74 @@ char *simple_archiver_helper_string_parts_combine(
   buf[size] = 0;
   return buf;
 }
+
+uint_fast8_t simple_archiver_helper_string_contains(const char *cstring,
+                                                    const char *contains) {
+  const size_t cstring_size = strlen(cstring);
+  const size_t contains_size = strlen(contains);
+  size_t contains_match_start = 0;
+  size_t contains_match_idx = 0;
+  for (size_t idx = 0; idx < cstring_size; ++idx) {
+    if (cstring[idx] == contains[contains_match_idx]) {
+      if (contains_match_idx == 0) {
+        contains_match_start = idx;
+      }
+      ++contains_match_idx;
+      if (contains_match_idx == contains_size) {
+        return 1;
+      }
+    } else {
+      if (contains_match_idx != 0) {
+        idx = contains_match_start;
+      }
+      contains_match_idx = 0;
+    }
+  }
+
+  return 0;
+}
+
+uint_fast8_t simple_archiver_helper_string_starts(const char *cstring,
+                                                  const char *starts) {
+  const size_t cstring_len = strlen(cstring);
+  const size_t starts_len = strlen(starts);
+  size_t starts_match_idx = 0;
+
+  for (size_t idx = 0; idx < cstring_len; ++idx) {
+    if (cstring[idx] == starts[starts_match_idx]) {
+      if (starts_match_idx == 0) {
+        if (idx != 0) {
+          return 0;
+        }
+      }
+      ++starts_match_idx;
+      if (starts_match_idx == starts_len) {
+        return 1;
+      }
+    } else {
+      return 0;
+    }
+  }
+
+  return 0;
+}
+
+uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
+                                                const char *ends) {
+  const size_t cstring_len = strlen(cstring);
+  const size_t ends_len = strlen(ends);
+  size_t ends_idx = 0;
+
+  for (size_t idx = cstring_len - ends_len; idx < cstring_len; ++idx) {
+    if (cstring[idx] == ends[ends_idx]) {
+      ++ends_idx;
+      if (ends_idx == ends_len) {
+        return 1;
+      }
+    } else {
+      return 0;
+    }
+  }
+
+  return 0;
+}

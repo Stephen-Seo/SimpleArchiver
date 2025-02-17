@@ -119,4 +119,16 @@ void simple_archiver_helper_string_parts_add(SAHelperStringParts string_parts,
 char *simple_archiver_helper_string_parts_combine(
   SAHelperStringParts string_parts);
 
+// Returns non-zero if "cstring" contains string "contains".
+uint_fast8_t simple_archiver_helper_string_contains(const char *cstring,
+                                                    const char *contains);
+
+// Returns non-zero if "cstring" starts with string "starts".
+uint_fast8_t simple_archiver_helper_string_starts(const char *cstring,
+                                                  const char *starts);
+
+// Returns non-zero if "cstring" ends with string "ends".
+uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
+                                                const char *ends);
+
 #endif
