@@ -137,6 +137,8 @@ int main(int argc, const char **argv) {
     }
   } else if ((parsed.flags & 3) == 2) {
     // Is checking archive.
+    __attribute__((cleanup(simple_archiver_free_state)))
+    SDArchiverState *state = simple_archiver_init_state(&parsed);
     if ((parsed.flags & 0x10) == 0) {
       FILE *file = fopen(parsed.filename, "rb");
       if (!file) {
@@ -145,7 +147,7 @@ int main(int argc, const char **argv) {
         return 4;
       }
 
-      int ret = simple_archiver_parse_archive_info(file, 0, NULL);
+      int ret = simple_archiver_parse_archive_info(file, 0, state);
       if (ret != 0) {
         fprintf(stderr, "Error during archive checking/examining.\n");
         char *error_str =
@@ -154,7 +156,7 @@ int main(int argc, const char **argv) {
       }
       fclose(file);
     } else {
-      int ret = simple_archiver_parse_archive_info(stdin, 0, NULL);
+      int ret = simple_archiver_parse_archive_info(stdin, 0, state);
       if (ret != 0) {
         fprintf(stderr, "Error during archive checking/examining.\n");
         char *error_str =

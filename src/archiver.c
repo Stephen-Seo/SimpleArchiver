@@ -85,6 +85,7 @@ typedef struct SDArchiverInternalFileInfo {
   char *groupname;
   uint64_t file_size;
   /// xxxx xxx1 - is invalid.
+  /// xxxx xx1x - white/black-list allowed.
   int_fast8_t other_flags;
 } SDArchiverInternalFileInfo;
 
@@ -8212,7 +8213,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *working_files_map = NULL;
-  if (state && state->parsed->working_files &&
+  if (do_extract && state && state->parsed->working_files &&
       state->parsed->working_files[0] != NULL) {
     working_files_map = simple_archiver_hash_map_init();
     for (char **iter = state->parsed->working_files; *iter != NULL; ++iter) {
@@ -8242,12 +8243,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *links_list =
-      state && state->parsed && state->parsed->flags & 0x80
+      do_extract && state && state->parsed && state->parsed->flags & 0x80
           ? NULL
           : simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *files_map =
-      state && state->parsed && state->parsed->flags & 0x80
+      do_extract && state && state->parsed && state->parsed->flags & 0x80
           ? NULL
           : simple_archiver_hash_map_init();
 
@@ -8319,17 +8320,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     if (is_sig_int_occurred) {
       return SDAS_SIGINT;
     }
-    fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, count);
     if (fread(buf, 1, 2, in_f) != 2) {
       return SDAS_INVALID_FILE;
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
     const uint_fast8_t points_to_outside = (buf[1] & 8) ? 1 : 0;
-
-    if (is_invalid) {
-      fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
-    }
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -8361,7 +8357,20 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
     link_name[link_name_length] = 0;
 
-    if (!do_extract) {
+    const uint_fast8_t lists_allowed = simple_archiver_helper_string_allowed_lists(
+      link_name,
+      state->parsed->whitelist_contains,
+      state->parsed->whitelist_begins,
+      state->parsed->whitelist_ends,
+      state->parsed->blacklist_contains,
+      state->parsed->blacklist_begins,
+      state->parsed->blacklist_ends);
+
+    if (!do_extract && lists_allowed) {
+      fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, count);
+      if (is_invalid) {
+        fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
+      }
       fprintf(stderr, "  Link name: %s\n", link_name);
       if (absolute_preferred) {
         fprintf(stderr, "  Absolute path preferred.\n");
@@ -8375,11 +8384,15 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       print_permissions(permissions);
       fprintf(stderr, "\n");
 #endif
+    } else if (do_extract && lists_allowed) {
+      if (is_invalid) {
+        fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
+      }
     }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *link_name_prefixed = NULL;
-    if (state && state->parsed->prefix) {
+    if (do_extract && state && state->parsed->prefix) {
       link_name_prefixed = malloc(prefix_length + link_name_length + 1);
       memcpy(link_name_prefixed, state->parsed->prefix, prefix_length);
       memcpy(link_name_prefixed + prefix_length, link_name, link_name_length + 1);
@@ -8387,7 +8400,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
 
     if (simple_archiver_validate_file_path(link_name)) {
-      fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
+      if (lists_allowed) {
+        fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
+      }
       skip_due_to_invalid = 1;
     }
 
@@ -8420,11 +8435,11 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         return ret;
       }
       parsed_abs_path[path_length] = 0;
-      if (!do_extract) {
+      if (!do_extract && lists_allowed) {
         fprintf(stderr, "  Abs path: %s\n", parsed_abs_path);
       }
 
-      if (state && state->parsed->prefix) {
+      if (do_extract && state && state->parsed->prefix) {
         if (points_to_outside) {
           abs_path_prefixed = strdup(parsed_abs_path);
         } else {
@@ -8438,7 +8453,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           return SDAS_INTERNAL_ERROR;
         }
       }
-    } else if (!do_extract) {
+    } else if (!do_extract && lists_allowed) {
       fprintf(stderr, "  No Absolute path.\n");
     }
 
@@ -8465,11 +8480,11 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         return ret;
       }
       parsed_rel_path[path_length] = 0;
-      if (!do_extract) {
+      if (!do_extract && lists_allowed) {
         fprintf(stderr, "  Rel path: %s\n", parsed_rel_path);
       }
 
-      if (state && state->parsed->prefix) {
+      if (do_extract && state && state->parsed->prefix) {
         rel_path_prefixed =
           simple_archiver_helper_insert_prefix_in_link_path(
             state->parsed->prefix, link_name, parsed_rel_path);
@@ -8479,7 +8494,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           return SDAS_INTERNAL_ERROR;
         }
       }
-    } else if (!do_extract) {
+    } else if (!do_extract && lists_allowed) {
       fprintf(stderr, "  No Relative path.\n");
     }
 
@@ -8490,7 +8505,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     simple_archiver_helper_32_bit_be(&u32);
 
     uint32_t uid = u32;
-    fprintf(stderr, "  UID: %" PRIu32 "\n", uid);
+    if (lists_allowed) {
+      fprintf(stderr, "  UID: %" PRIu32 "\n", uid);
+    }
 
     if (fread(&u32, 4, 1, in_f) != 1) {
       fprintf(stderr, "  ERROR: Failed to read GID for symlink!\n");
@@ -8499,7 +8516,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     simple_archiver_helper_32_bit_be(&u32);
 
     uint32_t gid = u32;
-    fprintf(stderr, "  GID: %" PRIu32 "\n", gid);
+    if (lists_allowed) {
+      fprintf(stderr, "  GID: %" PRIu32 "\n", gid);
+    }
 
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr, "  ERROR: Failed to read Username length for symlink!\n");
@@ -8516,15 +8535,19 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         return SDAS_INVALID_FILE;
       }
       username[u16] = 0;
-      fprintf(stderr, "  Username: %s\n", username);
+      if (lists_allowed) {
+        fprintf(stderr, "  Username: %s\n", username);
+      }
     } else {
       free(username);
       username = NULL;
-      fprintf(stderr, "  Username does not exist for this link\n");
+      if (lists_allowed) {
+        fprintf(stderr, "  Username does not exist for this link\n");
+      }
     }
 
     uint32_t *username_uid_mapped = NULL;
-    if (state && username) {
+    if (do_extract && state && username) {
       username_uid_mapped = simple_archiver_hash_map_get(
         state->parsed->users_infos.UnameToUid,
         username,
@@ -8536,7 +8559,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
     uint32_t *user_remapped_uid = NULL;
     uint32_t current_uid = uid;
-    if (state) {
+    if (do_extract && state) {
       if ((state->parsed->flags & 0x4000) == 0 && username_uid_mapped) {
         current_uid = *username_uid_mapped;
       }
@@ -8591,15 +8614,19 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         return SDAS_INVALID_FILE;
       }
       groupname[u16] = 0;
-      fprintf(stderr, "  Groupname: %s\n", groupname);
+      if (lists_allowed) {
+        fprintf(stderr, "  Groupname: %s\n", groupname);
+      }
     } else {
       free(groupname);
       groupname = NULL;
-      fprintf(stderr, "  Groupname does not exist for this link\n");
+      if (lists_allowed) {
+        fprintf(stderr, "  Groupname does not exist for this link\n");
+      }
     }
 
     uint32_t *group_gid_mapped = NULL;
-    if (state && groupname) {
+    if (do_extract && state && groupname) {
       group_gid_mapped = simple_archiver_hash_map_get(
         state->parsed->users_infos.GnameToGid,
         groupname,
@@ -8611,7 +8638,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
     uint32_t *group_remapped_gid = NULL;
     uint32_t current_gid = gid;
-    if (state) {
+    if (do_extract && state) {
       if ((state->parsed->flags & 0x8000) == 0 && group_gid_mapped) {
         current_gid = *group_gid_mapped;
       }
@@ -8646,8 +8673,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
     }
 
-    if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
-        absolute_preferred && parsed_abs_path) {
+    if (do_extract
+        && !skip_due_to_map
+        && !skip_due_to_invalid
+        && lists_allowed
+        && absolute_preferred
+        && parsed_abs_path) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
   SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
   SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -8712,8 +8743,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     V3_SYMLINK_CREATE_AFTER_0:
       link_create_retry = 1;
 #endif
-    } else if (do_extract && !skip_due_to_map && !skip_due_to_invalid &&
-        !absolute_preferred && parsed_rel_path) {
+    } else if (do_extract
+        && !skip_due_to_map
+        && !skip_due_to_invalid
+        && lists_allowed
+        && !absolute_preferred
+        && parsed_rel_path) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
   SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
   SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -8781,7 +8816,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 #endif
     }
 
-    if (do_extract && link_extracted && geteuid() == 0) {
+    if (do_extract && lists_allowed && link_extracted && geteuid() == 0) {
       uint32_t picked_uid;
       if (uid_remapped || user_remapped_uid) {
         if (state->parsed->flags & 0x4000) {
@@ -8865,12 +8900,19 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
     }
 
-    if (do_extract && !link_extracted && !skip_due_to_map &&
-        !skip_due_to_invalid) {
+    if (do_extract
+        && !link_extracted
+        && !skip_due_to_map
+        && !skip_due_to_invalid
+        && lists_allowed) {
       fprintf(stderr, "  WARNING: Symlink \"%s\" was not created!\n",
               link_name);
-    } else if (do_extract && link_extracted && !skip_due_to_map &&
-               !skip_due_to_invalid && links_list) {
+    } else if (do_extract
+        && link_extracted
+        && !skip_due_to_map
+        && !skip_due_to_invalid
+        && lists_allowed
+        && links_list) {
       simple_archiver_list_add(links_list, strdup(link_name), NULL);
     }
   }
@@ -8929,9 +8971,22 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                 "ERROR: File idx %" PRIu32 ": Invalid filename!\n",
                 file_idx);
         file_info->other_flags |= 1;
+      } else if (simple_archiver_helper_string_allowed_lists(
+          file_info->filename,
+          state->parsed->whitelist_contains,
+          state->parsed->whitelist_begins,
+          state->parsed->whitelist_ends,
+          state->parsed->blacklist_contains,
+          state->parsed->blacklist_begins,
+          state->parsed->blacklist_ends)) {
+        file_info->other_flags |= 2;
       }
 
-      if (state && state->parsed && (state->parsed->flags & 8) != 0) {
+      if (do_extract
+          && state
+          && state->parsed
+          && (state->parsed->flags & 8) != 0
+          && (file_info->other_flags & 2) != 0) {
         int fd = open((const char *)buf, O_RDONLY | O_NOFOLLOW);
         if (fd == -1) {
           if (errno == ELOOP) {
@@ -8962,12 +9017,13 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       simple_archiver_helper_32_bit_be(&u32);
       __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
       uint32_t *remapped_uid = NULL;
-      if (state && (state->parsed->flags & 0x400)) {
+      if (do_extract && state && (state->parsed->flags & 0x400)) {
         file_info->uid = state->parsed->uid;
       } else {
         file_info->uid = u32;
         uint32_t out_uid;
-        if (state
+        if (do_extract
+            && state
             && simple_archiver_get_uid_mapping(state->parsed->mappings,
                                                state->parsed->users_infos,
                                                u32,
@@ -8984,12 +9040,13 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       simple_archiver_helper_32_bit_be(&u32);
       __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
       uint32_t *remapped_gid = NULL;
-      if (state && (state->parsed->flags & 0x800)) {
+      if (do_extract && state && (state->parsed->flags & 0x800)) {
         file_info->gid = state->parsed->gid;
       } else {
         file_info->gid = u32;
         uint32_t out_gid;
-        if (state
+        if (do_extract
+            && state
             && simple_archiver_get_gid_mapping(state->parsed->mappings,
                                                state->parsed->users_infos,
                                                u32,
@@ -9067,7 +9124,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       // Prefer uid derived from username by default.
-      if (state && file_info->username) {
+      if (do_extract && state && file_info->username) {
         uint32_t *username_uid = simple_archiver_hash_map_get(
           state->parsed->users_infos.UnameToUid,
           file_info->username,
@@ -9080,7 +9137,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       // Apply user remapping.
-      if (state) {
+      if (do_extract && state) {
         if (state->parsed->flags & 0x4000) {
           // Prefer UID first.
           if (remapped_uid) {
@@ -9099,7 +9156,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       // Prefer gid derived from group by default.
-      if (state && file_info->groupname) {
+      if (do_extract && state && file_info->groupname) {
         uint32_t *groupname_gid = simple_archiver_hash_map_get(
           state->parsed->users_infos.GnameToGid,
           file_info->groupname,
@@ -9112,7 +9169,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       // Apply group remapping.
-      if (state) {
+      if (do_extract && state) {
         if (state->parsed->flags & 0x8000) {
           // Prefer GID first.
           if (remapped_gid) {
@@ -9136,7 +9193,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       simple_archiver_helper_64_bit_be(&u64);
       file_info->file_size = u64;
 
-      if (files_map) {
+      if (files_map && file_info->other_flags & 2) {
         simple_archiver_internal_paths_to_files_map(files_map,
                                                     file_info->filename);
       }
@@ -9265,17 +9322,20 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        fprintf(stderr,
-                "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
-                ++file_idx,
-                file_count,
-                file_info->filename);
+        if (file_info->other_flags & 2) {
+          fprintf(stderr,
+                  "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
+                  file_idx,
+                  file_count,
+                  file_info->filename);
+        }
+        ++file_idx;
 
         const size_t filename_length = strlen(file_info->filename);
 
         __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
         char *filename_prefixed = NULL;
-        if (state && state->parsed->prefix) {
+        if (do_extract && state && state->parsed->prefix) {
           filename_prefixed = malloc(prefix_length + filename_length + 1);
           memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
           memcpy(filename_prefixed + prefix_length,
@@ -9290,12 +9350,15 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                                      filename_length + 1) == NULL) {
           skip_due_to_map = 1;
           fprintf(stderr, "    Skipping not specified in args...\n");
-        } else if ((file_info->other_flags & 1) != 0) {
+        } else if ((file_info->other_flags & 1) != 0
+            && (file_info->other_flags & 2) != 0) {
           fprintf(stderr, "    Skipping invalid filename...\n");
         }
 
-        if (do_extract && !skip_due_to_map &&
-            (file_info->other_flags & 1) == 0) {
+        if (do_extract
+            && !skip_due_to_map
+            && (file_info->other_flags & 1) == 0
+            && (file_info->other_flags & 2) != 0) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -9375,7 +9438,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             return SDAS_INTERNAL_ERROR;
           }
 #endif
-        } else if (!skip_due_to_map && (file_info->other_flags & 1) == 0) {
+        } else if (!skip_due_to_map
+            && (file_info->other_flags & 1) == 0
+            && (file_info->other_flags & 2) != 0) {
           fprintf(stderr, "    Permissions:");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
           fprintf(stderr,
@@ -9436,11 +9501,14 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        fprintf(stderr,
-                "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
-                ++file_idx,
-                file_count,
-                file_info->filename);
+        if (file_info->other_flags & 2) {
+          fprintf(stderr,
+                  "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
+                  file_idx,
+                  file_count,
+                  file_info->filename);
+        }
+        ++file_idx;
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
@@ -9451,7 +9519,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
         __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
         char *filename_prefixed = NULL;
-        if (state && state->parsed->prefix) {
+        if (do_extract && state && state->parsed->prefix) {
           filename_prefixed = malloc(prefix_length + filename_length + 1);
           memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
           memcpy(filename_prefixed + prefix_length,
@@ -9461,17 +9529,22 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         }
 
         uint_fast8_t skip_due_to_map = 0;
-        if (working_files_map && simple_archiver_hash_map_get(
-                                     working_files_map, file_info->filename,
-                                     filename_length + 1) == NULL) {
+        if (do_extract
+            && working_files_map
+            && simple_archiver_hash_map_get(working_files_map,
+                                            file_info->filename,
+                                            filename_length + 1) == NULL) {
           skip_due_to_map = 1;
           fprintf(stderr, "    Skipping not specified in args...\n");
-        } else if (file_info->other_flags & 1) {
+        } else if ((file_info->other_flags & 1) != 0
+            && (file_info->other_flags & 2) != 0) {
           fprintf(stderr, "    Skipping invalid filename...\n");
         }
 
-        if (do_extract && !skip_due_to_map &&
-            (file_info->other_flags & 1) == 0) {
+        if (do_extract
+            && !skip_due_to_map
+            && (file_info->other_flags & 1) == 0
+            && (file_info->other_flags & 2) != 0) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
@@ -9552,7 +9625,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             return SDAS_INTERNAL_ERROR;
           }
 #endif
-        } else if (!skip_due_to_map && (file_info->other_flags & 1) == 0) {
+        } else if (!skip_due_to_map
+            && (file_info->other_flags & 1) == 0
+            && (file_info->other_flags & 2) != 0) {
           fprintf(stderr, "    Permissions:");
           permissions_from_bits_version_1(file_info->bit_flags, 1);
           fprintf(stderr,
@@ -9616,18 +9691,31 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
     simple_archiver_helper_16_bit_be(&u16);
 
-    if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *archive_dir_name = malloc(u16 + 1);
+
+    if (fread(archive_dir_name, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
       fprintf(stderr, "ERROR: Failed to read directory name!\n");
       return SDAS_INVALID_FILE;
     }
 
-    buf[u16] = 0;
+    archive_dir_name[u16] = 0;
+
+    const uint_fast8_t lists_allowed =
+      simple_archiver_helper_string_allowed_lists(
+        archive_dir_name,
+        state->parsed->whitelist_contains,
+        state->parsed->whitelist_begins,
+        state->parsed->whitelist_ends,
+        state->parsed->blacklist_contains,
+        state->parsed->blacklist_begins,
+        state->parsed->blacklist_ends);
 
     uint8_t perms_flags[4];
     if (fread(perms_flags, 1, 2, in_f) != 2) {
       fprintf(stderr,
               "ERROR: Failed to read permission flags for \"%s\"!\n",
-              buf);
+              archive_dir_name);
       return SDAS_INVALID_FILE;
     }
     perms_flags[2] = 0;
@@ -9636,7 +9724,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     uint32_t uid;
     if (fread(&uid, 4, 1, in_f) != 1) {
       fprintf(stderr,
-              "ERROR: Failed to read UID for \"%s\"!\n", buf);
+              "ERROR: Failed to read UID for \"%s\"!\n", archive_dir_name);
       return SDAS_INVALID_FILE;
     }
     simple_archiver_helper_32_bit_be(&uid);
@@ -9644,7 +9732,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     uint32_t gid;
     if (fread(&gid, 4, 1, in_f) != 1) {
       fprintf(stderr,
-              "ERROR: Failed to read GID for \"%s\"!\n", buf);
+              "ERROR: Failed to read GID for \"%s\"!\n", archive_dir_name);
       return SDAS_INVALID_FILE;
     }
     simple_archiver_helper_32_bit_be(&gid);
@@ -9689,7 +9777,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     uint32_t *remapped_uid = NULL;
     __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
     uint32_t *remapped_user_uid = NULL;
-    if (state) {
+    if (do_extract && state) {
       uint32_t out_uid;
       if (simple_archiver_get_uid_mapping(state->parsed->mappings,
                                           state->parsed->users_infos,
@@ -9714,7 +9802,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     uint32_t *remapped_gid = NULL;
     __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
     uint32_t *remapped_group_gid = NULL;
-    if (state) {
+    if (do_extract && state) {
       uint32_t out_gid;
       if (simple_archiver_get_gid_mapping(state->parsed->mappings,
                                           state->parsed->users_infos,
@@ -9735,8 +9823,8 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
     }
 
-    if (do_extract) {
-      fprintf(stderr, "Creating dir \"%s\"\n", buf);
+    if (do_extract && lists_allowed) {
+      fprintf(stderr, "Creating dir \"%s\"\n", archive_dir_name);
       // Use UID derived from Username by default.
       if ((state->parsed->flags & 0x4000) == 0 && username) {
         uint32_t *username_uid = simple_archiver_hash_map_get(
@@ -9789,8 +9877,8 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           gid = *remapped_gid;
         }
       }
-    } else {
-      fprintf(stderr, "Dir entry \"%s\"\n", buf);
+    } else if (lists_allowed) {
+      fprintf(stderr, "Dir entry \"%s\"\n", archive_dir_name);
       fprintf(stderr, "  Permissions: ");
       fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 2)    ? "w" : "-");
@@ -9845,7 +9933,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                                               state->parsed->prefix);
     }
 
-    simple_archiver_helper_string_parts_add(string_parts, (char *)buf);
+    simple_archiver_helper_string_parts_add(string_parts, archive_dir_name);
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *abs_dir_path =
@@ -9857,7 +9945,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     char *abs_dir_path_with_suffix =
       simple_archiver_helper_string_parts_combine(string_parts);
 
-    if (do_extract) {
+    if (do_extract && lists_allowed) {
       int ret = simple_archiver_helper_make_dirs_perms(
         abs_dir_path_with_suffix,
         state && (state->parsed->flags & 0x2000)
