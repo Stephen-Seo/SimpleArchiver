@@ -267,6 +267,9 @@ void simple_archiver_print_usage(void) {
           "--blacklist-ends-with <text> : blacklist entries that ends with "
           "\"<text>\", specify multiple times to deny multiple entries ending "
           "with different \"<text>\" entries.\n");
+  fprintf(stderr,
+          "--wb-case-insensitive : Makes white/black-list checking case "
+          "insensitive.\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -821,6 +824,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--wb-case-insensitive") == 0) {
+        out->flags |= 0x20000;
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);

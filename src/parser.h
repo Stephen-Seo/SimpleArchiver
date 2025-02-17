@@ -59,6 +59,8 @@ typedef struct SDArchiverParsed {
   /// 0b x1xx xxxx xxxx xxxx - Prefer UID over Username when extracting.
   /// 0b 1xxx xxxx xxxx xxxx - Prefer GID over Group when extracting.
   /// 0b xxxx xxx1 xxxx xxxx xxxx xxxx - Force set empty directory permissions.
+  /// 0b xxxx xx1x xxxx xxxx xxxx xxxx - white/black-list checking is
+  ///   case-insensitive.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;

@@ -967,21 +967,29 @@ TEST_HELPERS_PREFIX_END:
   // Test contains/starts/ends helpers.
   {
     CHECK_TRUE(simple_archiver_helper_string_contains(
-      "The string is this.", " is "));
+      "The string is this.", " is ", 0));
     CHECK_FALSE(simple_archiver_helper_string_contains(
-      "The string is this.", " is d"));
+      "The string is this.", " is d", 0));
     CHECK_TRUE(simple_archiver_helper_string_contains(
-      "TheseTheThesesThe", "Theses"));
+      "TheseTheThesesThe", "Theses", 0));
 
     CHECK_TRUE(simple_archiver_helper_string_starts(
-      "The string is this.", "The "));
+      "The string is this.", "The ", 0));
     CHECK_FALSE(simple_archiver_helper_string_starts(
-      "The string is this.", "tThe "));
+      "The string is this.", "tThe ", 0));
 
     CHECK_TRUE(simple_archiver_helper_string_ends(
-      "The string is this.", " this."));
+      "The string is this.", " this.", 0));
     CHECK_FALSE(simple_archiver_helper_string_ends(
-      "The string is this.", " this"));
+      "The string is this.", " this", 0));
+
+
+    CHECK_TRUE(simple_archiver_helper_string_contains(
+      "The String Is This.", "sTRING", 1));
+    CHECK_TRUE(simple_archiver_helper_string_starts(
+      "The String Is This.", "tHE", 1));
+    CHECK_TRUE(simple_archiver_helper_string_ends(
+      "The String Is This.", "tHIS.", 1));
   }
 
   printf("Checks checked: %" PRId32 "\n", checks_checked);

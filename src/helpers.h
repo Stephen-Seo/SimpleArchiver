@@ -120,20 +120,28 @@ char *simple_archiver_helper_string_parts_combine(
   SAHelperStringParts string_parts);
 
 // Returns non-zero if "cstring" contains string "contains".
+// "case_i" stands for "case-insensitive".
 uint_fast8_t simple_archiver_helper_string_contains(const char *cstring,
-                                                    const char *contains);
+                                                    const char *contains,
+                                                    uint_fast8_t case_i);
 
 // Returns non-zero if "cstring" starts with string "starts".
+// "case_i" stands for "case-insensitive".
 uint_fast8_t simple_archiver_helper_string_starts(const char *cstring,
-                                                  const char *starts);
+                                                  const char *starts,
+                                                  uint_fast8_t case_i);
 
 // Returns non-zero if "cstring" ends with string "ends".
+// "case_i" stands for "case-insensitive".
 uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
-                                                const char *ends);
+                                                const char *ends,
+                                                uint_fast8_t case_i);
 
 // Returns non-zero if "cstring" is allowed by lists.
+// "case_i" stands for "case-insensitive".
 uint_fast8_t simple_archiver_helper_string_allowed_lists(
   const char *cstring,
+  uint_fast8_t case_i,
   const SDArchiverLinkedList *w_contains,
   const SDArchiverLinkedList *w_begins,
   const SDArchiverLinkedList *w_ends,

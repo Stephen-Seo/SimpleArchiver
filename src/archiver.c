@@ -1707,6 +1707,7 @@ int symlinks_and_files_from_files(void *data, void *ud) {
     // Check white/black lists.
     if (!simple_archiver_helper_string_allowed_lists(
         file_info->filename,
+        state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed->whitelist_contains,
         state->parsed->whitelist_begins,
         state->parsed->whitelist_ends,
@@ -8359,6 +8360,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
     const uint_fast8_t lists_allowed = simple_archiver_helper_string_allowed_lists(
       link_name,
+      state->parsed->flags & 0x20000 ? 1 : 0,
       state->parsed->whitelist_contains,
       state->parsed->whitelist_begins,
       state->parsed->whitelist_ends,
@@ -8973,6 +8975,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         file_info->other_flags |= 1;
       } else if (simple_archiver_helper_string_allowed_lists(
           file_info->filename,
+          state->parsed->flags & 0x20000 ? 1 : 0,
           state->parsed->whitelist_contains,
           state->parsed->whitelist_begins,
           state->parsed->whitelist_ends,
@@ -9704,6 +9707,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     const uint_fast8_t lists_allowed =
       simple_archiver_helper_string_allowed_lists(
         archive_dir_name,
+        state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed->whitelist_contains,
         state->parsed->whitelist_begins,
         state->parsed->whitelist_ends,

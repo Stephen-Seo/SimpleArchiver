@@ -613,13 +613,25 @@ char *simple_archiver_helper_string_parts_combine(
 }
 
 uint_fast8_t simple_archiver_helper_string_contains(const char *cstring,
-                                                    const char *contains) {
+                                                    const char *contains,
+                                                    uint_fast8_t case_i) {
   const size_t cstring_size = strlen(cstring);
   const size_t contains_size = strlen(contains);
   size_t contains_match_start = 0;
   size_t contains_match_idx = 0;
   for (size_t idx = 0; idx < cstring_size; ++idx) {
-    if (cstring[idx] == contains[contains_match_idx]) {
+    char cstring_next = cstring[idx];
+    char contains_next = contains[contains_match_idx];
+    if (case_i) {
+      if (cstring_next >= 'A' && cstring_next <= 'Z') {
+        cstring_next += 0x20;
+      }
+      if (contains_next >= 'A' && contains_next <= 'Z') {
+        contains_next += 0x20;
+      }
+    }
+
+    if (cstring_next == contains_next) {
       if (contains_match_idx == 0) {
         contains_match_start = idx;
       }
@@ -639,13 +651,25 @@ uint_fast8_t simple_archiver_helper_string_contains(const char *cstring,
 }
 
 uint_fast8_t simple_archiver_helper_string_starts(const char *cstring,
-                                                  const char *starts) {
+                                                  const char *starts,
+                                                  uint_fast8_t case_i) {
   const size_t cstring_len = strlen(cstring);
   const size_t starts_len = strlen(starts);
   size_t starts_match_idx = 0;
 
   for (size_t idx = 0; idx < cstring_len; ++idx) {
-    if (cstring[idx] == starts[starts_match_idx]) {
+    char cstring_next = cstring[idx];
+    char starts_next = starts[starts_match_idx];
+    if (case_i) {
+      if (cstring_next >= 'A' && cstring_next <= 'Z') {
+        cstring_next += 0x20;
+      }
+      if (starts_next >= 'A' && starts_next <= 'Z') {
+        starts_next += 0x20;
+      }
+    }
+
+    if (cstring_next == starts_next) {
       if (starts_match_idx == 0) {
         if (idx != 0) {
           return 0;
@@ -664,13 +688,25 @@ uint_fast8_t simple_archiver_helper_string_starts(const char *cstring,
 }
 
 uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
-                                                const char *ends) {
+                                                const char *ends,
+                                                uint_fast8_t case_i) {
   const size_t cstring_len = strlen(cstring);
   const size_t ends_len = strlen(ends);
   size_t ends_idx = 0;
 
   for (size_t idx = cstring_len - ends_len; idx < cstring_len; ++idx) {
-    if (cstring[idx] == ends[ends_idx]) {
+    char cstring_next = cstring[idx];
+    char ends_next = ends[ends_idx];
+    if (case_i) {
+      if (cstring_next >= 'A' && cstring_next <= 'Z') {
+        cstring_next += 0x20;
+      }
+      if (ends_next >= 'A' && ends_next <= 'Z') {
+        ends_next += 0x20;
+      }
+    }
+
+    if (cstring_next == ends_next) {
       ++ends_idx;
       if (ends_idx == ends_len) {
         return 1;
@@ -685,6 +721,7 @@ uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
 
 uint_fast8_t simple_archiver_helper_string_allowed_lists(
     const char *cstring,
+    uint_fast8_t case_i,
     const SDArchiverLinkedList *w_contains,
     const SDArchiverLinkedList *w_begins,
     const SDArchiverLinkedList *w_ends,
@@ -696,7 +733,8 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
         node != w_contains->tail;
         node = node->next) {
       if (node->data) {
-        if (!simple_archiver_helper_string_contains(cstring, node->data)) {
+        if (!simple_archiver_helper_string_contains(
+            cstring, node->data, case_i)) {
           return 0;
         }
       }
@@ -707,7 +745,8 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
         node != w_begins->tail;
         node = node->next) {
       if (node->data) {
-        if (!simple_archiver_helper_string_starts(cstring, node->data)) {
+        if (!simple_archiver_helper_string_starts(
+            cstring, node->data, case_i)) {
           return 0;
         }
       }
@@ -718,7 +757,7 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
         node != w_ends->tail;
         node = node->next) {
       if (node->data) {
-        if (!simple_archiver_helper_string_ends(cstring, node->data)) {
+        if (!simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
           return 0;
         }
       }
@@ -730,7 +769,8 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
         node != b_contains->tail;
         node = node->next) {
       if (node->data) {
-        if (simple_archiver_helper_string_contains(cstring, node->data)) {
+        if (simple_archiver_helper_string_contains(
+            cstring, node->data, case_i)) {
           return 0;
         }
       }
@@ -741,7 +781,7 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
         node != b_begins->tail;
         node = node->next) {
       if (node->data) {
-        if (simple_archiver_helper_string_starts(cstring, node->data)) {
+        if (simple_archiver_helper_string_starts(cstring, node->data, case_i)) {
           return 0;
         }
       }
@@ -752,7 +792,7 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
         node != b_ends->tail;
         node = node->next) {
       if (node->data) {
-        if (simple_archiver_helper_string_ends(cstring, node->data)) {
+        if (simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
           return 0;
         }
       }

@@ -59,6 +59,7 @@ API calls.
     --blacklist-contains <text> : blacklist entries that contains "<text>", specify multiple times to deny multiple "<text>" entries at once.
     --blacklist-begins-with <text> : blacklist entries that starts with "<text>", specify multiple times to deny multiple entries starting with different "<text>" entries.
     --blacklist-ends-with <text> : blacklist entries that ends with "<text>", specify multiple times to deny multiple entries ending with different "<text>" entries.
+    --wb-case-insensitive : Makes white/black-list checking case insensitive.
     --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
