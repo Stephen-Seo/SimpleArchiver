@@ -4,13 +4,13 @@
 
 Add white/black-list flags:
 
-    - `--whitelist-contains <text>`
-    - `--whitelist-begins-with <text>`
-    - `--whitelist-ends-with <text>`
-    - `--blacklist-contains <text>`
-    - `--blacklist-begins-with <text>`
-    - `--blacklist-ends-with <text>`
-    - `--wb-case-insensitive`
+  - `--whitelist-contains <text>`
+  - `--whitelist-begins-with <text>`
+  - `--whitelist-ends-with <text>`
+  - `--blacklist-contains <text>`
+  - `--blacklist-begins-with <text>`
+  - `--blacklist-ends-with <text>`
+  - `--wb-case-insensitive`
 
 These flags should affect what entries are archived, what entries are printed
 (with `-t`), and what entries are extracted.
