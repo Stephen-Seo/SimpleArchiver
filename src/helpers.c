@@ -682,3 +682,82 @@ uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
 
   return 0;
 }
+
+uint_fast8_t simple_archiver_helper_string_allowed_lists(
+    const char *cstring,
+    const SDArchiverLinkedList *w_contains,
+    const SDArchiverLinkedList *w_begins,
+    const SDArchiverLinkedList *w_ends,
+    const SDArchiverLinkedList *b_contains,
+    const SDArchiverLinkedList *b_begins,
+    const SDArchiverLinkedList *b_ends) {
+  if (w_contains) {
+    for (const SDArchiverLLNode *node = w_contains->head->next;
+        node != w_contains->tail;
+        node = node->next) {
+      if (node->data) {
+        if (!simple_archiver_helper_string_contains(cstring, node->data)) {
+          return 0;
+        }
+      }
+    }
+  }
+  if (w_begins) {
+    for (const SDArchiverLLNode *node = w_begins->head->next;
+        node != w_begins->tail;
+        node = node->next) {
+      if (node->data) {
+        if (!simple_archiver_helper_string_starts(cstring, node->data)) {
+          return 0;
+        }
+      }
+    }
+  }
+  if (w_ends) {
+    for (const SDArchiverLLNode *node = w_ends->head->next;
+        node != w_ends->tail;
+        node = node->next) {
+      if (node->data) {
+        if (!simple_archiver_helper_string_ends(cstring, node->data)) {
+          return 0;
+        }
+      }
+    }
+  }
+
+  if (b_contains) {
+    for (const SDArchiverLLNode *node = b_contains->head->next;
+        node != b_contains->tail;
+        node = node->next) {
+      if (node->data) {
+        if (simple_archiver_helper_string_contains(cstring, node->data)) {
+          return 0;
+        }
+      }
+    }
+  }
+  if (b_begins) {
+    for (const SDArchiverLLNode *node = b_begins->head->next;
+        node != b_begins->tail;
+        node = node->next) {
+      if (node->data) {
+        if (simple_archiver_helper_string_starts(cstring, node->data)) {
+          return 0;
+        }
+      }
+    }
+  }
+  if (b_ends) {
+    for (const SDArchiverLLNode *node = b_ends->head->next;
+        node != b_ends->tail;
+        node = node->next) {
+      if (node->data) {
+        if (simple_archiver_helper_string_ends(cstring, node->data)) {
+          return 0;
+        }
+      }
+    }
+  }
+
+  return 1;
+}

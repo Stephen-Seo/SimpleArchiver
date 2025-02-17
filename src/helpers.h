@@ -131,4 +131,14 @@ uint_fast8_t simple_archiver_helper_string_starts(const char *cstring,
 uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
                                                 const char *ends);
 
+// Returns non-zero if "cstring" is allowed by lists.
+uint_fast8_t simple_archiver_helper_string_allowed_lists(
+  const char *cstring,
+  const SDArchiverLinkedList *w_contains,
+  const SDArchiverLinkedList *w_begins,
+  const SDArchiverLinkedList *w_ends,
+  const SDArchiverLinkedList *b_contains,
+  const SDArchiverLinkedList *b_begins,
+  const SDArchiverLinkedList *b_ends);
+
 #endif

@@ -1704,86 +1704,15 @@ int symlinks_and_files_from_files(void *data, void *ud) {
 
   if (file_info->filename) {
     // Check white/black lists.
-    if (state->parsed->whitelist_contains) {
-      for (SDArchiverLLNode *node =
-            state->parsed->whitelist_contains->head->next;
-          node != state->parsed->whitelist_contains->tail;
-          node = node->next) {
-        if (node->data) {
-          if (!simple_archiver_helper_string_contains(file_info->filename,
-                                                      node->data)) {
-            // Skipping since filename does not contain whitelist text.
-            return 0;
-          }
-        }
-      }
-    }
-    if (state->parsed->whitelist_begins) {
-      for (SDArchiverLLNode *node = state->parsed->whitelist_begins->head->next;
-          node != state->parsed->whitelist_begins->tail;
-          node = node->next) {
-        if (node->data) {
-          if (!simple_archiver_helper_string_starts(file_info->filename,
-                                                    node->data)) {
-            // Skipping since filename does not start with whitelist text.
-            return 0;
-          }
-        }
-      }
-    }
-    if (state->parsed->whitelist_ends) {
-      for (SDArchiverLLNode *node = state->parsed->whitelist_ends->head->next;
-          node != state->parsed->whitelist_ends->tail;
-          node = node->next) {
-        if (node->data) {
-          if (!simple_archiver_helper_string_ends(file_info->filename,
-                                                  node->data)) {
-            // Skipping since filename does not end with whitelist text.
-            return 0;
-          }
-        }
-      }
-    }
-
-    if (state->parsed->blacklist_contains) {
-      for (SDArchiverLLNode *node =
-            state->parsed->blacklist_contains->head->next;
-          node != state->parsed->blacklist_contains->tail;
-          node = node->next) {
-        if (node->data) {
-          if (simple_archiver_helper_string_contains(file_info->filename,
-                                                     node->data)) {
-            // Skipping since filename contains blacklist text.
-            return 0;
-          }
-        }
-      }
-    }
-    if (state->parsed->blacklist_begins) {
-      for (SDArchiverLLNode *node = state->parsed->blacklist_begins->head->next;
-          node != state->parsed->blacklist_begins->tail;
-          node = node->next) {
-        if (node->data) {
-          if (simple_archiver_helper_string_starts(file_info->filename,
-                                                   node->data)) {
-            // Skipping since filename starts with blacklist text.
-            return 0;
-          }
-        }
-      }
-    }
-    if (state->parsed->blacklist_ends) {
-      for (SDArchiverLLNode *node = state->parsed->blacklist_ends->head->next;
-          node != state->parsed->blacklist_ends->tail;
-          node = node->next) {
-        if (node->data) {
-          if (simple_archiver_helper_string_ends(file_info->filename,
-                                                 node->data)) {
-            // Skipping since filename ends with blacklist text.
-            return 0;
-          }
-        }
-      }
+    if (!simple_archiver_helper_string_allowed_lists(
+        file_info->filename,
+        state->parsed->whitelist_contains,
+        state->parsed->whitelist_begins,
+        state->parsed->whitelist_ends,
+        state->parsed->blacklist_contains,
+        state->parsed->blacklist_begins,
+        state->parsed->blacklist_ends)) {
+      return 0;
     }
 
     if (file_info->link_dest) {
