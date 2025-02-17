@@ -68,20 +68,15 @@ set_source_files_properties(src/archiver.c
         COMPILE_FLAGS -Wno-format-nonliteral
 )
 
-if(EXISTS /usr/bin/git)
-    execute_process(COMMAND /usr/bin/git describe --long --tags
-        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        OUTPUT_VARIABLE SIMPLE_ARCHIVER_GIT_VER
-        ERROR_VARIABLE SIMPLE_ARCHIVER_GIT_VER_ERROR
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if (NOT SIMPLE_ARCHIVER_GIT_VER)
-        set(SIMPLE_ARCHIVER_GIT_VER "${SimpleArchiver_VERSION}")
-    endif()
-    message("Got version \"${SIMPLE_ARCHIVER_GIT_VER}\"")
-    set_source_files_properties(src/parser.c
-        PROPERTIES
-            COMPILE_FLAGS "-DSIMPLE_ARCHIVER_VERSION_STR=\\\"${SIMPLE_ARCHIVER_GIT_VER}\\\""
-    )
+if(EXISTS /usr/bin/git AND EXISTS /usr/bin/sh AND EXISTS /usr/bin/cat AND EXISTS /usr/bin/xargs AND EXISTS /usr/bin/sed)
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
+        COMMAND /usr/bin/sh ARGS -c "/usr/bin/git describe --long --tags >${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
+        COMMAND /usr/bin/sh ARGS -c "/usr/bin/cat ${CMAKE_CURRENT_BINARY_DIR}/version_string.txt | /usr/bin/xargs -Iderp sed -i \"/^#define SIMPLE_ARCHIVER_VERSION_STR /c #define SIMPLE_ARCHIVER_VERSION_STR \\\"derp\\\"\" ${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
+        COMMAND /usr/bin/rm ARGS -f "${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
+        VERBATIM)
+    add_custom_target(VersionStringCMD
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/version_string.txt")
+    add_dependencies(simplearchiver VersionStringCMD)
 else()
     message("Setting version \"${SimpleArchiver_VERSION}\"")
     set_source_files_properties(src/parser.c
