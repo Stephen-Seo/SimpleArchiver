@@ -765,15 +765,21 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
   }
 
   if (b_contains) {
+    uint_fast8_t contains_all = 1;
     for (const SDArchiverLLNode *node = b_contains->head->next;
         node != b_contains->tail;
         node = node->next) {
       if (node->data) {
-        if (simple_archiver_helper_string_contains(
+        if (!simple_archiver_helper_string_contains(
             cstring, node->data, case_i)) {
-          return 0;
+          contains_all = 0;
+          break;
         }
       }
+    }
+
+    if (contains_all) {
+      return 0;
     }
   }
   if (b_begins) {
