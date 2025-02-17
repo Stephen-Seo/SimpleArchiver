@@ -2,6 +2,17 @@
 
 ## Upcoming Changes
 
+Add white/black-list flags:
+    - `--whitelist-contains <text>`
+    - `--whitelist-begins-with <text>`
+    - `--whitelist-ends-with <text>`
+    - `--blacklist-contains <text>`
+    - `--blacklist-begins-with <text>`
+    - `--blacklist-ends-with <text>`
+
+These flags should affect what entries are archived, what entries are printed
+(with `-t`), and what entries are extracted.
+
 ## Version 1.15
 
 Add flag `--force-empty-dir-permissions <3-octal-values>` that force sets the
