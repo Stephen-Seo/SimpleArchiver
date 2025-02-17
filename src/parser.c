@@ -243,6 +243,30 @@ void simple_archiver_print_usage(void) {
           "--force-empty-dir-permissions <3-octal-values> : Force set EMPTY "
           "dir permissions. Like \"--force-dir-permissions\", but for empty "
           "directories.\n");
+  fprintf(stderr,
+          "--whitelist-contains <text> : Whitelist entries to contain "
+          "\"<text>\", specify multiple times to require multiple \"<text>\" "
+          "entries at once.\n");
+  fprintf(stderr,
+          "--whitelist-begins-with <text> : Whitelist entries to start with "
+          "\"<text>\", specify multiple times to allow different entries to "
+          "start with different \"<text>\" entries.\n");
+  fprintf(stderr,
+          "--whitelist-ends-with <text> : Whitelist entries to end with "
+          "\"<text>\", specify multiple times to allow different entries to end"
+          " with different \"<text>\" entries.\n");
+  fprintf(stderr,
+          "--blacklist-contains <text> : blacklist entries that contains "
+          "\"<text>\", specify multiple times to deny multiple \"<text>\" "
+          "entries at once.\n");
+  fprintf(stderr,
+          "--blacklist-begins-with <text> : blacklist entries that starts with "
+          "\"<text>\", specify multiple times to deny multiple entries "
+          "starting with different \"<text>\" entries.\n");
+  fprintf(stderr,
+          "--blacklist-ends-with <text> : blacklist entries that ends with "
+          "\"<text>\", specify multiple times to deny multiple entries ending "
+          "with different \"<text>\" entries.\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -285,6 +309,12 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.mappings.GidToGid = simple_archiver_hash_map_init();
   parsed.mappings.GnameToGname = simple_archiver_hash_map_init();
   parsed.prefix = NULL;
+  parsed.whitelist_contains = NULL;
+  parsed.whitelist_begins = NULL;
+  parsed.whitelist_ends = NULL;
+  parsed.blacklist_contains = NULL;
+  parsed.blacklist_begins = NULL;
+  parsed.blacklist_ends = NULL;
 
   return parsed;
 }
@@ -685,6 +715,112 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--whitelist-contains") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --whitelist-contains expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->whitelist_contains) {
+          out->whitelist_contains = simple_archiver_list_init();
+        }
+        simple_archiver_list_add(
+          out->whitelist_contains,
+          (void *)argv[1],
+          simple_archiver_helper_datastructure_cleanup_nop);
+
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--whitelist-begins-with") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --whitelist-begins-with expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->whitelist_begins) {
+          out->whitelist_begins = simple_archiver_list_init();
+        }
+        simple_archiver_list_add(
+          out->whitelist_begins,
+          (void *)argv[1],
+          simple_archiver_helper_datastructure_cleanup_nop);
+
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--whitelist-ends-with") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --whitelist-ends-with expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->whitelist_ends) {
+          out->whitelist_ends = simple_archiver_list_init();
+        }
+        simple_archiver_list_add(
+          out->whitelist_ends,
+          (void *)argv[1],
+          simple_archiver_helper_datastructure_cleanup_nop);
+
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--blacklist-contains") == 0) {
+        if (argc < 2) {
+          fprintf(stderr, "ERROR: --blacklist-contains expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->blacklist_contains) {
+          out->blacklist_contains = simple_archiver_list_init();
+        }
+        simple_archiver_list_add(
+          out->blacklist_contains,
+          (void *)argv[1],
+          simple_archiver_helper_datastructure_cleanup_nop);
+
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--blacklist-begins-with") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --blacklist-begins-with expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->blacklist_begins) {
+          out->blacklist_begins = simple_archiver_list_init();
+        }
+        simple_archiver_list_add(
+          out->blacklist_begins,
+          (void *)argv[1],
+          simple_archiver_helper_datastructure_cleanup_nop);
+
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--blacklist-ends-with") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --blacklist-ends-with expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->blacklist_ends) {
+          out->blacklist_ends = simple_archiver_list_init();
+        }
+        simple_archiver_list_add(
+          out->blacklist_ends,
+          (void *)argv[1],
+          simple_archiver_helper_datastructure_cleanup_nop);
+
+        --argc;
+        ++argv;
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);
@@ -796,6 +932,25 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
 
   if (parsed->prefix) {
     free(parsed->prefix);
+  }
+
+  if (parsed->whitelist_contains) {
+    simple_archiver_list_free(&parsed->whitelist_contains);
+  }
+  if (parsed->whitelist_begins) {
+    simple_archiver_list_free(&parsed->whitelist_begins);
+  }
+  if (parsed->whitelist_ends) {
+    simple_archiver_list_free(&parsed->whitelist_ends);
+  }
+  if (parsed->blacklist_contains) {
+    simple_archiver_list_free(&parsed->blacklist_contains);
+  }
+  if (parsed->blacklist_begins) {
+    simple_archiver_list_free(&parsed->blacklist_begins);
+  }
+  if (parsed->blacklist_ends) {
+    simple_archiver_list_free(&parsed->blacklist_ends);
   }
 }
 
