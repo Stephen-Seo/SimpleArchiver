@@ -3,6 +3,7 @@
 ## Upcoming Changes
 
 Add white/black-list flags:
+
     - `--whitelist-contains <text>`
     - `--whitelist-begins-with <text>`
     - `--whitelist-ends-with <text>`
