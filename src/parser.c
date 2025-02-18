@@ -244,9 +244,13 @@ void simple_archiver_print_usage(void) {
           "dir permissions. Like \"--force-dir-permissions\", but for empty "
           "directories.\n");
   fprintf(stderr,
-          "--whitelist-contains <text> : Whitelist entries to contain "
-          "\"<text>\", specify multiple times to require multiple \"<text>\" "
-          "entries at once.\n");
+          "--whitelist-contains-any <text> : Whitelist entries to contain "
+          "\"<text>\", specify multiple times to allow entries that contain "
+          "any of the specified \"<text>\"s.\n");
+  fprintf(stderr,
+          "--whitelist-contains-all <text> : Whitelist entries to contain "
+          "\"<text>\", specify multiple times to allow entries that contain "
+          "all of the specified \"<text>\"s.\n");
   fprintf(stderr,
           "--whitelist-begins-with <text> : Whitelist entries to start with "
           "\"<text>\", specify multiple times to allow different entries to "
@@ -256,9 +260,13 @@ void simple_archiver_print_usage(void) {
           "\"<text>\", specify multiple times to allow different entries to end"
           " with different \"<text>\" entries.\n");
   fprintf(stderr,
-          "--blacklist-contains <text> : blacklist entries that contains "
+          "--blacklist-contains-any <text> : blacklist entries that contains "
+          "\"<text>\", specify multiple times to deny entries that contain any"
+          " of the specified \"<text>\"s.\n");
+  fprintf(stderr,
+          "--blacklist-contains-all <text> : blacklist entries that contains "
           "\"<text>\", specify multiple times to deny entries that contain all"
-          " the specified \"<text>\"s.\n");
+          " of the specified \"<text>\"s.\n");
   fprintf(stderr,
           "--blacklist-begins-with <text> : blacklist entries that starts with "
           "\"<text>\", specify multiple times to deny multiple entries "
@@ -312,10 +320,12 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.mappings.GidToGid = simple_archiver_hash_map_init();
   parsed.mappings.GnameToGname = simple_archiver_hash_map_init();
   parsed.prefix = NULL;
-  parsed.whitelist_contains = NULL;
+  parsed.whitelist_contains_any = NULL;
+  parsed.whitelist_contains_all = NULL;
   parsed.whitelist_begins = NULL;
   parsed.whitelist_ends = NULL;
-  parsed.blacklist_contains = NULL;
+  parsed.blacklist_contains_any = NULL;
+  parsed.blacklist_contains_all = NULL;
   parsed.blacklist_begins = NULL;
   parsed.blacklist_ends = NULL;
 
@@ -718,18 +728,37 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
         --argc;
         ++argv;
-      } else if (strcmp(argv[0], "--whitelist-contains") == 0) {
+      } else if (strcmp(argv[0], "--whitelist-contains-any") == 0) {
         if (argc < 2) {
-          fprintf(stderr, "ERROR: --whitelist-contains expects an argument!\n");
+          fprintf(stderr,
+                  "ERROR: --whitelist-contains-any expects an argument!\n");
           simple_archiver_print_usage();
           return 1;
         }
 
-        if (!out->whitelist_contains) {
-          out->whitelist_contains = simple_archiver_list_init();
+        if (!out->whitelist_contains_any) {
+          out->whitelist_contains_any = simple_archiver_list_init();
         }
         simple_archiver_list_add(
-          out->whitelist_contains,
+          out->whitelist_contains_any,
+          (void *)argv[1],
+          simple_archiver_helper_datastructure_cleanup_nop);
+
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--whitelist-contains-all") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --whitelist-contains-all expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->whitelist_contains_all) {
+          out->whitelist_contains_all = simple_archiver_list_init();
+        }
+        simple_archiver_list_add(
+          out->whitelist_contains_all,
           (void *)argv[1],
           simple_archiver_helper_datastructure_cleanup_nop);
 
@@ -771,18 +800,37 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
         --argc;
         ++argv;
-      } else if (strcmp(argv[0], "--blacklist-contains") == 0) {
+      } else if (strcmp(argv[0], "--blacklist-contains-any") == 0) {
         if (argc < 2) {
-          fprintf(stderr, "ERROR: --blacklist-contains expects an argument!\n");
+          fprintf(stderr,
+                  "ERROR: --blacklist-contains-any expects an argument!\n");
           simple_archiver_print_usage();
           return 1;
         }
 
-        if (!out->blacklist_contains) {
-          out->blacklist_contains = simple_archiver_list_init();
+        if (!out->blacklist_contains_any) {
+          out->blacklist_contains_any = simple_archiver_list_init();
         }
         simple_archiver_list_add(
-          out->blacklist_contains,
+          out->blacklist_contains_any,
+          (void *)argv[1],
+          simple_archiver_helper_datastructure_cleanup_nop);
+
+        --argc;
+        ++argv;
+      } else if (strcmp(argv[0], "--blacklist-contains-all") == 0) {
+        if (argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --blacklist-contains-all expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->blacklist_contains_all) {
+          out->blacklist_contains_all = simple_archiver_list_init();
+        }
+        simple_archiver_list_add(
+          out->blacklist_contains_all,
           (void *)argv[1],
           simple_archiver_helper_datastructure_cleanup_nop);
 
@@ -939,8 +987,11 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     free(parsed->prefix);
   }
 
-  if (parsed->whitelist_contains) {
-    simple_archiver_list_free(&parsed->whitelist_contains);
+  if (parsed->whitelist_contains_any) {
+    simple_archiver_list_free(&parsed->whitelist_contains_any);
+  }
+  if (parsed->whitelist_contains_all) {
+    simple_archiver_list_free(&parsed->whitelist_contains_all);
   }
   if (parsed->whitelist_begins) {
     simple_archiver_list_free(&parsed->whitelist_begins);
@@ -948,8 +999,11 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   if (parsed->whitelist_ends) {
     simple_archiver_list_free(&parsed->whitelist_ends);
   }
-  if (parsed->blacklist_contains) {
-    simple_archiver_list_free(&parsed->blacklist_contains);
+  if (parsed->blacklist_contains_any) {
+    simple_archiver_list_free(&parsed->blacklist_contains_any);
+  }
+  if (parsed->blacklist_contains_all) {
+    simple_archiver_list_free(&parsed->blacklist_contains_all);
   }
   if (parsed->blacklist_begins) {
     simple_archiver_list_free(&parsed->blacklist_begins);

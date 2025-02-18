@@ -53,10 +53,12 @@ API calls.
     --force-dir-permissions <3-octal-values> : Force set permissions for directories on archive creation/extraction
       Must be three octal characters like "755" or "440"
     --force-empty-dir-permissions <3-octal-values> : Force set EMPTY dir permissions. Like "--force-dir-permissions", but for empty directories.
-    --whitelist-contains <text> : Whitelist entries to contain "<text>", specify multiple times to require multiple "<text>" entries at once.
+    --whitelist-contains-any <text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain any of the specified "<text>"s.
+    --whitelist-contains-all <text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain all of the specified "<text>"s.
     --whitelist-begins-with <text> : Whitelist entries to start with "<text>", specify multiple times to allow different entries to start with different "<text>" entries.
     --whitelist-ends-with <text> : Whitelist entries to end with "<text>", specify multiple times to allow different entries to end with different "<text>" entries.
-    --blacklist-contains <text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain all the specified "<text>"s.
+    --blacklist-contains-any <text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain any of the specified "<text>"s.
+    --blacklist-contains-all <text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain all of the specified "<text>"s.
     --blacklist-begins-with <text> : blacklist entries that starts with "<text>", specify multiple times to deny multiple entries starting with different "<text>" entries.
     --blacklist-ends-with <text> : blacklist entries that ends with "<text>", specify multiple times to deny multiple entries ending with different "<text>" entries.
     --wb-case-insensitive : Makes white/black-list checking case insensitive.

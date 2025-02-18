@@ -99,10 +99,12 @@ typedef struct SDArchiverParsed {
   SDA_UGMapping mappings;
   /// Prefix for archived/extracted paths.
   char *prefix;
-  SDArchiverLinkedList *whitelist_contains;
+  SDArchiverLinkedList *whitelist_contains_any;
+  SDArchiverLinkedList *whitelist_contains_all;
   SDArchiverLinkedList *whitelist_begins;
   SDArchiverLinkedList *whitelist_ends;
-  SDArchiverLinkedList *blacklist_contains;
+  SDArchiverLinkedList *blacklist_contains_any;
+  SDArchiverLinkedList *blacklist_contains_all;
   SDArchiverLinkedList *blacklist_begins;
   SDArchiverLinkedList *blacklist_ends;
 } SDArchiverParsed;

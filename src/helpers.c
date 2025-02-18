@@ -723,9 +723,26 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
     const char *cstring,
     uint_fast8_t case_i,
     const SDArchiverParsed *parsed) {
-  if (parsed->whitelist_contains) {
-    for (const SDArchiverLLNode *node = parsed->whitelist_contains->head->next;
-        node != parsed->whitelist_contains->tail;
+  if (parsed->whitelist_contains_any) {
+    uint_fast8_t contains_any = 0;
+    for (const SDArchiverLLNode *node = parsed->whitelist_contains_any->head->next;
+        node != parsed->whitelist_contains_any->tail;
+        node = node->next) {
+      if (node->data) {
+        if (simple_archiver_helper_string_contains(
+            cstring, node->data, case_i)) {
+          contains_any = 1;
+          break;
+        }
+      }
+    }
+    if (!contains_any) {
+      return 0;
+    }
+  }
+  if (parsed->whitelist_contains_all) {
+    for (const SDArchiverLLNode *node = parsed->whitelist_contains_all->head->next;
+        node != parsed->whitelist_contains_all->tail;
         node = node->next) {
       if (node->data) {
         if (!simple_archiver_helper_string_contains(
@@ -759,10 +776,22 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
     }
   }
 
-  if (parsed->blacklist_contains) {
+  if (parsed->blacklist_contains_any) {
+    for (const SDArchiverLLNode *node = parsed->blacklist_contains_any->head->next;
+        node != parsed->blacklist_contains_any->tail;
+        node = node->next) {
+      if (node->data) {
+        if (simple_archiver_helper_string_contains(
+            cstring, node->data, case_i)) {
+          return 0;
+        }
+      }
+    }
+  }
+  if (parsed->blacklist_contains_all) {
     uint_fast8_t contains_all = 1;
-    for (const SDArchiverLLNode *node = parsed->blacklist_contains->head->next;
-        node != parsed->blacklist_contains->tail;
+    for (const SDArchiverLLNode *node = parsed->blacklist_contains_all->head->next;
+        node != parsed->blacklist_contains_all->tail;
         node = node->next) {
       if (node->data) {
         if (!simple_archiver_helper_string_contains(
