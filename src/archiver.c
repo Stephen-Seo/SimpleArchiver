@@ -1708,12 +1708,7 @@ int symlinks_and_files_from_files(void *data, void *ud) {
     if (!simple_archiver_helper_string_allowed_lists(
         file_info->filename,
         state->parsed->flags & 0x20000 ? 1 : 0,
-        state->parsed->whitelist_contains,
-        state->parsed->whitelist_begins,
-        state->parsed->whitelist_ends,
-        state->parsed->blacklist_contains,
-        state->parsed->blacklist_begins,
-        state->parsed->blacklist_ends)) {
+        state->parsed)) {
       return 0;
     }
 
@@ -7043,12 +7038,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     const uint_fast8_t lists_allowed = simple_archiver_helper_string_allowed_lists(
       link_name,
       state->parsed->flags & 0x20000 ? 1 : 0,
-      state->parsed->whitelist_contains,
-      state->parsed->whitelist_begins,
-      state->parsed->whitelist_ends,
-      state->parsed->blacklist_contains,
-      state->parsed->blacklist_begins,
-      state->parsed->blacklist_ends);
+      state->parsed);
 
     if (lists_allowed) {
       fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, u32);
@@ -7399,12 +7389,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       if (simple_archiver_helper_string_allowed_lists(
           file_info->filename,
           state->parsed->flags & 0x20000 ? 1 : 0,
-          state->parsed->whitelist_contains,
-          state->parsed->whitelist_begins,
-          state->parsed->whitelist_ends,
-          state->parsed->blacklist_contains,
-          state->parsed->blacklist_begins,
-          state->parsed->blacklist_ends)) {
+          state->parsed)) {
         file_info->other_flags |= 2;
       }
 
@@ -8069,12 +8054,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     const uint_fast8_t lists_allowed = simple_archiver_helper_string_allowed_lists(
       buf,
       state->parsed->flags & 0x20000 ? 1 : 0,
-      state->parsed->whitelist_contains,
-      state->parsed->whitelist_begins,
-      state->parsed->whitelist_ends,
-      state->parsed->blacklist_contains,
-      state->parsed->blacklist_begins,
-      state->parsed->blacklist_ends);
+      state->parsed);
 
     uint8_t perms_flags[4];
     if (fread(perms_flags, 1, 2, in_f) != 2) {
@@ -8429,12 +8409,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     const uint_fast8_t lists_allowed = simple_archiver_helper_string_allowed_lists(
       link_name,
       state->parsed->flags & 0x20000 ? 1 : 0,
-      state->parsed->whitelist_contains,
-      state->parsed->whitelist_begins,
-      state->parsed->whitelist_ends,
-      state->parsed->blacklist_contains,
-      state->parsed->blacklist_begins,
-      state->parsed->blacklist_ends);
+      state->parsed);
 
     if (!do_extract && lists_allowed) {
       fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, count);
@@ -9044,12 +9019,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       } else if (simple_archiver_helper_string_allowed_lists(
           file_info->filename,
           state->parsed->flags & 0x20000 ? 1 : 0,
-          state->parsed->whitelist_contains,
-          state->parsed->whitelist_begins,
-          state->parsed->whitelist_ends,
-          state->parsed->blacklist_contains,
-          state->parsed->blacklist_begins,
-          state->parsed->blacklist_ends)) {
+          state->parsed)) {
         file_info->other_flags |= 2;
       }
 
@@ -9776,12 +9746,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       simple_archiver_helper_string_allowed_lists(
         archive_dir_name,
         state->parsed->flags & 0x20000 ? 1 : 0,
-        state->parsed->whitelist_contains,
-        state->parsed->whitelist_begins,
-        state->parsed->whitelist_ends,
-        state->parsed->blacklist_contains,
-        state->parsed->blacklist_begins,
-        state->parsed->blacklist_ends);
+        state->parsed);
 
     uint8_t perms_flags[4];
     if (fread(perms_flags, 1, 2, in_f) != 2) {

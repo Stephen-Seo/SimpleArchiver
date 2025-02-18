@@ -25,6 +25,7 @@
 
 // Local includes.
 #include "data_structures/linked_list.h"
+#include "parser.h"
 
 static const uint32_t MAX_SYMBOLIC_LINK_SIZE = 512;
 
@@ -142,11 +143,6 @@ uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
 uint_fast8_t simple_archiver_helper_string_allowed_lists(
   const char *cstring,
   uint_fast8_t case_i,
-  const SDArchiverLinkedList *w_contains,
-  const SDArchiverLinkedList *w_begins,
-  const SDArchiverLinkedList *w_ends,
-  const SDArchiverLinkedList *b_contains,
-  const SDArchiverLinkedList *b_begins,
-  const SDArchiverLinkedList *b_ends);
+  const SDArchiverParsed *parsed);
 
 #endif
