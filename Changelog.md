@@ -4,10 +4,12 @@
 
 Add white/black-list flags:
 
-  - `--whitelist-contains <text>`
+  - `--whitelist-contains-any <text>`
+  - `--whitelist-contains-all <text>`
   - `--whitelist-begins-with <text>`
   - `--whitelist-ends-with <text>`
-  - `--blacklist-contains <text>`
+  - `--blacklist-contains-any <text>`
+  - `--blacklist-contains-all <text>`
   - `--blacklist-begins-with <text>`
   - `--blacklist-ends-with <text>`
   - `--wb-case-insensitive`
