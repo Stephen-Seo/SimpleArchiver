@@ -56,7 +56,7 @@ API calls.
     --whitelist-contains <text> : Whitelist entries to contain "<text>", specify multiple times to require multiple "<text>" entries at once.
     --whitelist-begins-with <text> : Whitelist entries to start with "<text>", specify multiple times to allow different entries to start with different "<text>" entries.
     --whitelist-ends-with <text> : Whitelist entries to end with "<text>", specify multiple times to allow different entries to end with different "<text>" entries.
-    --blacklist-contains <text> : blacklist entries that contains "<text>", specify multiple times to deny multiple "<text>" entries at once.
+    --blacklist-contains <text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain all the specified "<text>"s.
     --blacklist-begins-with <text> : blacklist entries that starts with "<text>", specify multiple times to deny multiple entries starting with different "<text>" entries.
     --blacklist-ends-with <text> : blacklist entries that ends with "<text>", specify multiple times to deny multiple entries ending with different "<text>" entries.
     --wb-case-insensitive : Makes white/black-list checking case insensitive.

@@ -257,8 +257,8 @@ void simple_archiver_print_usage(void) {
           " with different \"<text>\" entries.\n");
   fprintf(stderr,
           "--blacklist-contains <text> : blacklist entries that contains "
-          "\"<text>\", specify multiple times to deny multiple \"<text>\" "
-          "entries at once.\n");
+          "\"<text>\", specify multiple times to deny entries that contain all"
+          " the specified \"<text>\"s.\n");
   fprintf(stderr,
           "--blacklist-begins-with <text> : blacklist entries that starts with "
           "\"<text>\", specify multiple times to deny multiple entries "
