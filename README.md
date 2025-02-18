@@ -1,8 +1,10 @@
 # Simple Archiver
 
-This program ~~is not yet~~ ~~almost~~ basically finished! ~~Basic~~ Necessary
-functionality is implemented and only ~~some advanced features are missing~~
-some extra features are not yet implemented.
+This program ~~is not yet~~ ~~almost~~ basically finished! ~~Basic~~ ~~Necessary
+functionality is implemented and only~~ ~~some advanced features are missing~~
+~~some extra features are not yet implemented.~~  
+This program has slowly but surely built up a significant amount of features
+over time, which may have, perhaps, outgrown the "Simple" part of its name.
 
 This program exists because I could not get `tar` or `ar` to compile with
 [Cosmopolitan](https://justine.lol/cosmopolitan/index.html). Thus, this
