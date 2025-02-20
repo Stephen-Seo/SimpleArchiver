@@ -189,7 +189,7 @@ void simple_archiver_print_usage(void) {
           "when compressing (defaults to current working directory)\n");
   fprintf(stderr,
           "--write-version <version> : Force write version file format "
-          "(default 1)\n");
+          "(default 3)\n");
   fprintf(stderr,
           "--chunk-min-size <bytes> : v1 file format minimum chunk size "
           "(default 4194304 or 4MiB)\n");
