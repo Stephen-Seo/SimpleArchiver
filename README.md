@@ -30,7 +30,7 @@ API calls.
     --preserve-symlinks : preserve the symlink's path on archive creation instead of deriving abs/relative paths, ignores "--no-abs-symlink" (It is not recommended to use this option, as absolute-path-symlinks may be clobbered on extraction)
     --no-safe-links : keep symlinks that link to outside archive contents
     --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to current working directory)
-    --write-version <version> : Force write version file format (default 1)
+    --write-version <version> : Force write version file format (default 3)
     --chunk-min-size <bytes> : v1 file format minimum chunk size (default 4194304 or 4MiB)
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
     --no-preserve-empty-dirs : do NOT preserve empty dirs (only for file format 2 and onwards)
