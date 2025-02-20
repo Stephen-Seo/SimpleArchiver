@@ -937,7 +937,8 @@ TEST_HELPERS_PREFIX_END:
   // Test string parts.
   {
     __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
-    SAHelperStringParts string_parts = simple_archiver_helper_string_parts_init();
+    SAHelperStringParts string_parts =
+      simple_archiver_helper_string_parts_init();
 
     simple_archiver_helper_string_parts_add(string_parts, "a");
 

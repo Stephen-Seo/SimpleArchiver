@@ -905,7 +905,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           ++ptr;
         }
 
-        out->working_files = realloc(out->working_files, sizeof(char *) * (working_size + 1));
+        out->working_files =
+          realloc(out->working_files, sizeof(char *) * (working_size + 1));
 
         // Set new actual last element to NULL.
         out->working_files[working_size] = NULL;

@@ -725,7 +725,8 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
     const SDArchiverParsed *parsed) {
   if (parsed->whitelist_contains_any) {
     uint_fast8_t contains_any = 0;
-    for (const SDArchiverLLNode *node = parsed->whitelist_contains_any->head->next;
+    for (const SDArchiverLLNode *node
+          = parsed->whitelist_contains_any->head->next;
         node != parsed->whitelist_contains_any->tail;
         node = node->next) {
       if (node->data) {
@@ -741,7 +742,8 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
     }
   }
   if (parsed->whitelist_contains_all) {
-    for (const SDArchiverLLNode *node = parsed->whitelist_contains_all->head->next;
+    for (const SDArchiverLLNode *node
+          = parsed->whitelist_contains_all->head->next;
         node != parsed->whitelist_contains_all->tail;
         node = node->next) {
       if (node->data) {
@@ -777,7 +779,8 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
   }
 
   if (parsed->blacklist_contains_any) {
-    for (const SDArchiverLLNode *node = parsed->blacklist_contains_any->head->next;
+    for (const SDArchiverLLNode *node
+          = parsed->blacklist_contains_any->head->next;
         node != parsed->blacklist_contains_any->tail;
         node = node->next) {
       if (node->data) {
@@ -790,7 +793,8 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
   }
   if (parsed->blacklist_contains_all) {
     uint_fast8_t contains_all = 1;
-    for (const SDArchiverLLNode *node = parsed->blacklist_contains_all->head->next;
+    for (const SDArchiverLLNode *node
+          = parsed->blacklist_contains_all->head->next;
         node != parsed->blacklist_contains_all->tail;
         node = node->next) {
       if (node->data) {
