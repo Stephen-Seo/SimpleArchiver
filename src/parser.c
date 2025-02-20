@@ -191,8 +191,8 @@ void simple_archiver_print_usage(void) {
           "--write-version <version> : Force write version file format "
           "(default 3)\n");
   fprintf(stderr,
-          "--chunk-min-size <bytes> : v1 file format minimum chunk size "
-          "(default 4194304 or 4MiB)\n");
+          "--chunk-min-size <bytes> : minimum chunk size (default 4194304 or "
+          "4MiB) when using chunks (file formats v. 1 and up)\n");
   fprintf(stderr,
           "--no-pre-sort-files : do NOT pre-sort files by size (by default "
           "enabled so that the first file is the largest)\n");
