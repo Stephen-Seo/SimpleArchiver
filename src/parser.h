@@ -65,6 +65,8 @@ typedef struct SDArchiverParsed {
   /// Null-terminated string.
   char *filename;
   /// Null-terminated string.
+  char *filename_full_abs_path;
+  /// Null-terminated string.
   char *compressor;
   /// Null-terminated string.
   char *decompressor;
@@ -73,8 +75,9 @@ typedef struct SDArchiverParsed {
   /// Determines a "white-list" of files to extract when extracting.
   char **working_files;
   /// Determines where to place temporary files. If NULL, temporary files are
-  /// created in the current working directory.
-  const char *temp_dir;
+  /// created in the target filename's directory.
+  /// No longer refers to string in argv.
+  char *temp_dir;
   /// Dir specified by "-C".
   const char *user_cwd;
   /// Currently only 0, 1, 2, and 3 is supported.

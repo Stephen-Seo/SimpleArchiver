@@ -27,6 +27,8 @@
 #include "data_structures/linked_list.h"
 #include "parser.h"
 
+#define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%zu.tmp"
+
 static const uint32_t MAX_SYMBOLIC_LINK_SIZE = 512;
 
 /// Returns non-zero if this system is big-endian.
@@ -144,5 +146,10 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
   const char *cstring,
   uint_fast8_t case_i,
   const SDArchiverParsed *parsed);
+
+// Must be free'd with `fclose(...)`.
+// "out_temp_filename" must be free'd if non-NULL.
+FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
+                                      char **out_temp_filename);
 
 #endif

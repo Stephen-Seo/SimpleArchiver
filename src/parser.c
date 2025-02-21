@@ -298,6 +298,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
 
   parsed.flags = 0x40;
   parsed.filename = NULL;
+  parsed.filename_full_abs_path = NULL;
   parsed.compressor = NULL;
   parsed.decompressor = NULL;
   parsed.working_files = NULL;
@@ -337,6 +338,10 @@ int simple_archiver_parse_args(int argc, const char **argv,
   if (out->filename) {
     free(out->filename);
     out->filename = NULL;
+  }
+  if (out->filename_full_abs_path) {
+    free(out->filename_full_abs_path);
+    out->filename_full_abs_path = NULL;
   }
   if (out->compressor) {
     free(out->compressor);
@@ -383,12 +388,16 @@ int simple_archiver_parse_args(int argc, const char **argv,
           if (out->filename) {
             free(out->filename);
           }
+          if (out->filename_full_abs_path) {
+            free(out->filename_full_abs_path);
+          }
           out->filename = NULL;
+          out->filename_full_abs_path = NULL;
         } else {
           out->flags &= 0xFFFFFFEF;
-          size_t size = strlen(argv[1]) + 1;
-          out->filename = malloc(size);
-          strncpy(out->filename, argv[1], size);
+          out->filename = strdup(argv[1]);
+          out->filename_full_abs_path =
+            simple_archiver_helper_real_path_to_name(argv[1]);
         }
         --argc;
         ++argv;
@@ -467,7 +476,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_print_usage();
           return 1;
         }
-        out->temp_dir = argv[1];
+        out->temp_dir = simple_archiver_helper_real_path_to_name(argv[1]);
         --argc;
         ++argv;
       } else if (strcmp(argv[0], "--write-version") == 0) {
@@ -925,10 +934,6 @@ int simple_archiver_parse_args(int argc, const char **argv,
     ++argv;
   }
 
-  if (!out->temp_dir) {
-    out->temp_dir = "./";
-  }
-
   return 0;
 }
 
@@ -937,6 +942,10 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   if (parsed->filename) {
     free(parsed->filename);
     parsed->filename = NULL;
+  }
+  if (parsed->filename_full_abs_path) {
+    free(parsed->filename_full_abs_path);
+    parsed->filename_full_abs_path = NULL;
   }
   if (parsed->compressor) {
     free(parsed->compressor);
@@ -955,6 +964,11 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     }
     free(parsed->working_files);
     parsed->working_files = NULL;
+  }
+
+  if (parsed->temp_dir) {
+    free(parsed->temp_dir);
+    parsed->temp_dir = NULL;
   }
 
   simple_archiver_users_free_users_infos(&parsed->users_infos);

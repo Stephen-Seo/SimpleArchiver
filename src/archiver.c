@@ -43,7 +43,6 @@
 #include "helpers.h"
 #include "users.h"
 
-#define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%zu.tmp"
 #define FILE_COUNTS_OUTPUT_FORMAT_STR_0 \
   "\nFile %%%zu" PRIu32 " of %%%zu" PRIu32 ".\n"
 #define FILE_COUNTS_OUTPUT_FORMAT_STR_1 "[%%%zuzu/%%%zuzu]\n"
@@ -160,37 +159,19 @@ int write_files_fn_file_v0(void *data, void *ud) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-      // Use temp file to store compressed data.
-      char temp_filename[512];
-      size_t idx = 0;
-      size_t temp_dir_end = strlen(state->parsed->temp_dir);
-      snprintf(temp_filename, 512, TEMP_FILENAME_CMP, state->parsed->temp_dir,
-               state->parsed->temp_dir[temp_dir_end - 1] == '/' ? "" : "/",
-               idx);
-      do {
-        FILE *test_fd = fopen(temp_filename, "rb");
-        if (test_fd) {
-          // File exists.
-          fclose(test_fd);
-          snprintf(temp_filename, 512, TEMP_FILENAME_CMP,
-                   state->parsed->temp_dir,
-                   state->parsed->temp_dir[temp_dir_end - 1] == '/' ? "" : "/",
-                   ++idx);
-        } else if (idx > 0xFFFF) {
-          // Sanity check.
-          return 1;
-        } else {
-          break;
-        }
-      } while (1);
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
       FILE *file_fd = fopen(file_info->filename, "rb");
       if (!file_fd) {
         // Unable to open file for compressing and archiving.
         return 1;
       }
+      // Use temp file to store compressed data.
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *out_temp_filename = NULL;
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-      FILE *tmp_fd = fopen(temp_filename, "wb");
+      FILE *tmp_fd = simple_archiver_helper_temp_dir(state->parsed,
+                                                     &out_temp_filename);
+      fprintf(stderr, "DEBUG: out_temp_filename is %s\n");
       __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
           malloc(sizeof(void *) * 2);
       ptrs_array[0] = NULL;
@@ -203,7 +184,7 @@ int write_files_fn_file_v0(void *data, void *ud) {
           return 1;
         }
       } else {
-        ptrs_array[0] = temp_filename;
+        ptrs_array[0] = out_temp_filename;
         ptrs_array[1] = &tmp_fd;
       }
 
@@ -364,7 +345,6 @@ int write_files_fn_file_v0(void *data, void *ud) {
             }
           } else if (ret == 0) {
             read_done = 1;
-            simple_archiver_helper_cleanup_FILE(&tmp_fd);
             close(pipe_outof_cmd[0]);
             pipe_outof_cmd[0] = -1;
             // fprintf(stderr, "read_done\n");
@@ -495,8 +475,7 @@ int write_files_fn_file_v0(void *data, void *ud) {
 
       // Get compressed file length.
       // Compressed file should be at "temp_filename".
-      tmp_fd = fopen(temp_filename, "rb");
-
+      clearerr(tmp_fd);
       long end;
       if (fseek(tmp_fd, 0, SEEK_END) != 0) {
         // Error seeking.
@@ -506,10 +485,8 @@ int write_files_fn_file_v0(void *data, void *ud) {
       if (end == -1L) {
         // Error getting end position.
         return 1;
-      } else if (fseek(tmp_fd, 0, SEEK_SET) != 0) {
-        // Error seeking.
-        return 1;
       }
+      rewind(tmp_fd);
 
       // Write file length.
       u64 = (uint64_t)end;
@@ -541,9 +518,6 @@ int write_files_fn_file_v0(void *data, void *ud) {
           break;
         }
       } while (1);
-
-      // Cleanup.
-      simple_archiver_helper_cleanup_FILE(&tmp_fd);
 #endif
     } else {
       uint16_t u16;
@@ -3107,10 +3081,8 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     if (state->parsed->compressor && state->parsed->decompressor) {
       // Is compressing.
 
-      size_t temp_filename_size = strlen(state->parsed->temp_dir) + 1 + 64;
-      __attribute__((cleanup(
-          simple_archiver_helper_cleanup_c_string))) char *temp_filename =
-          malloc(temp_filename_size);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *temp_filename = NULL;
 
       __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
           malloc(sizeof(void *) * 2);
@@ -3118,38 +3090,10 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       ptrs_array[1] = NULL;
 
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-      FILE *temp_fd = NULL;
+      FILE *temp_fd = simple_archiver_helper_temp_dir(state->parsed,
+                                                      &temp_filename);
 
-      if (state->parsed->temp_dir) {
-        size_t idx = 0;
-        size_t temp_dir_len = strlen(state->parsed->temp_dir);
-        snprintf(temp_filename, temp_filename_size, TEMP_FILENAME_CMP,
-                 state->parsed->temp_dir,
-                 state->parsed->temp_dir[temp_dir_len - 1] == '/' ? "" : "/",
-                 idx);
-        do {
-          FILE *test_fd = fopen(temp_filename, "rb");
-          if (test_fd) {
-            // File exists.
-            fclose(test_fd);
-            snprintf(
-                temp_filename, temp_filename_size, TEMP_FILENAME_CMP,
-                state->parsed->temp_dir,
-                state->parsed->temp_dir[temp_dir_len - 1] == '/' ? "" : "/",
-                ++idx);
-          } else if (idx > 0xFFFF) {
-            return SDAS_INTERNAL_ERROR;
-          } else {
-            break;
-          }
-        } while (1);
-        temp_fd = fopen(temp_filename, "w+b");
-        if (temp_fd) {
-          ptrs_array[0] = temp_filename;
-        }
-      } else {
-        temp_fd = tmpfile();
-      }
+      ptrs_array[0] = temp_filename;
 
       if (!temp_fd) {
         temp_fd = tmpfile();
@@ -3377,9 +3321,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
 
-      if (fseek(temp_fd, 0, SEEK_SET) != 0) {
-        return SDAS_INTERNAL_ERROR;
-      }
+      rewind(temp_fd);
 
       size_t written_size = 0;
 
@@ -4124,11 +4066,8 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
 
     if (state->parsed->compressor && state->parsed->decompressor) {
       // Is compressing.
-
-      size_t temp_filename_size = strlen(state->parsed->temp_dir) + 1 + 64;
-      __attribute__((cleanup(
-          simple_archiver_helper_cleanup_c_string))) char *temp_filename =
-          malloc(temp_filename_size);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *temp_filename = NULL;
 
       __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
           malloc(sizeof(void *) * 2);
@@ -4136,38 +4075,9 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       ptrs_array[1] = NULL;
 
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-      FILE *temp_fd = NULL;
-
-      if (state->parsed->temp_dir) {
-        size_t idx = 0;
-        size_t temp_dir_len = strlen(state->parsed->temp_dir);
-        snprintf(temp_filename, temp_filename_size, TEMP_FILENAME_CMP,
-                 state->parsed->temp_dir,
-                 state->parsed->temp_dir[temp_dir_len - 1] == '/' ? "" : "/",
-                 idx);
-        do {
-          FILE *test_fd = fopen(temp_filename, "rb");
-          if (test_fd) {
-            // File exists.
-            fclose(test_fd);
-            snprintf(
-                temp_filename, temp_filename_size, TEMP_FILENAME_CMP,
-                state->parsed->temp_dir,
-                state->parsed->temp_dir[temp_dir_len - 1] == '/' ? "" : "/",
-                ++idx);
-          } else if (idx > 0xFFFF) {
-            return SDAS_INTERNAL_ERROR;
-          } else {
-            break;
-          }
-        } while (1);
-        temp_fd = fopen(temp_filename, "w+b");
-        if (temp_fd) {
-          ptrs_array[0] = temp_filename;
-        }
-      } else {
-        temp_fd = tmpfile();
-      }
+      FILE *temp_fd = simple_archiver_helper_temp_dir(state->parsed,
+                                                      &temp_filename);
+      ptrs_array[0] = temp_filename;
 
       if (!temp_fd) {
         temp_fd = tmpfile();
@@ -4395,9 +4305,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
 
-      if (fseek(temp_fd, 0, SEEK_SET) != 0) {
-        return SDAS_INTERNAL_ERROR;
-      }
+      rewind(temp_fd);
 
       size_t written_size = 0;
 
@@ -5401,11 +5309,8 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
 
     if (state->parsed->compressor && state->parsed->decompressor) {
       // Is compressing.
-
-      size_t temp_filename_size = strlen(state->parsed->temp_dir) + 1 + 64;
-      __attribute__((cleanup(
-          simple_archiver_helper_cleanup_c_string))) char *temp_filename =
-          malloc(temp_filename_size);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *temp_filename = NULL;
 
       __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
           malloc(sizeof(void *) * 2);
@@ -5413,38 +5318,9 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       ptrs_array[1] = NULL;
 
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-      FILE *temp_fd = NULL;
-
-      if (state->parsed->temp_dir) {
-        size_t idx = 0;
-        size_t temp_dir_len = strlen(state->parsed->temp_dir);
-        snprintf(temp_filename, temp_filename_size, TEMP_FILENAME_CMP,
-                 state->parsed->temp_dir,
-                 state->parsed->temp_dir[temp_dir_len - 1] == '/' ? "" : "/",
-                 idx);
-        do {
-          FILE *test_fd = fopen(temp_filename, "rb");
-          if (test_fd) {
-            // File exists.
-            fclose(test_fd);
-            snprintf(
-                temp_filename, temp_filename_size, TEMP_FILENAME_CMP,
-                state->parsed->temp_dir,
-                state->parsed->temp_dir[temp_dir_len - 1] == '/' ? "" : "/",
-                ++idx);
-          } else if (idx > 0xFFFF) {
-            return SDAS_INTERNAL_ERROR;
-          } else {
-            break;
-          }
-        } while (1);
-        temp_fd = fopen(temp_filename, "w+b");
-        if (temp_fd) {
-          ptrs_array[0] = temp_filename;
-        }
-      } else {
-        temp_fd = tmpfile();
-      }
+      FILE *temp_fd = simple_archiver_helper_temp_dir(state->parsed,
+                                                      &temp_filename);
+      ptrs_array[0] = temp_filename;
 
       if (!temp_fd) {
         temp_fd = tmpfile();
@@ -5672,9 +5548,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         return SDAS_FAILED_TO_WRITE;
       }
 
-      if (fseek(temp_fd, 0, SEEK_SET) != 0) {
-        return SDAS_INTERNAL_ERROR;
-      }
+      rewind(temp_fd);
 
       size_t written_size = 0;
 

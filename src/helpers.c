@@ -510,6 +510,10 @@ char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
 }
 
 char *simple_archiver_helper_real_path_to_name(const char *filename) {
+  if (!filename || filename[0] == 0) {
+    return NULL;
+  }
+
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *filename_copy = strdup(filename);
   char *filename_dir = dirname(filename_copy);
@@ -834,4 +838,74 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
   }
 
   return 1;
+}
+
+FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
+                                      char **out_temp_filename) {
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *real_path_to_filename = parsed->temp_dir
+    ? strdup(parsed->temp_dir)
+    : strdup(parsed->filename_full_abs_path);
+
+  if (!real_path_to_filename) {
+    if (out_temp_filename) {
+      *out_temp_filename = NULL;
+    }
+    return tmpfile();
+  }
+
+  char *dir = parsed->temp_dir
+    ? real_path_to_filename
+    : dirname(real_path_to_filename);
+  if (!dir) {
+    if (out_temp_filename) {
+      *out_temp_filename = NULL;
+    }
+    return tmpfile();
+  }
+
+  char temp_filename[512];
+  size_t idx = 0;
+  size_t dir_len = strlen(dir);
+  snprintf(temp_filename,
+           512,
+           TEMP_FILENAME_CMP,
+           dir,
+           dir[dir_len - 1] == '/' ? "" : "/",
+           idx);
+  do {
+    FILE *test_fd = fopen(temp_filename, "rb");
+    if (test_fd) {
+      // File exists.
+      fclose(test_fd);
+        snprintf(temp_filename,
+                 512,
+                 TEMP_FILENAME_CMP,
+                 dir,
+                 dir[dir_len - 1] == '/' ? "" : "/",
+                 ++idx);
+    } else if (idx > 0xFFFF) {
+      // Sanity check.
+      if (out_temp_filename) {
+        *out_temp_filename = NULL;
+      }
+      return tmpfile();
+    } else {
+      break;
+    }
+  } while (1);
+
+  FILE *temp_file = fopen(temp_filename, "w+b");
+
+  if (temp_file) {
+    if (out_temp_filename) {
+      *out_temp_filename = strdup(temp_filename);
+    }
+    return temp_file;
+  } else {
+    if (out_temp_filename) {
+      *out_temp_filename = NULL;
+    }
+    return tmpfile();
+  }
 }
