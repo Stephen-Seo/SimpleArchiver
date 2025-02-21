@@ -186,7 +186,7 @@ void simple_archiver_print_usage(void) {
           "contents\n");
   fprintf(stderr,
           "--temp-files-dir <dir> : where to store temporary files created "
-          "when compressing (defaults to current working directory)\n");
+          "when compressing (defaults to same directory as output file)\n");
   fprintf(stderr,
           "--write-version <version> : Force write version file format "
           "(default 3)\n");
