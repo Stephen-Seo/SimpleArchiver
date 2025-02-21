@@ -171,7 +171,6 @@ int write_files_fn_file_v0(void *data, void *ud) {
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
       FILE *tmp_fd = simple_archiver_helper_temp_dir(state->parsed,
                                                      &out_temp_filename);
-      fprintf(stderr, "DEBUG: out_temp_filename is %s\n");
       __attribute__((cleanup(cleanup_temp_filename_delete))) void **ptrs_array =
           malloc(sizeof(void *) * 2);
       ptrs_array[0] = NULL;
