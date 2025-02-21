@@ -17,6 +17,9 @@ Add white/black-list flags:
 These flags should affect what entries are archived, what entries are printed
 (with `-t`), and what entries are extracted.
 
+Fixed/refactored how temp files are handled during compression. Note that a
+directory can be specified with `--temp-files-dir <dir>`.
+
 ## Version 1.15
 
 Add flag `--force-empty-dir-permissions <3-octal-values>` that force sets the
