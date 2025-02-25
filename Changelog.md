@@ -18,7 +18,9 @@ These flags should affect what entries are archived, what entries are printed
 (with `-t`), and what entries are extracted.
 
 Fixed/refactored how temp files are handled during compression. Note that a
-directory can be specified with `--temp-files-dir <dir>`.
+directory can be specified with `--temp-files-dir <dir>`.  
+This means that temp files are now, by default, created in the same directory
+as the output file instead of the current working directory.
 
 ## Version 1.15
 
