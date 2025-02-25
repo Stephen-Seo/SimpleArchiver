@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 1.16
+
 Add white/black-list flags:
 
   - `--whitelist-contains-any <text>`
