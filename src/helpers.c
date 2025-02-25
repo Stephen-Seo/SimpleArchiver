@@ -759,26 +759,36 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
     }
   }
   if (parsed->whitelist_begins) {
+    uint_fast8_t contains = 0;
     for (const SDArchiverLLNode *node = parsed->whitelist_begins->head->next;
         node != parsed->whitelist_begins->tail;
         node = node->next) {
       if (node->data) {
-        if (!simple_archiver_helper_string_starts(
+        if (simple_archiver_helper_string_starts(
             cstring, node->data, case_i)) {
-          return 0;
+          contains = 1;
+          break;
         }
       }
     }
+    if (!contains) {
+      return 0;
+    }
   }
   if (parsed->whitelist_ends) {
+    uint_fast8_t contains = 0;
     for (const SDArchiverLLNode *node = parsed->whitelist_ends->head->next;
         node != parsed->whitelist_ends->tail;
         node = node->next) {
       if (node->data) {
-        if (!simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
-          return 0;
+        if (simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
+          contains = 1;
+          break;
         }
       }
+    }
+    if (!contains) {
+      return 0;
     }
   }
 
