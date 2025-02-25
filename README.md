@@ -1,8 +1,10 @@
 # Simple Archiver
 
-This program ~~is not yet~~ ~~almost~~ basically finished! ~~Basic~~ Necessary
-functionality is implemented and only ~~some advanced features are missing~~
-some extra features are not yet implemented.
+This program ~~is not yet~~ ~~almost~~ basically finished! ~~Basic~~ ~~Necessary
+functionality is implemented and only~~ ~~some advanced features are missing~~
+~~some extra features are not yet implemented.~~  
+This program has slowly but surely built up a significant amount of features
+over time, which may have, perhaps, outgrown the "Simple" part of its name.
 
 This program exists because I could not get `tar` or `ar` to compile with
 [Cosmopolitan](https://justine.lol/cosmopolitan/index.html). Thus, this
@@ -29,7 +31,7 @@ API calls.
     --no-abs-symlink : do not store absolute paths for symlinks
     --preserve-symlinks : preserve the symlink's path on archive creation instead of deriving abs/relative paths, ignores "--no-abs-symlink" (It is not recommended to use this option, as absolute-path-symlinks may be clobbered on extraction)
     --no-safe-links : keep symlinks that link to outside archive contents
-    --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to current working directory)
+    --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to same directory as output file)
     --write-version <version> : Force write version file format (default 3)
     --chunk-min-size <bytes> : minimum chunk size (default 4194304 or 4MiB) when using chunks (file formats v. 1 and up)
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
@@ -53,6 +55,15 @@ API calls.
     --force-dir-permissions <3-octal-values> : Force set permissions for directories on archive creation/extraction
       Must be three octal characters like "755" or "440"
     --force-empty-dir-permissions <3-octal-values> : Force set EMPTY dir permissions. Like "--force-dir-permissions", but for empty directories.
+    --whitelist-contains-any <text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain any of the specified "<text>"s.
+    --whitelist-contains-all <text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain all of the specified "<text>"s.
+    --whitelist-begins-with <text> : Whitelist entries to start with "<text>", specify multiple times to allow different entries to start with different "<text>" entries.
+    --whitelist-ends-with <text> : Whitelist entries to end with "<text>", specify multiple times to allow different entries to end with different "<text>" entries.
+    --blacklist-contains-any <text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain any of the specified "<text>"s.
+    --blacklist-contains-all <text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain all of the specified "<text>"s.
+    --blacklist-begins-with <text> : blacklist entries that starts with "<text>", specify multiple times to deny multiple entries starting with different "<text>" entries.
+    --blacklist-ends-with <text> : blacklist entries that ends with "<text>", specify multiple times to deny multiple entries ending with different "<text>" entries.
+    --wb-case-insensitive : Makes white/black-list checking case insensitive.
     --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.

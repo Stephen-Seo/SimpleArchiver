@@ -937,7 +937,8 @@ TEST_HELPERS_PREFIX_END:
   // Test string parts.
   {
     __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
-    SAHelperStringParts string_parts = simple_archiver_helper_string_parts_init();
+    SAHelperStringParts string_parts =
+      simple_archiver_helper_string_parts_init();
 
     simple_archiver_helper_string_parts_add(string_parts, "a");
 
@@ -962,6 +963,34 @@ TEST_HELPERS_PREFIX_END:
     buf = simple_archiver_helper_string_parts_combine(string_parts);
     CHECK_STREQ(buf, "a/b/c");
     free(buf);
+  }
+
+  // Test contains/starts/ends helpers.
+  {
+    CHECK_TRUE(simple_archiver_helper_string_contains(
+      "The string is this.", " is ", 0));
+    CHECK_FALSE(simple_archiver_helper_string_contains(
+      "The string is this.", " is d", 0));
+    CHECK_TRUE(simple_archiver_helper_string_contains(
+      "TheseTheThesesThe", "Theses", 0));
+
+    CHECK_TRUE(simple_archiver_helper_string_starts(
+      "The string is this.", "The ", 0));
+    CHECK_FALSE(simple_archiver_helper_string_starts(
+      "The string is this.", "tThe ", 0));
+
+    CHECK_TRUE(simple_archiver_helper_string_ends(
+      "The string is this.", " this.", 0));
+    CHECK_FALSE(simple_archiver_helper_string_ends(
+      "The string is this.", " this", 0));
+
+
+    CHECK_TRUE(simple_archiver_helper_string_contains(
+      "The String Is This.", "sTRING", 1));
+    CHECK_TRUE(simple_archiver_helper_string_starts(
+      "The String Is This.", "tHE", 1));
+    CHECK_TRUE(simple_archiver_helper_string_ends(
+      "The String Is This.", "tHIS.", 1));
   }
 
   printf("Checks checked: %" PRId32 "\n", checks_checked);

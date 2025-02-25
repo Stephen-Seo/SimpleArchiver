@@ -510,6 +510,10 @@ char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
 }
 
 char *simple_archiver_helper_real_path_to_name(const char *filename) {
+  if (!filename || filename[0] == 0) {
+    return NULL;
+  }
+
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *filename_copy = strdup(filename);
   char *filename_dir = dirname(filename_copy);
@@ -610,4 +614,298 @@ char *simple_archiver_helper_string_parts_combine(
   }
   buf[size] = 0;
   return buf;
+}
+
+uint_fast8_t simple_archiver_helper_string_contains(const char *cstring,
+                                                    const char *contains,
+                                                    uint_fast8_t case_i) {
+  const size_t cstring_size = strlen(cstring);
+  const size_t contains_size = strlen(contains);
+  size_t contains_match_start = 0;
+  size_t contains_match_idx = 0;
+  for (size_t idx = 0; idx < cstring_size; ++idx) {
+    char cstring_next = cstring[idx];
+    char contains_next = contains[contains_match_idx];
+    if (case_i) {
+      if (cstring_next >= 'A' && cstring_next <= 'Z') {
+        cstring_next += 0x20;
+      }
+      if (contains_next >= 'A' && contains_next <= 'Z') {
+        contains_next += 0x20;
+      }
+    }
+
+    if (cstring_next == contains_next) {
+      if (contains_match_idx == 0) {
+        contains_match_start = idx;
+      }
+      ++contains_match_idx;
+      if (contains_match_idx == contains_size) {
+        return 1;
+      }
+    } else {
+      if (contains_match_idx != 0) {
+        idx = contains_match_start;
+      }
+      contains_match_idx = 0;
+    }
+  }
+
+  return 0;
+}
+
+uint_fast8_t simple_archiver_helper_string_starts(const char *cstring,
+                                                  const char *starts,
+                                                  uint_fast8_t case_i) {
+  const size_t cstring_len = strlen(cstring);
+  const size_t starts_len = strlen(starts);
+  size_t starts_match_idx = 0;
+
+  for (size_t idx = 0; idx < cstring_len; ++idx) {
+    char cstring_next = cstring[idx];
+    char starts_next = starts[starts_match_idx];
+    if (case_i) {
+      if (cstring_next >= 'A' && cstring_next <= 'Z') {
+        cstring_next += 0x20;
+      }
+      if (starts_next >= 'A' && starts_next <= 'Z') {
+        starts_next += 0x20;
+      }
+    }
+
+    if (cstring_next == starts_next) {
+      if (starts_match_idx == 0) {
+        if (idx != 0) {
+          return 0;
+        }
+      }
+      ++starts_match_idx;
+      if (starts_match_idx == starts_len) {
+        return 1;
+      }
+    } else {
+      return 0;
+    }
+  }
+
+  return 0;
+}
+
+uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
+                                                const char *ends,
+                                                uint_fast8_t case_i) {
+  const size_t cstring_len = strlen(cstring);
+  const size_t ends_len = strlen(ends);
+  size_t ends_idx = 0;
+
+  for (size_t idx = cstring_len - ends_len; idx < cstring_len; ++idx) {
+    char cstring_next = cstring[idx];
+    char ends_next = ends[ends_idx];
+    if (case_i) {
+      if (cstring_next >= 'A' && cstring_next <= 'Z') {
+        cstring_next += 0x20;
+      }
+      if (ends_next >= 'A' && ends_next <= 'Z') {
+        ends_next += 0x20;
+      }
+    }
+
+    if (cstring_next == ends_next) {
+      ++ends_idx;
+      if (ends_idx == ends_len) {
+        return 1;
+      }
+    } else {
+      return 0;
+    }
+  }
+
+  return 0;
+}
+
+uint_fast8_t simple_archiver_helper_string_allowed_lists(
+    const char *cstring,
+    uint_fast8_t case_i,
+    const SDArchiverParsed *parsed) {
+  if (parsed->whitelist_contains_any) {
+    uint_fast8_t contains_any = 0;
+    for (const SDArchiverLLNode *node
+          = parsed->whitelist_contains_any->head->next;
+        node != parsed->whitelist_contains_any->tail;
+        node = node->next) {
+      if (node->data) {
+        if (simple_archiver_helper_string_contains(
+            cstring, node->data, case_i)) {
+          contains_any = 1;
+          break;
+        }
+      }
+    }
+    if (!contains_any) {
+      return 0;
+    }
+  }
+  if (parsed->whitelist_contains_all) {
+    for (const SDArchiverLLNode *node
+          = parsed->whitelist_contains_all->head->next;
+        node != parsed->whitelist_contains_all->tail;
+        node = node->next) {
+      if (node->data) {
+        if (!simple_archiver_helper_string_contains(
+            cstring, node->data, case_i)) {
+          return 0;
+        }
+      }
+    }
+  }
+  if (parsed->whitelist_begins) {
+    for (const SDArchiverLLNode *node = parsed->whitelist_begins->head->next;
+        node != parsed->whitelist_begins->tail;
+        node = node->next) {
+      if (node->data) {
+        if (!simple_archiver_helper_string_starts(
+            cstring, node->data, case_i)) {
+          return 0;
+        }
+      }
+    }
+  }
+  if (parsed->whitelist_ends) {
+    for (const SDArchiverLLNode *node = parsed->whitelist_ends->head->next;
+        node != parsed->whitelist_ends->tail;
+        node = node->next) {
+      if (node->data) {
+        if (!simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
+          return 0;
+        }
+      }
+    }
+  }
+
+  if (parsed->blacklist_contains_any) {
+    for (const SDArchiverLLNode *node
+          = parsed->blacklist_contains_any->head->next;
+        node != parsed->blacklist_contains_any->tail;
+        node = node->next) {
+      if (node->data) {
+        if (simple_archiver_helper_string_contains(
+            cstring, node->data, case_i)) {
+          return 0;
+        }
+      }
+    }
+  }
+  if (parsed->blacklist_contains_all) {
+    uint_fast8_t contains_all = 1;
+    for (const SDArchiverLLNode *node
+          = parsed->blacklist_contains_all->head->next;
+        node != parsed->blacklist_contains_all->tail;
+        node = node->next) {
+      if (node->data) {
+        if (!simple_archiver_helper_string_contains(
+            cstring, node->data, case_i)) {
+          contains_all = 0;
+          break;
+        }
+      }
+    }
+
+    if (contains_all) {
+      return 0;
+    }
+  }
+  if (parsed->blacklist_begins) {
+    for (const SDArchiverLLNode *node = parsed->blacklist_begins->head->next;
+        node != parsed->blacklist_begins->tail;
+        node = node->next) {
+      if (node->data) {
+        if (simple_archiver_helper_string_starts(cstring, node->data, case_i)) {
+          return 0;
+        }
+      }
+    }
+  }
+  if (parsed->blacklist_ends) {
+    for (const SDArchiverLLNode *node = parsed->blacklist_ends->head->next;
+        node != parsed->blacklist_ends->tail;
+        node = node->next) {
+      if (node->data) {
+        if (simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
+          return 0;
+        }
+      }
+    }
+  }
+
+  return 1;
+}
+
+FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
+                                      char **out_temp_filename) {
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *real_path_to_filename = parsed->temp_dir
+    ? strdup(parsed->temp_dir)
+    : strdup(parsed->filename_full_abs_path);
+
+  if (!real_path_to_filename) {
+    if (out_temp_filename) {
+      *out_temp_filename = NULL;
+    }
+    return tmpfile();
+  }
+
+  char *dir = parsed->temp_dir
+    ? real_path_to_filename
+    : dirname(real_path_to_filename);
+  if (!dir) {
+    if (out_temp_filename) {
+      *out_temp_filename = NULL;
+    }
+    return tmpfile();
+  }
+
+  char temp_filename[512];
+  size_t idx = 0;
+  size_t dir_len = strlen(dir);
+  snprintf(temp_filename,
+           512,
+           TEMP_FILENAME_CMP,
+           dir,
+           dir[dir_len - 1] == '/' ? "" : "/",
+           idx);
+  do {
+    FILE *test_fd = fopen(temp_filename, "rb");
+    if (test_fd) {
+      // File exists.
+      fclose(test_fd);
+        snprintf(temp_filename,
+                 512,
+                 TEMP_FILENAME_CMP,
+                 dir,
+                 dir[dir_len - 1] == '/' ? "" : "/",
+                 ++idx);
+    } else if (idx > 0xFFFF) {
+      // Sanity check.
+      if (out_temp_filename) {
+        *out_temp_filename = NULL;
+      }
+      return tmpfile();
+    } else {
+      break;
+    }
+  } while (1);
+
+  FILE *temp_file = fopen(temp_filename, "w+b");
+
+  if (temp_file) {
+    if (out_temp_filename) {
+      *out_temp_filename = strdup(temp_filename);
+    }
+    return temp_file;
+  } else {
+    if (out_temp_filename) {
+      *out_temp_filename = NULL;
+    }
+    return tmpfile();
+  }
 }

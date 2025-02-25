@@ -59,9 +59,13 @@ typedef struct SDArchiverParsed {
   /// 0b x1xx xxxx xxxx xxxx - Prefer UID over Username when extracting.
   /// 0b 1xxx xxxx xxxx xxxx - Prefer GID over Group when extracting.
   /// 0b xxxx xxx1 xxxx xxxx xxxx xxxx - Force set empty directory permissions.
+  /// 0b xxxx xx1x xxxx xxxx xxxx xxxx - white/black-list checking is
+  ///   case-insensitive.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;
+  /// Null-terminated string.
+  char *filename_full_abs_path;
   /// Null-terminated string.
   char *compressor;
   /// Null-terminated string.
@@ -71,8 +75,9 @@ typedef struct SDArchiverParsed {
   /// Determines a "white-list" of files to extract when extracting.
   char **working_files;
   /// Determines where to place temporary files. If NULL, temporary files are
-  /// created in the current working directory.
-  const char *temp_dir;
+  /// created in the target filename's directory.
+  /// No longer refers to string in argv.
+  char *temp_dir;
   /// Dir specified by "-C".
   const char *user_cwd;
   /// Currently only 0, 1, 2, and 3 is supported.
@@ -97,6 +102,14 @@ typedef struct SDArchiverParsed {
   SDA_UGMapping mappings;
   /// Prefix for archived/extracted paths.
   char *prefix;
+  SDArchiverLinkedList *whitelist_contains_any;
+  SDArchiverLinkedList *whitelist_contains_all;
+  SDArchiverLinkedList *whitelist_begins;
+  SDArchiverLinkedList *whitelist_ends;
+  SDArchiverLinkedList *blacklist_contains_any;
+  SDArchiverLinkedList *blacklist_contains_all;
+  SDArchiverLinkedList *blacklist_begins;
+  SDArchiverLinkedList *blacklist_ends;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

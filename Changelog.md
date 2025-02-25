@@ -2,6 +2,28 @@
 
 ## Upcoming Changes
 
+## Version 1.16
+
+Add white/black-list flags:
+
+  - `--whitelist-contains-any <text>`
+  - `--whitelist-contains-all <text>`
+  - `--whitelist-begins-with <text>`
+  - `--whitelist-ends-with <text>`
+  - `--blacklist-contains-any <text>`
+  - `--blacklist-contains-all <text>`
+  - `--blacklist-begins-with <text>`
+  - `--blacklist-ends-with <text>`
+  - `--wb-case-insensitive`
+
+These flags should affect what entries are archived, what entries are printed
+(with `-t`), and what entries are extracted.
+
+Fixed/refactored how temp files are handled during compression. Note that a
+directory can be specified with `--temp-files-dir <dir>`.  
+This means that temp files are now, by default, created in the same directory
+as the output file instead of the current working directory.
+
 ## Version 1.15
 
 Add flag `--force-empty-dir-permissions <3-octal-values>` that force sets the
