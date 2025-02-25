@@ -7932,10 +7932,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       simple_archiver_helper_cleanup_c_string))) char *decompressor_cmd = NULL;
 
   if (is_compressed) {
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
     compressor_cmd = malloc(u16 + 1);
     int ret =
@@ -7948,10 +7947,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
     fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
     decompressor_cmd = malloc(u16 + 1);
     ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
@@ -7977,10 +7975,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                                : 0;
 
   // Link count.
-  if (fread(buf, 1, 4, in_f) != 4) {
+  if (fread(&u32, 4, 1, in_f) != 1) {
     return SDAS_INVALID_FILE;
   }
-  memcpy(&u32, buf, 4);
   simple_archiver_helper_32_bit_be(&u32);
 
   for (uint32_t idx = 0; idx < u32; ++idx) {
@@ -8000,10 +7997,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     uint_fast8_t skip_due_to_map = 0;
     uint_fast8_t skip_due_to_invalid = is_invalid ? 1 : 0;
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
 
     const size_t link_name_length = u16;
@@ -8181,10 +8177,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *rel_path_prefixed = NULL;
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
     if (u16 != 0) {
       const size_t path_length = u16;
@@ -8315,10 +8310,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     }
   }
 
-  if (fread(buf, 1, 4, in_f) != 4) {
+  if (fread(&u32, 4, 1, in_f) != 1) {
     return SDAS_INVALID_FILE;
   }
-  memcpy(&u32, buf, 4);
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t chunk_count = u32;
@@ -8331,10 +8325,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             chunk_idx + 1,
             chunk_count);
 
-    if (fread(buf, 1, 4, in_f) != 4) {
+    if (fread(&u32, 4, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u32, buf, 4);
     simple_archiver_helper_32_bit_be(&u32);
 
     const uint32_t file_count = u32;
@@ -8349,10 +8342,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       file_info = malloc(sizeof(SDArchiverInternalFileInfo));
       memset(file_info, 0, sizeof(SDArchiverInternalFileInfo));
 
-      if (fread(buf, 1, 2, in_f) != 2) {
+      if (fread(&u16, 2, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
       }
-      memcpy(&u16, buf, 2);
       simple_archiver_helper_16_bit_be(&u16);
 
       file_info->filename = malloc(u16 + 1);
@@ -8407,10 +8399,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         return SDAS_INVALID_FILE;
       }
 
-      if (fread(buf, 1, 4, in_f) != 4) {
+      if (fread(&u32, 4, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
       }
-      memcpy(&u32, buf, 4);
       simple_archiver_helper_32_bit_be(&u32);
       if (do_extract
           && state
@@ -8464,10 +8455,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         }
       }
 
-      if (fread(buf, 1, 4, in_f) != 4) {
+      if (fread(&u32, 4, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
       }
-      memcpy(&u32, buf, 4);
       simple_archiver_helper_32_bit_be(&u32);
       if (do_extract && state && (state->parsed->flags & 0x800)) {
         file_info->gid = state->parsed->gid;
@@ -8520,10 +8510,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         }
       }
 
-      if (fread(buf, 1, 8, in_f) != 8) {
+      if (fread(&u64, 8, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
       }
-      memcpy(&u64, buf, 8);
       simple_archiver_helper_64_bit_be(&u64);
       file_info->file_size = u64;
 
@@ -8537,10 +8526,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       file_info = NULL;
     }
 
-    if (fread(buf, 1, 8, in_f) != 8) {
+    if (fread(&u64, 8, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u64, buf, 8);
     simple_archiver_helper_64_bit_be(&u64);
 
     const uint64_t chunk_size = u64;
@@ -9265,10 +9253,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       simple_archiver_helper_cleanup_c_string))) char *decompressor_cmd = NULL;
 
   if (is_compressed) {
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
     compressor_cmd = malloc(u16 + 1);
     int ret =
@@ -9281,10 +9268,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
     fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
     decompressor_cmd = malloc(u16 + 1);
     ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
@@ -9310,10 +9296,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                                : 0;
 
   // Link count.
-  if (fread(buf, 1, 4, in_f) != 4) {
+  if (fread(&u32, 4, 1, in_f) != 1) {
     return SDAS_INVALID_FILE;
   }
-  memcpy(&u32, buf, 4);
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t count = u32;
@@ -9449,10 +9434,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       fprintf(stderr, "  No Absolute path.\n");
     }
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -9905,10 +9889,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
   }
 
-  if (fread(buf, 1, 4, in_f) != 4) {
+  if (fread(&u32, 4, 1, in_f) != 1) {
     return SDAS_INVALID_FILE;
   }
-  memcpy(&u32, buf, 4);
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t chunk_count = u32;
@@ -9921,10 +9904,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             chunk_idx + 1,
             chunk_count);
 
-    if (fread(buf, 1, 4, in_f) != 4) {
+    if (fread(&u32, 4, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u32, buf, 4);
     simple_archiver_helper_32_bit_be(&u32);
 
     const uint32_t file_count = u32;
@@ -9939,10 +9921,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       file_info = malloc(sizeof(SDArchiverInternalFileInfo));
       memset(file_info, 0, sizeof(SDArchiverInternalFileInfo));
 
-      if (fread(buf, 1, 2, in_f) != 2) {
+      if (fread(&u16, 2, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
       }
-      memcpy(&u16, buf, 2);
       simple_archiver_helper_16_bit_be(&u16);
 
       file_info->filename = malloc(u16 + 1);
@@ -10187,10 +10168,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       file_info = NULL;
     }
 
-    if (fread(buf, 1, 8, in_f) != 8) {
+    if (fread(&u64, 8, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u64, buf, 8);
     simple_archiver_helper_64_bit_be(&u64);
 
     const uint64_t chunk_size = u64;
@@ -10997,10 +10977,9 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       simple_archiver_helper_cleanup_c_string))) char *decompressor_cmd = NULL;
 
   if (is_compressed) {
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
     compressor_cmd = malloc(u16 + 1);
     int ret =
@@ -11013,10 +10992,9 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
     fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
     decompressor_cmd = malloc(u16 + 1);
     ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
@@ -11180,10 +11158,9 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       fprintf(stderr, "  No Absolute path.\n");
     }
 
-    if (fread(buf, 1, 2, in_f) != 2) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
       return SDAS_INVALID_FILE;
     }
-    memcpy(&u16, buf, 2);
     simple_archiver_helper_16_bit_be(&u16);
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -11668,10 +11645,9 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       file_info = malloc(sizeof(SDArchiverInternalFileInfo));
       memset(file_info, 0, sizeof(SDArchiverInternalFileInfo));
 
-      if (fread(buf, 1, 2, in_f) != 2) {
+      if (fread(&u16, 2, 1, in_f) != 1) {
         return SDAS_INVALID_FILE;
       }
-      memcpy(&u16, buf, 2);
       simple_archiver_helper_16_bit_be(&u16);
 
       file_info->filename = malloc(u16 + 1);
