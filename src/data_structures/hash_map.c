@@ -253,7 +253,7 @@ int simple_archiver_hash_map_remove(SDArchiverHashMap *hash_map, void *key,
   key_data.key = key;
   key_data.key_size = key_size;
 
-  int result = simple_archiver_list_remove(
+  uint64_t result = simple_archiver_list_remove(
       hash_map->buckets[hash], simple_archiver_hash_map_internal_pick_in_list,
       &key_data);
   if (result == 1) {

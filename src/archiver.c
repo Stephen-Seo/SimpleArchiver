@@ -1858,7 +1858,7 @@ void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
   }
 }
 
-int internal_write_dir_entries_v2_v3(void *data, void *ud) {
+int internal_write_dir_entries_v2_v3_v4(void *data, void *ud) {
   const char *dir = data;
   void **ptrs = ud;
   FILE *out_f = ptrs[0];
@@ -2020,7 +2020,7 @@ int internal_write_dir_entries_v2_v3(void *data, void *ud) {
     return 1;
   }
 
-  if (state->parsed->write_version == 3) {
+  if (state->parsed->write_version == 3 || state->parsed->write_version == 4) {
     u32 = stat_buf.st_uid;
     if (state->parsed->flags & 0x400) {
       u32 = state->parsed->uid;
@@ -4401,7 +4401,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3,
+                               internal_write_dir_entries_v2_v3_v4,
                                void_ptrs)) {
     free(void_ptrs);
     return SDAS_INTERNAL_ERROR;
@@ -5643,7 +5643,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3,
+                               internal_write_dir_entries_v2_v3_v4,
                                void_ptrs)) {
     free(void_ptrs);
     return SDAS_INTERNAL_ERROR;
@@ -7520,7 +7520,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     uint64_t chunk_idx = 0;
 
     SDArchiverLLNode *node = file_info_list->head;
-    uint16_t file_idx = 0;
+    uint32_t file_idx = 0;
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -7630,7 +7630,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         const SDArchiverInternalFileInfo *file_info = node->data;
         if (file_info->other_flags & 2) {
           fprintf(stderr,
-                  "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
+                  "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   ++file_idx,
                   file_count,
                   file_info->filename);
@@ -7803,7 +7803,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         const SDArchiverInternalFileInfo *file_info = node->data;
         if (file_info->other_flags & 2) {
           fprintf(stderr,
-                  "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
+                  "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   ++file_idx,
                   file_count,
                   file_info->filename);
@@ -9217,7 +9217,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     uint64_t chunk_idx = 0;
 
     SDArchiverLLNode *node = file_info_list->head;
-    uint16_t file_idx = 0;
+    uint32_t file_idx = 0;
 
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
@@ -9325,14 +9325,14 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
+        ++file_idx;
         if (file_info->other_flags & 2) {
           fprintf(stderr,
-                  "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
+                  "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   file_idx,
                   file_count,
                   file_info->filename);
         }
-        ++file_idx;
 
         const size_t filename_length = strlen(file_info->filename);
 
@@ -9508,14 +9508,14 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
+        ++file_idx;
         if (file_info->other_flags & 2) {
           fprintf(stderr,
-                  "  FILE %3" PRIu16 " of %3" PRIu32 ": %s\n",
+                  "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   file_idx,
                   file_count,
                   file_info->filename);
         }
-        ++file_idx;
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");

@@ -113,17 +113,17 @@ int simple_archiver_list_add_front(SDArchiverLinkedList *list, void *data,
   return 0;
 }
 
-int simple_archiver_list_remove(SDArchiverLinkedList *list,
-                                int (*data_check_fn)(void *, void *),
-                                void *user_data) {
+uint64_t simple_archiver_list_remove(SDArchiverLinkedList *list,
+                                     int (*data_check_fn)(void *, void *),
+                                     void *user_data) {
   if (!list) {
     return 0;
   }
 
-  int32_t removed_count = 0;
+  uint64_t removed_count = 0;
 
   SDArchiverLLNode *node = list->head;
-  int32_t iter_removed = 0;
+  uint64_t iter_removed = 0;
   while (node) {
     if (iter_removed == 0) {
       node = node->next;
