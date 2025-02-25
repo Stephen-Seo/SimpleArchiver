@@ -32,7 +32,7 @@ API calls.
     --preserve-symlinks : preserve the symlink's path on archive creation instead of deriving abs/relative paths, ignores "--no-abs-symlink" (It is not recommended to use this option, as absolute-path-symlinks may be clobbered on extraction)
     --no-safe-links : keep symlinks that link to outside archive contents
     --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to same directory as output file)
-    --write-version <version> : Force write version file format (default 3)
+    --write-version <version> : Force write version file format (default 4)
     --chunk-min-size <bytes> : minimum chunk size (default 4194304 or 4MiB) when using chunks (file formats v. 1 and up)
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
     --no-preserve-empty-dirs : do NOT preserve empty dirs (only for file format 2 and onwards)
@@ -91,11 +91,14 @@ considered a new release/tag and/or stable.
 
 When compressing, it may be useful to set `--temp-files-dir <dir>` as
 `simplearchiver` will create a temporary file (a chunk) usually in the current
-working directory or in the directory specified by `-C <dir>` by default. In
-case the temporary file cannot be created in the default directory,
+working directory or in the directory specified by `-C <dir>` by default. Note
+that in [Version 1.16, the default directory for temp files has been changed to
+the directory holding the output archive
+file](https://github.com/Stephen-Seo/SimpleArchiver/blob/dev/Changelog.md#version-116).
+In case the temporary file cannot be created in the default directory,
 [`tmpfile()`](https://man7.org/linux/man-pages/man3/tmpfile.3.html) is used
-instead as a fallback. Thus, `--temp-files-dir <dir>` changes the default dir to
-store the temporary compressed chunk.
+instead as a fallback. Thus, `--temp-files-dir <dir>` changes the default dir
+to store the temporary compressed chunk.
 
 When storing symlinks, `simplearchiver` will typically store relative and
 absolute-paths for all symlinks. If a symlink points to something that will be

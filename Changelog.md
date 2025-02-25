@@ -2,6 +2,11 @@
 
 ## Upcoming Changes
 
+Add file format version 4 to support more than 4 billion symlinks, and more
+than 4 billion files.
+
+Some minor fixes.
+
 ## Version 1.17
 
 Fix `--whitelist-begins-with <text>` and `--whitelist-ends-with <text>`.
