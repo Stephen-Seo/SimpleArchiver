@@ -5688,6 +5688,9 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
   } else if (u16 == 3) {
     fprintf(stderr, "File format version 3\n");
     return simple_archiver_parse_archive_version_3(in_f, do_extract, state);
+  } else if (u16 == 4) {
+    fprintf(stderr, "File format version 4\n");
+    return simple_archiver_parse_archive_version_4(in_f, do_extract, state);
   } else {
     fprintf(stderr, "ERROR Unsupported archive version %" PRIu16 "!\n", u16);
     return SDAS_INVALID_FILE;
@@ -9980,6 +9983,1734 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                 abs_dir_path);
       }
 #endif
+    }
+  }
+
+  return SDAS_SUCCESS;
+}
+
+int simple_archiver_parse_archive_version_4(FILE *in_f,
+                                            int_fast8_t do_extract,
+                                            const SDArchiverState *state) {
+  uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
+  uint16_t u16;
+  uint32_t u32;
+  uint64_t u64;
+
+  __attribute__((cleanup(simple_archiver_hash_map_free)))
+  SDArchiverHashMap *working_files_map = NULL;
+  if (do_extract && state && state->parsed->working_files &&
+      state->parsed->working_files[0] != NULL) {
+    working_files_map = simple_archiver_hash_map_init();
+    for (char **iter = state->parsed->working_files; *iter != NULL; ++iter) {
+      size_t len = strlen(*iter) + 1;
+      char *key = malloc(len);
+      memcpy(key, *iter, len);
+      key[len - 1] = 0;
+      simple_archiver_hash_map_insert(
+          working_files_map, key, key, len,
+          simple_archiver_helper_datastructure_cleanup_nop, NULL);
+    }
+  }
+
+  if (fread(buf, 1, 4, in_f) != 4) {
+    return SDAS_INVALID_FILE;
+  }
+
+  if (do_extract && state->parsed->user_cwd) {
+    if (chdir(state->parsed->user_cwd)) {
+      return SDAS_FAILED_TO_CHANGE_CWD;
+    }
+  }
+
+  __attribute__((cleanup(simple_archiver_list_free)))
+  SDArchiverLinkedList *links_list =
+      do_extract && state && state->parsed && state->parsed->flags & 0x80
+          ? NULL
+          : simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_hash_map_free)))
+  SDArchiverHashMap *files_map =
+      do_extract && state && state->parsed && state->parsed->flags & 0x80
+          ? NULL
+          : simple_archiver_hash_map_init();
+
+  __attribute__((
+      cleanup(simple_archiver_helper_cleanup_c_string))) char *cwd_realpath =
+      realpath(".", NULL);
+
+  const int_fast8_t is_compressed = (buf[0] & 1) ? 1 : 0;
+
+  __attribute__((cleanup(
+      simple_archiver_helper_cleanup_c_string))) char *compressor_cmd = NULL;
+  __attribute__((cleanup(
+      simple_archiver_helper_cleanup_c_string))) char *decompressor_cmd = NULL;
+
+  if (is_compressed) {
+    if (fread(buf, 1, 2, in_f) != 2) {
+      return SDAS_INVALID_FILE;
+    }
+    memcpy(&u16, buf, 2);
+    simple_archiver_helper_16_bit_be(&u16);
+    compressor_cmd = malloc(u16 + 1);
+    int ret =
+        read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
+                              u16 + 1, compressor_cmd);
+    if (ret != SDAS_SUCCESS) {
+      return ret;
+    }
+    compressor_cmd[u16] = 0;
+
+    fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
+
+    if (fread(buf, 1, 2, in_f) != 2) {
+      return SDAS_INVALID_FILE;
+    }
+    memcpy(&u16, buf, 2);
+    simple_archiver_helper_16_bit_be(&u16);
+    decompressor_cmd = malloc(u16 + 1);
+    ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                u16 + 1, decompressor_cmd);
+    if (ret != SDAS_SUCCESS) {
+      return ret;
+    }
+    decompressor_cmd[u16] = 0;
+
+    fprintf(stderr, "Decompressor command: %s\n", decompressor_cmd);
+    if (state && state->parsed && state->parsed->decompressor) {
+      fprintf(stderr, "Overriding decompressor with: %s\n",
+              state->parsed->decompressor);
+    }
+  }
+
+  if (is_sig_int_occurred) {
+    return SDAS_SIGINT;
+  }
+
+  const size_t prefix_length = state && state->parsed->prefix
+                               ? strlen(state->parsed->prefix)
+                               : 0;
+
+  // Link count.
+  if (fread(&u64, 8, 1, in_f) != 1) {
+    return SDAS_INVALID_FILE;
+  }
+  simple_archiver_helper_64_bit_be(&u64);
+
+  const uint64_t count = u64;
+  for (uint64_t idx = 0; idx < count; ++idx) {
+    if (is_sig_int_occurred) {
+      return SDAS_SIGINT;
+    }
+    if (fread(buf, 1, 2, in_f) != 2) {
+      return SDAS_INVALID_FILE;
+    }
+    const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
+    const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
+    const uint_fast8_t points_to_outside = (buf[1] & 8) ? 1 : 0;
+
+    mode_t permissions = permissions_from_bits_v1_symlink(buf, 0);
+
+    uint_fast8_t link_extracted = 0;
+    uint_fast8_t skip_due_to_map = 0;
+    uint_fast8_t skip_due_to_invalid = is_invalid ? 1 : 0;
+
+    if (fread(&u16, 2, 1, in_f) != 1) {
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+
+    const size_t link_name_length = u16;
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *link_name = malloc(link_name_length + 1);
+
+    int ret = read_buf_full_from_fd(in_f,
+                                    (char *)buf,
+                                    SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                    link_name_length + 1,
+                                    link_name);
+    if (ret != SDAS_SUCCESS) {
+      return ret;
+    }
+    link_name[link_name_length] = 0;
+
+    const uint_fast8_t lists_allowed =
+      simple_archiver_helper_string_allowed_lists(
+        link_name,
+        state->parsed->flags & 0x20000 ? 1 : 0,
+        state->parsed);
+
+    if (!do_extract && lists_allowed) {
+      fprintf(stderr, "SYMLINK %3" PRIu64 " of %3" PRIu64 "\n", idx + 1, count);
+      if (is_invalid) {
+        fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
+      }
+      fprintf(stderr, "  Link name: %s\n", link_name);
+      if (absolute_preferred) {
+        fprintf(stderr, "  Absolute path preferred.\n");
+      } else {
+        fprintf(stderr, "  Relative path preferred.\n");
+      }
+      fprintf(stderr, "  Link Permissions: ");
+      print_permissions(permissions);
+      fprintf(stderr, "\n");
+    } else if (do_extract && lists_allowed) {
+      if (is_invalid) {
+        fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
+      }
+    }
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *link_name_prefixed = NULL;
+    if (do_extract && state && state->parsed->prefix) {
+      link_name_prefixed = malloc(prefix_length + link_name_length + 1);
+      memcpy(link_name_prefixed, state->parsed->prefix, prefix_length);
+      memcpy(link_name_prefixed + prefix_length,
+             link_name,
+             link_name_length + 1);
+      link_name_prefixed[prefix_length + link_name_length] = 0;
+    }
+
+    if (simple_archiver_validate_file_path(link_name)) {
+      if (lists_allowed) {
+        fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
+      }
+      skip_due_to_invalid = 1;
+    }
+
+    if (working_files_map &&
+        simple_archiver_hash_map_get(working_files_map, link_name, u16 + 1) ==
+            NULL) {
+      skip_due_to_map = 1;
+      fprintf(stderr, "  Skipping not specified in args...\n");
+    }
+
+    if (fread(&u16, 2, 1, in_f) != 1) {
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_path_prefixed = NULL;
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *parsed_abs_path = NULL;
+    if (u16 != 0) {
+      const size_t path_length = u16;
+      parsed_abs_path = malloc(path_length + 1);
+      ret = read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  path_length + 1,
+                                  parsed_abs_path);
+      if (ret != SDAS_SUCCESS) {
+        return ret;
+      }
+      parsed_abs_path[path_length] = 0;
+      if (!do_extract && lists_allowed) {
+        fprintf(stderr, "  Abs path: %s\n", parsed_abs_path);
+      }
+
+      if (do_extract && state && state->parsed->prefix) {
+        if (points_to_outside) {
+          abs_path_prefixed = strdup(parsed_abs_path);
+        } else {
+          abs_path_prefixed =
+            simple_archiver_helper_insert_prefix_in_link_path(
+              state->parsed->prefix, link_name, parsed_abs_path);
+        }
+        if (!abs_path_prefixed) {
+          fprintf(stderr,
+                  "ERROR: Failed to insert prefix to absolute path!\n");
+          return SDAS_INTERNAL_ERROR;
+        }
+      }
+    } else if (!do_extract && lists_allowed) {
+      fprintf(stderr, "  No Absolute path.\n");
+    }
+
+    if (fread(buf, 1, 2, in_f) != 2) {
+      return SDAS_INVALID_FILE;
+    }
+    memcpy(&u16, buf, 2);
+    simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *rel_path_prefixed = NULL;
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *parsed_rel_path = NULL;
+    if (u16 != 0) {
+      const size_t path_length = u16;
+      parsed_rel_path = malloc(path_length + 1);
+      ret = read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  path_length + 1,
+                                  parsed_rel_path);
+      if (ret != SDAS_SUCCESS) {
+        return ret;
+      }
+      parsed_rel_path[path_length] = 0;
+      if (!do_extract && lists_allowed) {
+        fprintf(stderr, "  Rel path: %s\n", parsed_rel_path);
+      }
+
+      if (do_extract && state && state->parsed->prefix) {
+        rel_path_prefixed =
+          simple_archiver_helper_insert_prefix_in_link_path(
+            state->parsed->prefix, link_name, parsed_rel_path);
+        if (!rel_path_prefixed) {
+          fprintf(stderr,
+                  "ERROR: Failed to insert prefix to relative path!\n");
+          return SDAS_INTERNAL_ERROR;
+        }
+      }
+    } else if (!do_extract && lists_allowed) {
+      fprintf(stderr, "  No Relative path.\n");
+    }
+
+    if (fread(&u32, 4, 1, in_f) != 1) {
+      fprintf(stderr, "  ERROR: Failed to read UID for symlink!\n");
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_32_bit_be(&u32);
+
+    uint32_t uid = u32;
+    if (lists_allowed) {
+      fprintf(stderr, "  UID: %" PRIu32 "\n", uid);
+    }
+
+    if (fread(&u32, 4, 1, in_f) != 1) {
+      fprintf(stderr, "  ERROR: Failed to read GID for symlink!\n");
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_32_bit_be(&u32);
+
+    uint32_t gid = u32;
+    if (lists_allowed) {
+      fprintf(stderr, "  GID: %" PRIu32 "\n", gid);
+    }
+
+    if (fread(&u16, 2, 1, in_f) != 1) {
+      fprintf(stderr, "  ERROR: Failed to read Username length for symlink!\n");
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *username = malloc(u16 + 1);
+
+    if (u16 != 0) {
+      if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        fprintf(stderr, "  ERROR: Failed to read Username for symlink!\n");
+        return SDAS_INVALID_FILE;
+      }
+      username[u16] = 0;
+      if (lists_allowed) {
+        fprintf(stderr, "  Username: %s\n", username);
+      }
+    } else {
+      free(username);
+      username = NULL;
+      if (lists_allowed) {
+        fprintf(stderr, "  Username does not exist for this link\n");
+      }
+    }
+
+    uint32_t *username_uid_mapped = NULL;
+    if (do_extract && state && username) {
+      username_uid_mapped = simple_archiver_hash_map_get(
+        state->parsed->users_infos.UnameToUid,
+        username,
+        u16 + 1);
+    }
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *uid_remapped = NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *user_remapped_uid = NULL;
+    uint32_t current_uid = uid;
+    if (do_extract && state) {
+      if ((state->parsed->flags & 0x4000) == 0 && username_uid_mapped) {
+        current_uid = *username_uid_mapped;
+      }
+
+      uint32_t out_uid;
+      if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                          state->parsed->users_infos,
+                                          uid,
+                                          &out_uid,
+                                          NULL) == 0) {
+        uid_remapped = malloc(sizeof(uint32_t));
+        *uid_remapped = out_uid;
+      }
+      if (username
+          && simple_archiver_get_user_mapping(state->parsed->mappings,
+                                              state->parsed->users_infos,
+                                              username,
+                                              &out_uid,
+                                              NULL) == 0) {
+        user_remapped_uid = malloc(sizeof(uint32_t));
+        *user_remapped_uid = out_uid;
+      }
+
+      if (state->parsed->flags & 0x4000) {
+        if (uid_remapped) {
+          current_uid = *uid_remapped;
+        } else if (user_remapped_uid) {
+          current_uid = *user_remapped_uid;
+        }
+      } else {
+        if (user_remapped_uid) {
+          current_uid = *user_remapped_uid;
+        } else if (uid_remapped) {
+          current_uid = *uid_remapped;
+        }
+      }
+    }
+
+    if (fread(&u16, 2, 1, in_f) != 1) {
+      fprintf(stderr,
+              "  ERROR: Failed to read Groupname length for symlink!\n");
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *groupname = malloc(u16 + 1);
+
+    if (u16 != 0) {
+      if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        fprintf(stderr, "  ERROR: Failed to read Groupname for symlink!\n");
+        return SDAS_INVALID_FILE;
+      }
+      groupname[u16] = 0;
+      if (lists_allowed) {
+        fprintf(stderr, "  Groupname: %s\n", groupname);
+      }
+    } else {
+      free(groupname);
+      groupname = NULL;
+      if (lists_allowed) {
+        fprintf(stderr, "  Groupname does not exist for this link\n");
+      }
+    }
+
+    uint32_t *group_gid_mapped = NULL;
+    if (do_extract && state && groupname) {
+      group_gid_mapped = simple_archiver_hash_map_get(
+        state->parsed->users_infos.GnameToGid,
+        groupname,
+        u16 + 1);
+    }
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *gid_remapped = NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *group_remapped_gid = NULL;
+    uint32_t current_gid = gid;
+    if (do_extract && state) {
+      if ((state->parsed->flags & 0x8000) == 0 && group_gid_mapped) {
+        current_gid = *group_gid_mapped;
+      }
+
+      uint32_t out_gid;
+      if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                          state->parsed->users_infos,
+                                          gid,
+                                          &out_gid,
+                                          NULL) == 0) {
+        gid_remapped = malloc(sizeof(uint32_t));
+        *gid_remapped = out_gid;
+      }
+      if (groupname
+          && simple_archiver_get_group_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               groupname,
+                                               &out_gid,
+                                               NULL) == 0) {
+        group_remapped_gid = malloc(sizeof(uint32_t));
+        *group_remapped_gid = out_gid;
+      }
+
+      if (state->parsed->flags & 0x8000) {
+        if (gid_remapped) {
+          current_gid = *gid_remapped;
+        } else if (group_remapped_gid) {
+          current_gid = *group_remapped_gid;
+        }
+      } else {
+        if (group_remapped_gid) {
+          current_gid = *group_remapped_gid;
+        } else if (gid_remapped) {
+          current_gid = *gid_remapped;
+        }
+      }
+    }
+
+    if (do_extract
+        && !skip_due_to_map
+        && !skip_due_to_invalid
+        && lists_allowed
+        && absolute_preferred
+        && parsed_abs_path) {
+      simple_archiver_helper_make_dirs_perms(
+        link_name_prefixed ? link_name_prefixed : link_name,
+        (state->parsed->flags & 0x2000)
+          ? simple_archiver_internal_permissions_to_mode_t(
+              state->parsed->dir_permissions)
+          : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
+        (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
+        (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
+      int_fast8_t link_create_retry = 0;
+    V4_SYMLINK_CREATE_RETRY_0:
+      ret = symlink(
+        abs_path_prefixed ? abs_path_prefixed : parsed_abs_path,
+        link_name_prefixed ? link_name_prefixed : link_name);
+      if (ret == -1) {
+        if (link_create_retry) {
+          fprintf(
+              stderr,
+              "  WARNING: Failed to create symlink after removing existing "
+              "symlink!\n");
+          goto V4_SYMLINK_CREATE_AFTER_0;
+        } else if (errno == EEXIST) {
+          if ((state->parsed->flags & 8) == 0) {
+            fprintf(stderr,
+                    "  WARNING: Symlink already exists and "
+                    "\"--overwrite-extract\" is not specified, skipping!\n");
+            goto V4_SYMLINK_CREATE_AFTER_0;
+          } else {
+            fprintf(stderr,
+                    "  NOTICE: Symlink already exists and "
+                    "\"--overwrite-extract\" specified, attempting to "
+                    "overwrite...\n");
+            unlink(link_name_prefixed ? link_name_prefixed : link_name);
+            link_create_retry = 1;
+            goto V4_SYMLINK_CREATE_RETRY_0;
+          }
+        }
+        return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+      }
+      ret = fchmodat(AT_FDCWD,
+                     link_name_prefixed ? link_name_prefixed : link_name,
+                     permissions,
+                     AT_SYMLINK_NOFOLLOW);
+      if (ret == -1) {
+        if (errno == EOPNOTSUPP) {
+          fprintf(stderr,
+                  "  NOTICE: Setting permissions of symlink is not supported "
+                  "by FS/OS!\n");
+        } else {
+          fprintf(stderr,
+                  "  WARNING: Failed to set permissions of symlink (%d)!\n",
+                  errno);
+        }
+      }
+      link_extracted = 1;
+      fprintf(stderr,
+              "  %s -> %s\n",
+              link_name_prefixed ? link_name_prefixed : link_name,
+              abs_path_prefixed ? abs_path_prefixed : parsed_abs_path);
+    V4_SYMLINK_CREATE_AFTER_0:
+      link_create_retry = 1;
+    } else if (do_extract
+        && !skip_due_to_map
+        && !skip_due_to_invalid
+        && lists_allowed
+        && !absolute_preferred
+        && parsed_rel_path) {
+      simple_archiver_helper_make_dirs_perms(
+        link_name_prefixed ? link_name_prefixed : link_name,
+        (state->parsed->flags & 0x2000)
+          ? simple_archiver_internal_permissions_to_mode_t(
+              state->parsed->dir_permissions)
+          : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
+        (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
+        (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
+      int_fast8_t link_create_retry = 0;
+    V4_SYMLINK_CREATE_RETRY_1:
+      ret = symlink(
+        rel_path_prefixed ? rel_path_prefixed : parsed_rel_path,
+        link_name_prefixed ? link_name_prefixed : link_name);
+      if (ret == -1) {
+        if (link_create_retry) {
+          fprintf(
+              stderr,
+              "  WARNING: Failed to create symlink after removing existing "
+              "symlink!\n");
+          goto V4_SYMLINK_CREATE_AFTER_1;
+        } else if (errno == EEXIST) {
+          if ((state->parsed->flags & 8) == 0) {
+            fprintf(stderr,
+                    "  WARNING: Symlink already exists and "
+                    "\"--overwrite-extract\" is not specified, skipping!\n");
+            goto V4_SYMLINK_CREATE_AFTER_1;
+          } else {
+            fprintf(stderr,
+                    "  NOTICE: Symlink already exists and "
+                    "\"--overwrite-extract\" specified, attempting to "
+                    "overwrite...\n");
+            unlink(link_name_prefixed ? link_name_prefixed : link_name);
+            link_create_retry = 1;
+            goto V4_SYMLINK_CREATE_RETRY_1;
+          }
+        }
+        return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+      }
+      ret = fchmodat(AT_FDCWD,
+                     link_name_prefixed ? link_name_prefixed : link_name,
+                     permissions,
+                     AT_SYMLINK_NOFOLLOW);
+      if (ret == -1) {
+        if (errno == EOPNOTSUPP) {
+          fprintf(stderr,
+                  "  NOTICE: Setting permissions of symlink is not supported "
+                  "by FS/OS!\n");
+        } else {
+          fprintf(stderr,
+                  "  WARNING: Failed to set permissions of symlink (%d)!\n",
+                  errno);
+        }
+      }
+
+      link_extracted = 1;
+      fprintf(stderr,
+              "  %s -> %s\n",
+              link_name_prefixed ? link_name_prefixed : link_name,
+              rel_path_prefixed ? rel_path_prefixed : parsed_rel_path);
+    V4_SYMLINK_CREATE_AFTER_1:
+      link_create_retry = 1;
+    }
+
+    if (do_extract && lists_allowed && link_extracted && geteuid() == 0) {
+      uint32_t picked_uid;
+      if (uid_remapped || user_remapped_uid) {
+        if (state->parsed->flags & 0x4000) {
+          if (uid_remapped) {
+            picked_uid = *uid_remapped;
+          } else if (user_remapped_uid) {
+            picked_uid = *user_remapped_uid;
+          } else {
+            fprintf(stderr,
+                    "ERROR: Failed to pick uid for link \"%s\"!\n",
+                    link_name);
+            return SDAS_INTERNAL_ERROR;
+          }
+        } else {
+          if (user_remapped_uid) {
+            picked_uid = *user_remapped_uid;
+          } else if (uid_remapped) {
+            picked_uid = *uid_remapped;
+          } else {
+            fprintf(stderr,
+                    "ERROR: Failed to pick uid for link \"%s\"!\n",
+                    link_name);
+            return SDAS_INTERNAL_ERROR;
+          }
+        }
+      } else {
+        if (state->parsed->flags & 0x4000) {
+          picked_uid = uid;
+        } else if (username_uid_mapped) {
+          picked_uid = *username_uid_mapped;
+        } else {
+          picked_uid = uid;
+        }
+      }
+      uint32_t picked_gid;
+      if (gid_remapped || group_remapped_gid) {
+        if (state->parsed->flags & 0x8000) {
+          if (gid_remapped) {
+            picked_gid = *gid_remapped;
+          } else if (group_remapped_gid) {
+            picked_gid = *group_remapped_gid;
+          } else {
+            fprintf(stderr,
+                    "ERROR: Failed to pick gid for link \"%s\"!\n",
+                    link_name);
+            return SDAS_INTERNAL_ERROR;
+          }
+        } else {
+          if (group_remapped_gid) {
+            picked_gid = *group_remapped_gid;
+          } else if (gid_remapped) {
+            picked_gid = *gid_remapped;
+          } else {
+            fprintf(stderr,
+                    "ERROR: Failed to pick gid for link \"%s\"!\n",
+                    link_name);
+            return SDAS_INTERNAL_ERROR;
+          }
+        }
+      } else {
+        if (state->parsed->flags & 0x8000) {
+          picked_gid = gid;
+        } else if (group_gid_mapped) {
+          picked_gid = *group_gid_mapped;
+        } else {
+          picked_gid = gid;
+        }
+      }
+      ret = fchownat(
+          AT_FDCWD,
+          link_name_prefixed ? link_name_prefixed : link_name,
+          state->parsed->flags & 0x400 ? state->parsed->uid : picked_uid,
+          state->parsed->flags & 0x800 ? state->parsed->gid : picked_gid,
+          AT_SYMLINK_NOFOLLOW);
+      if (ret == -1) {
+        fprintf(stderr,
+                "  WARNING: Failed to force set UID/GID of symlink \"%s\""
+                "(errno %d)!\n",
+                link_name,
+                errno);
+      }
+    }
+
+    if (do_extract
+        && !link_extracted
+        && !skip_due_to_map
+        && !skip_due_to_invalid
+        && lists_allowed) {
+      fprintf(stderr, "  WARNING: Symlink \"%s\" was not created!\n",
+              link_name);
+    } else if (do_extract
+        && link_extracted
+        && !skip_due_to_map
+        && !skip_due_to_invalid
+        && lists_allowed
+        && links_list) {
+      simple_archiver_list_add(links_list, strdup(link_name), NULL);
+    }
+  }
+
+  if (fread(&u64, 8, 1, in_f) != 1) {
+    return SDAS_INVALID_FILE;
+  }
+  simple_archiver_helper_64_bit_be(&u64);
+
+  const uint64_t chunk_count = u64;
+  for (uint64_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
+    if (is_sig_int_occurred) {
+      return SDAS_SIGINT;
+    }
+    fprintf(stderr,
+            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
+            chunk_idx + 1,
+            chunk_count);
+
+    if (fread(&u64, 8, 1, in_f) != 1) {
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_64_bit_be(&u64);
+
+    const uint64_t file_count = u64;
+
+    __attribute__((cleanup(simple_archiver_list_free)))
+    SDArchiverLinkedList *file_info_list = simple_archiver_list_init();
+
+    __attribute__((cleanup(cleanup_internal_file_info)))
+    SDArchiverInternalFileInfo *file_info = NULL;
+
+    for (uint64_t file_idx = 0; file_idx < file_count; ++file_idx) {
+      file_info = malloc(sizeof(SDArchiverInternalFileInfo));
+      memset(file_info, 0, sizeof(SDArchiverInternalFileInfo));
+
+      if (fread(buf, 1, 2, in_f) != 2) {
+        return SDAS_INVALID_FILE;
+      }
+      memcpy(&u16, buf, 2);
+      simple_archiver_helper_16_bit_be(&u16);
+
+      file_info->filename = malloc(u16 + 1);
+      int ret =
+          read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                u16 + 1, file_info->filename);
+      if (ret != SDAS_SUCCESS) {
+        return ret;
+      }
+      file_info->filename[u16] = 0;
+
+      if (simple_archiver_validate_file_path(file_info->filename)) {
+        fprintf(stderr,
+                "ERROR: File idx %" PRIu64 ": Invalid filename!\n",
+                file_idx);
+        file_info->other_flags |= 1;
+      } else if (simple_archiver_helper_string_allowed_lists(
+          file_info->filename,
+          state->parsed->flags & 0x20000 ? 1 : 0,
+          state->parsed)) {
+        file_info->other_flags |= 2;
+      }
+
+      if (do_extract
+          && state
+          && state->parsed
+          && (state->parsed->flags & 8) != 0
+          && (file_info->other_flags & 2) != 0) {
+        int fd = open((const char *)buf, O_RDONLY | O_NOFOLLOW);
+        if (fd == -1) {
+          if (errno == ELOOP) {
+            // Exists as a symlink.
+            fprintf(stderr,
+                    "WARNING: Filename \"%s\" already exists as symlink, "
+                    "removing...\n",
+                    (const char *)buf);
+            unlink((const char *)buf);
+          } else {
+            // File doesn't exist, do nothing.
+          }
+        } else {
+          close(fd);
+          fprintf(stderr, "WARNING: File \"%s\" already exists, removing...\n",
+                  (const char *)buf);
+          unlink((const char *)buf);
+        }
+      }
+
+      if (fread(file_info->bit_flags, 1, 4, in_f) != 4) {
+        return SDAS_INVALID_FILE;
+      }
+
+      if (fread(&u32, 4, 1, in_f) != 1) {
+        return SDAS_INVALID_FILE;
+      }
+      simple_archiver_helper_32_bit_be(&u32);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_uid = NULL;
+      if (do_extract && state && (state->parsed->flags & 0x400)) {
+        file_info->uid = state->parsed->uid;
+      } else {
+        file_info->uid = u32;
+        uint32_t out_uid;
+        if (do_extract
+            && state
+            && simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               u32,
+                                               &out_uid,
+                                               NULL) == 0) {
+          remapped_uid = malloc(sizeof(uint32_t));
+          *remapped_uid = out_uid;
+        }
+      }
+
+      if (fread(&u32, 4, 1, in_f) != 1) {
+        return SDAS_INVALID_FILE;
+      }
+      simple_archiver_helper_32_bit_be(&u32);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_gid = NULL;
+      if (do_extract && state && (state->parsed->flags & 0x800)) {
+        file_info->gid = state->parsed->gid;
+      } else {
+        file_info->gid = u32;
+        uint32_t out_gid;
+        if (do_extract
+            && state
+            && simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               u32,
+                                               &out_gid,
+                                               NULL) == 0) {
+          remapped_gid = malloc(sizeof(uint32_t));
+          *remapped_gid = out_gid;
+        }
+      }
+
+      if (fread(&u16, 2, 1, in_f) != 1) {
+        return SDAS_INVALID_FILE;
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *username = malloc(u16 + 1);
+
+      if (u16 != 0) {
+        if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDAS_INVALID_FILE;
+        }
+        username[u16] = 0;
+        file_info->username = strdup(username);
+      } else {
+        free(username);
+        username = NULL;
+      }
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_username_uid = NULL;
+      if (username && state) {
+        uint32_t out_uid;
+        if (simple_archiver_get_user_mapping(state->parsed->mappings,
+                                             state->parsed->users_infos,
+                                             username,
+                                             &out_uid,
+                                             NULL) == 0) {
+          remapped_username_uid = malloc(sizeof(uint32_t));
+          *remapped_username_uid = out_uid;
+        }
+      }
+
+      if (fread(&u16, 2, 1, in_f) != 1) {
+        return SDAS_INVALID_FILE;
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *groupname = malloc(u16 + 1);
+
+      if (u16 != 0) {
+        if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDAS_INVALID_FILE;
+        }
+        groupname[u16] = 0;
+        file_info->groupname = strdup(groupname);
+      } else {
+        free(groupname);
+        groupname = NULL;
+      }
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_group_gid = NULL;
+      if (groupname && state) {
+        uint32_t out_gid;
+        if (simple_archiver_get_group_mapping(state->parsed->mappings,
+                                              state->parsed->users_infos,
+                                              groupname,
+                                              &out_gid,
+                                              NULL) == 0) {
+          remapped_group_gid = malloc(sizeof(uint32_t));
+          *remapped_group_gid = out_gid;
+        }
+      }
+
+      // Prefer uid derived from username by default.
+      if (do_extract && state && file_info->username) {
+        uint32_t *username_uid = simple_archiver_hash_map_get(
+          state->parsed->users_infos.UnameToUid,
+          file_info->username,
+          strlen(file_info->username) + 1);
+        if ((state->parsed->flags & 0x400) == 0
+            && (state->parsed->flags & 0x4000) == 0
+            && username_uid) {
+          file_info->uid = *username_uid;
+        }
+      }
+
+      // Apply user remapping.
+      if (do_extract && state) {
+        if (state->parsed->flags & 0x4000) {
+          // Prefer UID first.
+          if (remapped_uid) {
+            file_info->uid = *remapped_uid;
+          } else if (remapped_username_uid) {
+            file_info->uid = *remapped_username_uid;
+          }
+        } else {
+          // Prefer Username first.
+          if (remapped_username_uid) {
+            file_info->uid = *remapped_username_uid;
+          } else if (remapped_uid) {
+            file_info->uid = *remapped_uid;
+          }
+        }
+      }
+
+      // Prefer gid derived from group by default.
+      if (do_extract && state && file_info->groupname) {
+        uint32_t *groupname_gid = simple_archiver_hash_map_get(
+          state->parsed->users_infos.GnameToGid,
+          file_info->groupname,
+          strlen(file_info->groupname) + 1);
+        if ((state->parsed->flags & 0x800) == 0
+            && (state->parsed->flags & 0x8000) == 0
+            && groupname_gid) {
+          file_info->gid = *groupname_gid;
+        }
+      }
+
+      // Apply group remapping.
+      if (do_extract && state) {
+        if (state->parsed->flags & 0x8000) {
+          // Prefer GID first.
+          if (remapped_gid) {
+            file_info->gid = *remapped_gid;
+          } else if (remapped_group_gid) {
+            file_info->gid = *remapped_group_gid;
+          }
+        } else {
+          // Prefer Groupname first.
+          if (remapped_group_gid) {
+            file_info->gid = *remapped_group_gid;
+          } else if (remapped_gid) {
+            file_info->gid = *remapped_gid;
+          }
+        }
+      }
+
+      if (fread(&u64, 8, 1, in_f) != 1) {
+        return SDAS_INVALID_FILE;
+      }
+      simple_archiver_helper_64_bit_be(&u64);
+      file_info->file_size = u64;
+
+      if (files_map && file_info->other_flags & 2) {
+        simple_archiver_internal_paths_to_files_map(files_map,
+                                                    file_info->filename);
+      }
+
+      simple_archiver_list_add(file_info_list, file_info,
+                               free_internal_file_info);
+      file_info = NULL;
+    }
+
+    if (fread(&u64, 1, 8, in_f) != 8) {
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_64_bit_be(&u64);
+
+    const uint64_t chunk_size = u64;
+    uint64_t chunk_remaining = chunk_size;
+    uint64_t chunk_idx = 0;
+
+    SDArchiverLLNode *node = file_info_list->head;
+    uint64_t file_idx = 0;
+
+    if (is_compressed) {
+      // Start the decompressing process and read into files.
+
+      // Handle SIGPIPE.
+      is_sig_pipe_occurred = 0;
+      signal(SIGPIPE, handle_sig_pipe);
+
+      int pipe_into_cmd[2];
+      int pipe_outof_cmd[2];
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_decomp_pid))) pid_t decompressor_pid;
+      if (pipe(pipe_into_cmd) != 0) {
+        // Unable to create pipes.
+        break;
+      } else if (pipe(pipe_outof_cmd) != 0) {
+        // Unable to create second set of pipes.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        return SDAS_INTERNAL_ERROR;
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+        // Unable to set non-blocking on into-write-pipe.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        close(pipe_outof_cmd[0]);
+        close(pipe_outof_cmd[1]);
+        return SDAS_INTERNAL_ERROR;
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+        // Unable to set non-blocking on outof-read-pipe.
+        close(pipe_into_cmd[0]);
+        close(pipe_into_cmd[1]);
+        close(pipe_outof_cmd[0]);
+        close(pipe_outof_cmd[1]);
+        return SDAS_INTERNAL_ERROR;
+      }
+
+      if (state && state->parsed && state->parsed->decompressor) {
+        if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                        state->parsed->decompressor,
+                                        &decompressor_pid) != 0) {
+          // Failed to spawn compressor.
+          close(pipe_into_cmd[1]);
+          close(pipe_outof_cmd[0]);
+          fprintf(stderr,
+                  "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
+          return SDAS_INTERNAL_ERROR;
+        }
+      } else {
+        if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
+                                        decompressor_cmd,
+                                        &decompressor_pid) != 0) {
+          // Failed to spawn compressor.
+          close(pipe_into_cmd[1]);
+          close(pipe_outof_cmd[0]);
+          fprintf(stderr,
+                  "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
+          return SDAS_INTERNAL_ERROR;
+        }
+      }
+
+      // Close unnecessary pipe fds on this end of the transfer.
+      close(pipe_into_cmd[0]);
+      close(pipe_outof_cmd[1]);
+
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_int_fd))) int pipe_outof_read =
+          pipe_outof_cmd[0];
+      __attribute__((cleanup(
+          simple_archiver_internal_cleanup_int_fd))) int pipe_into_write =
+          pipe_into_cmd[1];
+
+      int decompressor_status;
+      int decompressor_return_val;
+      int decompressor_ret =
+          waitpid(decompressor_pid, &decompressor_status, WNOHANG);
+      if (decompressor_ret == decompressor_pid) {
+        // Status is available.
+        if (WIFEXITED(decompressor_status)) {
+          decompressor_return_val = WEXITSTATUS(decompressor_status);
+          fprintf(stderr,
+                  "WARNING: Exec failed (exec exit code %d)! Invalid "
+                  "decompressor cmd?\n",
+                  decompressor_return_val);
+          return SDAS_INTERNAL_ERROR;
+        }
+      } else if (decompressor_ret == 0) {
+        // Probably still running, continue on.
+      } else {
+        // Error.
+        fprintf(stderr,
+                "WARNING: Exec failed (exec exit code unknown)! Invalid "
+                "decompressor cmd?\n");
+        return SDAS_INTERNAL_ERROR;
+      }
+
+      char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
+      ssize_t has_hold = -1;
+
+      while (node->next != file_info_list->tail) {
+        if (is_sig_int_occurred) {
+          return SDAS_SIGINT;
+        }
+        node = node->next;
+        const SDArchiverInternalFileInfo *file_info = node->data;
+        ++file_idx;
+        if (file_info->other_flags & 2) {
+          fprintf(stderr,
+                  "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                  file_idx,
+                  file_count,
+                  file_info->filename);
+        }
+
+        const size_t filename_length = strlen(file_info->filename);
+
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *filename_prefixed = NULL;
+        if (do_extract && state && state->parsed->prefix) {
+          filename_prefixed = malloc(prefix_length + filename_length + 1);
+          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
+          memcpy(filename_prefixed + prefix_length,
+                 file_info->filename,
+                 filename_length + 1);
+          filename_prefixed[prefix_length + filename_length] = 0;
+        }
+
+        uint_fast8_t skip_due_to_map = 0;
+        if (working_files_map && simple_archiver_hash_map_get(
+                                     working_files_map, file_info->filename,
+                                     filename_length + 1) == NULL) {
+          skip_due_to_map = 1;
+          fprintf(stderr, "    Skipping not specified in args...\n");
+        } else if ((file_info->other_flags & 1) != 0
+            && (file_info->other_flags & 2) != 0) {
+          fprintf(stderr, "    Skipping invalid filename...\n");
+        }
+
+        if (do_extract
+            && !skip_due_to_map
+            && (file_info->other_flags & 1) == 0
+            && (file_info->other_flags & 2) != 0) {
+          mode_t permissions;
+          if (state->parsed->flags & 0x1000) {
+            permissions =
+              simple_archiver_internal_permissions_to_mode_t(
+                state->parsed->file_permissions);
+          } else {
+            permissions = permissions_from_bits_version_1(
+              file_info->bit_flags,
+              0);
+          }
+          if ((state->parsed->flags & 8) == 0) {
+            // Check if file already exists.
+            __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
+            FILE *temp_fd = fopen(
+              filename_prefixed ? filename_prefixed : file_info->filename,
+              "r");
+            if (temp_fd) {
+              fprintf(stderr,
+                      "  WARNING: File already exists and "
+                      "\"--overwrite-extract\" is not specified, skipping!\n");
+              int ret = read_decomp_to_out_file(
+                  NULL, pipe_outof_read, (char *)buf,
+                  SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
+                  &pipe_into_write, &chunk_remaining, in_f, hold_buf,
+                  &has_hold);
+              if (ret != SDAS_SUCCESS) {
+                return ret;
+              }
+              continue;
+            }
+          }
+
+          simple_archiver_helper_make_dirs_perms(
+            filename_prefixed ? filename_prefixed : file_info->filename,
+            (state->parsed->flags & 0x2000)
+              ? simple_archiver_internal_permissions_to_mode_t(
+                  state->parsed->dir_permissions)
+              : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
+            (state->parsed->flags & 0x400)
+              ? state->parsed->uid
+              : file_info->uid,
+            (state->parsed->flags & 0x800)
+              ? state->parsed->gid
+              : file_info->gid);
+          int ret = read_decomp_to_out_file(
+              filename_prefixed ? filename_prefixed : file_info->filename,
+              pipe_outof_read,
+              (char *)buf,
+              SIMPLE_ARCHIVER_BUFFER_SIZE,
+              file_info->file_size,
+              &pipe_into_write,
+              &chunk_remaining,
+              in_f,
+              hold_buf,
+              &has_hold);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+                    permissions)
+                == -1) {
+            return SDAS_INTERNAL_ERROR;
+          } else if (geteuid() == 0 &&
+                     chown(filename_prefixed
+                             ? filename_prefixed
+                             : file_info->filename,
+                           file_info->uid,
+                           file_info->gid) != 0) {
+            fprintf(stderr,
+                    "    ERROR Failed to set UID/GID of file \"%s\"!\n",
+                    filename_prefixed
+                      ? filename_prefixed
+                      : file_info->filename);
+            return SDAS_INTERNAL_ERROR;
+          }
+        } else if (!skip_due_to_map
+            && (file_info->other_flags & 1) == 0
+            && (file_info->other_flags & 2) != 0) {
+          fprintf(stderr, "    Permissions:");
+          permissions_from_bits_version_1(file_info->bit_flags, 1);
+          fprintf(stderr,
+                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                  file_info->uid,
+                  file_info->gid);
+          if (file_info->username) {
+            fprintf(stderr, "    Username: %s\n", file_info->username);
+          } else {
+            fprintf(stderr, "    Username not in archive\n");
+          }
+          if (file_info->groupname) {
+            fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
+          } else {
+            fprintf(stderr, "    Groupname not in archive\n");
+          }
+          if (is_compressed) {
+            fprintf(stderr,
+                    "    File size (uncompressed): %" PRIu64 "\n",
+                    file_info->file_size);
+          } else {
+            fprintf(stderr,
+                    "    File size: %" PRIu64 "\n",
+                    file_info->file_size);
+          }
+          int ret = read_decomp_to_out_file(
+              NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
+              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
+              hold_buf, &has_hold);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+        } else {
+          int ret = read_decomp_to_out_file(
+              NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
+              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
+              hold_buf, &has_hold);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+        }
+      }
+
+      // Ensure EOF is left from pipe.
+      ssize_t read_ret =
+          read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
+      if (read_ret > 0) {
+        fprintf(stderr, "WARNING decompressor didn't reach EOF!\n");
+      }
+    } else {
+      while (node->next != file_info_list->tail) {
+        if (is_sig_int_occurred) {
+          return SDAS_SIGINT;
+        }
+        node = node->next;
+        const SDArchiverInternalFileInfo *file_info = node->data;
+        ++file_idx;
+        if (file_info->other_flags & 2) {
+          fprintf(stderr,
+                  "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                  file_idx,
+                  file_count,
+                  file_info->filename);
+        }
+        chunk_idx += file_info->file_size;
+        if (chunk_idx > chunk_size) {
+          fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
+          return SDAS_INTERNAL_ERROR;
+        }
+
+        const size_t filename_length = strlen(file_info->filename);
+
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *filename_prefixed = NULL;
+        if (do_extract && state && state->parsed->prefix) {
+          filename_prefixed = malloc(prefix_length + filename_length + 1);
+          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
+          memcpy(filename_prefixed + prefix_length,
+                 file_info->filename,
+                 filename_length + 1);
+          filename_prefixed[prefix_length + filename_length] = 0;
+        }
+
+        uint_fast8_t skip_due_to_map = 0;
+        if (do_extract
+            && working_files_map
+            && simple_archiver_hash_map_get(working_files_map,
+                                            file_info->filename,
+                                            filename_length + 1) == NULL) {
+          skip_due_to_map = 1;
+          fprintf(stderr, "    Skipping not specified in args...\n");
+        } else if ((file_info->other_flags & 1) != 0
+            && (file_info->other_flags & 2) != 0) {
+          fprintf(stderr, "    Skipping invalid filename...\n");
+        }
+
+        if (do_extract
+            && !skip_due_to_map
+            && (file_info->other_flags & 1) == 0
+            && (file_info->other_flags & 2) != 0) {
+          mode_t permissions;
+
+          if (state->parsed->flags & 0x1000) {
+            permissions = simple_archiver_internal_permissions_to_mode_t(
+              state->parsed->file_permissions);
+            fprintf(stderr,
+                    "NOTICE: Forcing permissions as specified by "
+                    "\"--force-file-permissions\"!\n");
+          } else {
+            permissions =
+              permissions_from_bits_version_1(file_info->bit_flags, 0);
+          }
+          if ((state->parsed->flags & 8) == 0) {
+            // Check if file already exists.
+            __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
+            FILE *temp_fd = fopen(filename_prefixed
+                                    ? filename_prefixed
+                                    : file_info->filename,
+                                  "r");
+            if (temp_fd) {
+              fprintf(stderr,
+                      "  WARNING: File already exists and "
+                      "\"--overwrite-extract\" is not specified, skipping!\n");
+              int ret = read_buf_full_from_fd(in_f, (char *)buf,
+                                              SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                              file_info->file_size, NULL);
+              if (ret != SDAS_SUCCESS) {
+                return ret;
+              }
+              continue;
+            }
+          }
+          simple_archiver_helper_make_dirs_perms(
+            filename_prefixed ? filename_prefixed : file_info->filename,
+            (state->parsed->flags & 0x2000)
+              ? simple_archiver_internal_permissions_to_mode_t(
+                  state->parsed->dir_permissions)
+              : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
+            (state->parsed->flags & 0x400)
+              ? state->parsed->uid
+              : file_info->uid,
+            (state->parsed->flags & 0x800)
+              ? state->parsed->gid
+              : file_info->gid);
+          __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
+          FILE *out_fd = fopen(filename_prefixed
+                                 ? filename_prefixed
+                                 : file_info->filename,
+                               "wb");
+          int ret = read_fd_to_out_fd(in_f, out_fd, (char *)buf,
+                                      SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                      file_info->file_size);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+          simple_archiver_helper_cleanup_FILE(&out_fd);
+          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+                    permissions)
+                == -1) {
+            fprintf(
+              stderr,
+              "ERROR Failed to set permissions of file \"%s\"!\n",
+              filename_prefixed ? filename_prefixed : file_info->filename);
+            return SDAS_INTERNAL_ERROR;
+          } else if (geteuid() == 0 &&
+                     chown(filename_prefixed
+                             ? filename_prefixed
+                             : file_info->filename,
+                           file_info->uid,
+                           file_info->gid) != 0) {
+            fprintf(
+              stderr,
+              "    ERROR Failed to set UID/GID of file \"%s\"!\n",
+              filename_prefixed ? filename_prefixed : file_info->filename);
+            return SDAS_INTERNAL_ERROR;
+          }
+        } else if (!skip_due_to_map
+            && (file_info->other_flags & 1) == 0
+            && (file_info->other_flags & 2) != 0) {
+          fprintf(stderr, "    Permissions:");
+          permissions_from_bits_version_1(file_info->bit_flags, 1);
+          fprintf(stderr,
+                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                  file_info->uid,
+                  file_info->gid);
+          if (file_info->username) {
+            fprintf(stderr, "    Username: %s\n", file_info->username);
+          } else {
+            fprintf(stderr, "    Username not in archive\n");
+          }
+          if (file_info->groupname) {
+            fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
+          } else {
+            fprintf(stderr, "    Groupname not in archive\n");
+          }
+          if (is_compressed) {
+            fprintf(stderr,
+                    "    File size (compressed): %" PRIu64 "\n",
+                    file_info->file_size);
+          } else {
+            fprintf(stderr,
+                    "    File size: %" PRIu64 "\n",
+                    file_info->file_size);
+          }
+          int ret = read_buf_full_from_fd(in_f, (char *)buf,
+                                          SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                          file_info->file_size, NULL);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+        } else {
+          int ret = read_buf_full_from_fd(in_f, (char *)buf,
+                                          SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                          file_info->file_size, NULL);
+          if (ret != SDAS_SUCCESS) {
+            return ret;
+          }
+        }
+      }
+    }
+  }
+
+  if (do_extract && links_list && files_map) {
+    simple_archiver_safe_links_enforce(links_list, files_map);
+  }
+
+  if (fread(&u64, 8, 1, in_f) != 1) {
+    fprintf(stderr, "ERROR: Failed to read directory count!\n");
+    return SDAS_INVALID_FILE;
+  }
+
+  simple_archiver_helper_64_bit_be(&u64);
+
+  const uint64_t size = u64;
+  for (uint64_t idx = 0; idx < size; ++idx) {
+    if (fread(&u16, 2, 1, in_f) != 1) {
+      fprintf(stderr, "ERROR: Failed to read directory name length!\n");
+      return SDAS_INVALID_FILE;
+    }
+
+    simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *archive_dir_name = malloc(u16 + 1);
+
+    if (fread(archive_dir_name, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+      fprintf(stderr, "ERROR: Failed to read directory name!\n");
+      return SDAS_INVALID_FILE;
+    }
+
+    archive_dir_name[u16] = 0;
+
+    const uint_fast8_t lists_allowed =
+      simple_archiver_helper_string_allowed_lists(
+        archive_dir_name,
+        state->parsed->flags & 0x20000 ? 1 : 0,
+        state->parsed);
+
+    uint8_t perms_flags[4];
+    if (fread(perms_flags, 1, 2, in_f) != 2) {
+      fprintf(stderr,
+              "ERROR: Failed to read permission flags for \"%s\"!\n",
+              archive_dir_name);
+      return SDAS_INVALID_FILE;
+    }
+    perms_flags[2] = 0;
+    perms_flags[3] = 0;
+
+    uint32_t uid;
+    if (fread(&uid, 4, 1, in_f) != 1) {
+      fprintf(stderr,
+              "ERROR: Failed to read UID for \"%s\"!\n", archive_dir_name);
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_32_bit_be(&uid);
+
+    uint32_t gid;
+    if (fread(&gid, 4, 1, in_f) != 1) {
+      fprintf(stderr,
+              "ERROR: Failed to read GID for \"%s\"!\n", archive_dir_name);
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_32_bit_be(&gid);
+
+    if (fread(&u16, 2, 1, in_f) != 1) {
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *username = malloc(u16 + 1);
+
+    if (u16 != 0) {
+      if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        return SDAS_INVALID_FILE;
+      }
+      username[u16] = 0;
+    } else {
+      free(username);
+      username = NULL;
+    }
+
+    if (fread(&u16, 2, 1, in_f) != 1) {
+      return SDAS_INVALID_FILE;
+    }
+    simple_archiver_helper_16_bit_be(&u16);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *groupname = malloc(u16 + 1);
+
+    if (u16 != 0) {
+      if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+        return SDAS_INVALID_FILE;
+      }
+      groupname[u16] = 0;
+    } else {
+      free(groupname);
+      groupname = NULL;
+    }
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *remapped_uid = NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *remapped_user_uid = NULL;
+    if (do_extract && state) {
+      uint32_t out_uid;
+      if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                          state->parsed->users_infos,
+                                          uid,
+                                          &out_uid,
+                                          NULL) == 0) {
+        remapped_uid = malloc(sizeof(uint32_t));
+        *remapped_uid = out_uid;
+      }
+      if (username
+          && simple_archiver_get_user_mapping(state->parsed->mappings,
+                                              state->parsed->users_infos,
+                                              username,
+                                              &out_uid,
+                                              NULL) == 0) {
+        remapped_user_uid = malloc(sizeof(uint32_t));
+        *remapped_user_uid = out_uid;
+      }
+    }
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *remapped_gid = NULL;
+    __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+    uint32_t *remapped_group_gid = NULL;
+    if (do_extract && state) {
+      uint32_t out_gid;
+      if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                          state->parsed->users_infos,
+                                          gid,
+                                          &out_gid,
+                                          NULL) == 0) {
+        remapped_gid = malloc(sizeof(uint32_t));
+        *remapped_gid = out_gid;
+      }
+      if (groupname
+          && simple_archiver_get_group_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               groupname,
+                                               &out_gid,
+                                               NULL) == 0) {
+        remapped_group_gid = malloc(sizeof(uint32_t));
+        *remapped_group_gid = out_gid;
+      }
+    }
+
+    if (do_extract && lists_allowed) {
+      fprintf(stderr, "Creating dir \"%s\"\n", archive_dir_name);
+      // Use UID derived from Username by default.
+      if ((state->parsed->flags & 0x4000) == 0 && username) {
+        uint32_t *username_uid = simple_archiver_hash_map_get(
+          state->parsed->users_infos.UnameToUid,
+          username,
+          strlen(username) + 1);
+        if (username_uid) {
+          uid = *username_uid;
+        }
+      }
+      // Apply UID/Username remapping.
+      if (state->parsed->flags & 0x4000) {
+        // Prefer UID first.
+        if (remapped_uid) {
+          uid = *remapped_uid;
+        } else if (remapped_user_uid) {
+          uid = *remapped_user_uid;
+        }
+      } else {
+        // Prefer Username first.
+        if (remapped_user_uid) {
+          uid = *remapped_user_uid;
+        } else if (remapped_uid) {
+          uid = *remapped_uid;
+        }
+      }
+      // Use GID derived from Group by default.
+      if ((state->parsed->flags & 0x8000) == 0 && groupname) {
+        uint32_t *group_gid = simple_archiver_hash_map_get(
+          state->parsed->users_infos.GnameToGid,
+          groupname,
+          strlen(groupname) + 1);
+        if (group_gid) {
+          gid = *group_gid;
+        }
+      }
+      // Apply GID/Groupname remapping.
+      if (state->parsed->flags & 0x8000) {
+        // Prefer GID first.
+        if (remapped_gid) {
+          gid = *remapped_gid;
+        } else if (remapped_group_gid) {
+          gid = *remapped_group_gid;
+        }
+      } else {
+        // Prefer Groupname first.
+        if (remapped_group_gid) {
+          gid = *remapped_group_gid;
+        } else if (remapped_gid) {
+          gid = *remapped_gid;
+        }
+      }
+    } else if (lists_allowed) {
+      fprintf(stderr, "Dir entry \"%s\"\n", archive_dir_name);
+      fprintf(stderr, "  Permissions: ");
+      fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 2)    ? "w" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 8)    ? "r" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x10) ? "w" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x40) ? "r" : "-");
+      fprintf(stderr, "%s", (perms_flags[0] & 0x80) ? "w" : "-");
+      fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      fprintf(stderr, "\n");
+
+      fprintf(stderr,
+              "  UID: %" PRIu32 ", GID: %" PRIu32 "\n",
+              uid,
+              gid);
+
+      if (username) {
+        fprintf(stderr, "  Username: %s\n", username);
+      } else {
+        fprintf(stderr, "  Username not in archive\n");
+      }
+
+      if (groupname) {
+        fprintf(stderr, "  Groupname: %s\n", groupname);
+      } else {
+        fprintf(stderr, "  Groupname not in archive\n");
+      }
+    }
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_path_dir = realpath(".", NULL);
+    if (!abs_path_dir) {
+      fprintf(
+        stderr,
+        "ERROR: Failed to get abs_path_dir of current working directory!\n");
+      return SDAS_INTERNAL_ERROR;
+    }
+
+    __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
+    SAHelperStringParts string_parts =
+      simple_archiver_helper_string_parts_init();
+
+    simple_archiver_helper_string_parts_add(string_parts, abs_path_dir);
+
+    if (abs_path_dir[strlen(abs_path_dir) - 1] != '/') {
+      simple_archiver_helper_string_parts_add(string_parts, "/");
+    }
+
+    if (state && state->parsed->prefix) {
+      simple_archiver_helper_string_parts_add(string_parts,
+                                              state->parsed->prefix);
+    }
+
+    simple_archiver_helper_string_parts_add(string_parts, archive_dir_name);
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_dir_path =
+      simple_archiver_helper_string_parts_combine(string_parts);
+
+    simple_archiver_helper_string_parts_add(string_parts, "/UNUSED");
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_dir_path_with_suffix =
+      simple_archiver_helper_string_parts_combine(string_parts);
+
+    if (do_extract && lists_allowed) {
+      int ret = simple_archiver_helper_make_dirs_perms(
+        abs_dir_path_with_suffix,
+        state && (state->parsed->flags & 0x2000)
+          ? simple_archiver_internal_permissions_to_mode_t(
+              state->parsed->dir_permissions)
+          : (S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH),
+        state && (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
+        state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
+      if (ret != 0) {
+        fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
+        return SDAS_INTERNAL_ERROR;
+      }
+      mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
+      ret = chmod(abs_dir_path,
+                  state && (state->parsed->flags & 0x10000)
+                    ? simple_archiver_internal_permissions_to_mode_t(
+                        state->parsed->empty_dir_permissions)
+                    : perms);
+      if (ret != 0) {
+        fprintf(stderr,
+                "WARNING: Failed to set permissions on dir \"%s\"!\n",
+                abs_dir_path);
+      }
     }
   }
 
