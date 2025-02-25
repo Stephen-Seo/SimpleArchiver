@@ -2,6 +2,10 @@
 
 ## Upcoming Changes
 
+## Version 1.17
+
+Fix `--whitelist-begins-with <text>` and `--whitelist-ends-with <text>`.
+
 ## Version 1.16
 
 Add white/black-list flags:
