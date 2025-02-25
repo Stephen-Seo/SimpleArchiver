@@ -2802,8 +2802,8 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     }
     if (u32 != (uint32_t)symlinks_list->count) {
       fprintf(stderr,
-              "ERROR: Iterated through %" PRIu32 " symlinks out of %zu total!"
-                "\n",
+              "ERROR: Iterated through %" PRIu32 " symlinks out of %" PRIu64
+              " total!\n",
               u32, symlinks_list->count);
       return SDAS_INTERNAL_ERROR;
     }
@@ -2884,7 +2884,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       return SDAS_SIGINT;
     }
     fprintf(stderr,
-            "CHUNK %3" PRIu64 " of %3zu\n",
+            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             ++chunk_count,
             chunk_counts->count);
     // Write file count before iterating through files.
@@ -3774,8 +3774,8 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
     }
     if (u32 != (uint32_t)symlinks_list->count) {
       fprintf(stderr,
-              "ERROR: Iterated through %" PRIu32 " symlinks out of %zu total!"
-                "\n",
+              "ERROR: Iterated through %" PRIu32 " symlinks out of %" PRIu64
+              " total!\n",
               u32, symlinks_list->count);
       return SDAS_INTERNAL_ERROR;
     }
@@ -3861,7 +3861,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       return SDAS_SIGINT;
     }
     fprintf(stderr,
-            "CHUNK %3" PRIu64 " of %3zu\n",
+            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             ++chunk_count,
             chunk_counts->count);
     // Write file count before iterating through files.
@@ -4919,8 +4919,8 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
     }
     if (idx != (uint32_t)symlinks_list->count) {
       fprintf(stderr,
-              "ERROR: Iterated through %" PRIu32 " symlinks out of %zu total!"
-                "\n",
+              "ERROR: Iterated through %" PRIu32 " symlinks out of %" PRIu64
+              " total!\n",
               idx, symlinks_list->count);
       return SDAS_INTERNAL_ERROR;
     }
@@ -5006,7 +5006,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       return SDAS_SIGINT;
     }
     fprintf(stderr,
-            "CHUNK %3" PRIu64 " of %3zu\n",
+            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             ++chunk_count,
             chunk_counts->count);
     // Write file count before iterating through files.
@@ -6196,7 +6196,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       return SDAS_SIGINT;
     }
     fprintf(stderr,
-            "CHUNK %3" PRIu64 " of %3zu\n",
+            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             ++chunk_count,
             chunk_counts->count);
     // Write file count before iterating through files.
