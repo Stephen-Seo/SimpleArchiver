@@ -18,15 +18,13 @@
 
 #include "archiver.h"
 
+// Standard library includes.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
 
-#include "platforms.h"
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+// Unix includes.
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
@@ -37,8 +35,8 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-#endif
 
+// Local includes.
 #include "data_structures/priority_heap.h"
 #include "helpers.h"
 #include "users.h"
@@ -49,9 +47,6 @@
 
 #define SIMPLE_ARCHIVER_BUFFER_SIZE (1024 * 32)
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 volatile int is_sig_pipe_occurred = 0;
 volatile int is_sig_int_occurred = 0;
 
@@ -68,7 +63,6 @@ void handle_sig_int(int sig) {
 }
 
 const struct timespec nonblock_sleep = {.tv_sec = 0, .tv_nsec = 1000000};
-#endif
 
 typedef struct SDArchiverInternalToWrite {
   void *buf;
@@ -103,9 +97,6 @@ int write_list_datas_fn(void *data, void *ud) {
 }
 
 void cleanup_temp_filename_delete(void ***ptrs_array) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   if (ptrs_array && *ptrs_array) {
     if ((*ptrs_array)[1]) {
       simple_archiver_helper_cleanup_FILE((FILE **)(*ptrs_array)[1]);
@@ -116,17 +107,12 @@ void cleanup_temp_filename_delete(void ***ptrs_array) {
     free(*ptrs_array);
     *ptrs_array = NULL;
   }
-#endif
 }
 
 void cleanup_overwrite_filename_delete_simple(char **filename) {
   if (filename && *filename) {
     if ((*filename)[0] != 0) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       unlink(*filename);
-#endif
     }
     free(*filename);
     *filename = NULL;
@@ -156,9 +142,6 @@ int write_files_fn_file_v0(void *data, void *ud) {
     if (state->parsed->compressor && state->parsed->decompressor) {
       // De/compressor specified.
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
       FILE *file_fd = fopen(file_info->filename, "rb");
       if (!file_fd) {
@@ -517,7 +500,6 @@ int write_files_fn_file_v0(void *data, void *ud) {
           break;
         }
       } while (1);
-#endif
     } else {
       uint16_t u16;
       uint64_t u64;
@@ -565,9 +547,6 @@ int write_files_fn_file_v0(void *data, void *ud) {
         ((uint8_t *)temp_to_write->buf)[idx] = 0;
       }
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       // Get file stats.
       struct stat stat_buf;
       memset(&stat_buf, 0, sizeof(struct stat));
@@ -612,10 +591,6 @@ int write_files_fn_file_v0(void *data, void *ud) {
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
         ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
       }
-#else
-      // Unsupported platform. Just set the permission bits for user.
-      ((uint8_t *)temp_to_write->buf)[0] |= 0xE;
-#endif
 
       if (state->parsed->flags & 0x1000) {
         ((uint8_t *)temp_to_write->buf)[0] =
@@ -734,9 +709,6 @@ int write_files_fn_file_v0(void *data, void *ud) {
     // Set "is symbolic link" flag.
     ((uint8_t *)temp_to_write->buf)[0] = 1;
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     // Get file stats.
     struct stat stat_buf;
     memset(&stat_buf, 0, sizeof(struct stat));
@@ -774,10 +746,6 @@ int write_files_fn_file_v0(void *data, void *ud) {
     if ((stat_buf.st_mode & S_IXOTH) != 0) {
       ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
     }
-#else
-    // Unsupported platform. Just set the permission bits for user.
-    ((uint8_t *)temp_to_write->buf)[0] |= 0xE;
-#endif
 
     // Need to get abs_path for checking/setting a flag before storing flags.
     // Get absolute path.
@@ -1023,14 +991,10 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   __attribute__((cleanup(
       simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
   if (user_cwd) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     original_cwd = realpath(".", NULL);
     if (chdir(user_cwd)) {
       return 1;
     }
-#endif
   }
 
   // Get combined full path to file.
@@ -1048,11 +1012,7 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   // First get absolute path to current working directory.
   __attribute__((cleanup(
       simple_archiver_helper_cleanup_malloced))) void *cwd_dirname = NULL;
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   cwd_dirname = realpath(".", NULL);
-#endif
   if (!cwd_dirname) {
     return 1;
   }
@@ -1405,9 +1365,6 @@ void cleanup_internal_file_info(SDArchiverInternalFileInfo **file_info) {
   }
 }
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 mode_t permissions_from_bits_v1_symlink(const uint8_t flags[2],
                                         uint_fast8_t print) {
   mode_t permissions = 0;
@@ -1616,8 +1573,6 @@ void print_permissions(mode_t permissions) {
   }
 }
 
-#endif
-
 void simple_archiver_internal_cleanup_int_fd(int *fd) {
   if (fd && *fd >= 0) {
     close(*fd);
@@ -1625,9 +1580,6 @@ void simple_archiver_internal_cleanup_int_fd(int *fd) {
   }
 }
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 void simple_archiver_internal_cleanup_decomp_pid(pid_t *decomp_pid) {
   if (decomp_pid && *decomp_pid >= 0) {
     int decompressor_status;
@@ -1663,7 +1615,6 @@ void simple_archiver_internal_cleanup_decomp_pid(pid_t *decomp_pid) {
     *decomp_pid = -1;
   }
 }
-#endif
 
 int symlinks_and_files_from_files(void *data, void *ud) {
   SDArchiverFileInfo *file_info = data;
@@ -1709,9 +1660,6 @@ int symlinks_and_files_from_files(void *data, void *ud) {
       file_info_struct->username = NULL;
       file_info_struct->groupname = NULL;
       file_info_struct->file_size = 0;
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       __attribute__((cleanup(
           simple_archiver_helper_cleanup_chdir_back))) char *original_cwd =
           NULL;
@@ -1761,7 +1709,6 @@ int symlinks_and_files_from_files(void *data, void *ud) {
       }
       file_info_struct->uid = stat_buf.st_uid;
       file_info_struct->gid = stat_buf.st_gid;
-#endif
       if (state->parsed->flags & 0x1000) {
         file_info_struct->bit_flags[0] = 0;
         file_info_struct->bit_flags[1] &= 0xFE;
@@ -2237,11 +2184,7 @@ void simple_archiver_free_state(SDArchiverState **state) {
 
 int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
                               const SDArchiverLinkedList *filenames) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   signal(SIGINT, handle_sig_int);
-#endif
   switch (state->parsed->write_version) {
     case 0:
       return simple_archiver_write_v0(out_f, state, filenames);
@@ -2403,14 +2346,10 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
   __attribute__((cleanup(
       simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
   if (state->parsed->user_cwd) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
       return 1;
     }
-#endif
   }
   char format_str[64];
   snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
@@ -2575,14 +2514,10 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   __attribute__((cleanup(
       simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
   if (state->parsed->user_cwd) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
       return SDAS_INTERNAL_ERROR;
     }
-#endif
   }
 
   const size_t prefix_length = state->parsed->prefix
@@ -2598,9 +2533,6 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
 
       uint_fast8_t is_invalid = 0;
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       __attribute__((cleanup(
           simple_archiver_helper_cleanup_malloced))) void *abs_path = NULL;
       __attribute__((cleanup(
@@ -2724,10 +2656,6 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
         buf[1] |= 2;
       }
-#else
-      buf[0] = 0xFE;
-      buf[1] = 0xB;
-#endif
 
       if (is_invalid) {
         buf[1] |= 4;
@@ -3561,14 +3489,10 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   __attribute__((cleanup(
       simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
   if (state->parsed->user_cwd) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
       return SDAS_INTERNAL_ERROR;
     }
-#endif
   }
 
   {
@@ -3581,9 +3505,6 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
 
       uint_fast8_t is_invalid = 0;
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       __attribute__((cleanup(
           simple_archiver_helper_cleanup_malloced))) void *abs_path = NULL;
       __attribute__((cleanup(
@@ -3707,10 +3628,6 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
         buf[1] |= 2;
       }
-#else
-      buf[0] = 0xFE;
-      buf[1] = 0xB;
-#endif
 
       if (is_invalid) {
         buf[1] |= 4;
@@ -4572,14 +4489,10 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   __attribute__((cleanup(
       simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
   if (state->parsed->user_cwd) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
       return SDAS_INTERNAL_ERROR;
     }
-#endif
   }
 
   {
@@ -4593,9 +4506,6 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
 
       uint_fast8_t is_invalid = 0;
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       __attribute__((cleanup(
           simple_archiver_helper_cleanup_malloced))) void *abs_path = NULL;
       __attribute__((cleanup(
@@ -4719,10 +4629,6 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
         buf[1] |= 2;
       }
-#else
-      buf[0] = 0xFE;
-      buf[1] = 0xB;
-#endif
 
       if (is_invalid) {
         buf[1] |= 4;
@@ -6827,11 +6733,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
 
 int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
                                        const SDArchiverState *state) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   signal(SIGINT, handle_sig_int);
-#endif
 
   uint8_t buf[32];
   memset(buf, 0, 32);
@@ -6882,13 +6784,9 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
   }
 
   if (do_extract && state->parsed->user_cwd) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     if (chdir(state->parsed->user_cwd)) {
       return SDAS_FAILED_TO_CHANGE_CWD;
     }
-#endif
   }
 
   __attribute__((cleanup(
@@ -7195,9 +7093,6 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                                                     : out_f_name);
     }
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     mode_t permissions = 0;
 
     if (do_extract == 0 && lists_allowed) {
@@ -7281,8 +7176,6 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       fprintf(stderr, "\n");
     }
 
-#endif
-
     if (state && state->parsed->flags & 0x1000 && do_extract) {
       fprintf(stderr,
               "NOTICE: Forcing permissions as specified by "
@@ -7350,9 +7243,6 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                           ? filename_with_prefix
                           : out_f_name;
         ptrs_array[1] = &out_f;
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
         if (is_compressed && out_f) {
           // Handle SIGPIPE.
           signal(SIGPIPE, handle_sig_pipe);
@@ -7614,7 +7504,6 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
         if (out_f) {
           fprintf(stderr, "  Extracted.\n");
         }
-#endif
       } else {
         while (u64 != 0) {
           if (u64 > SIMPLE_ARCHIVER_BUFFER_SIZE) {
@@ -7719,9 +7608,6 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         if (abs_path && rel_path) {
           if (abs_preferred) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
             int_fast8_t retry_symlink = 0;
             int ret;
             __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -7799,11 +7685,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             }
           V0_SYMLINK_CREATE_AFTER_0:
             retry_symlink = 1;
-#endif
           } else {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
             int_fast8_t retry_symlink = 0;
             int ret;
             __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -7874,12 +7756,8 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             }
           V0_SYMLINK_CREATE_AFTER_1:
             retry_symlink = 1;
-#endif
           }
         } else if (abs_path) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *abs_path_prefixed = NULL;
           if (state->parsed->prefix) {
@@ -7932,11 +7810,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                       errno);
             }
           }
-#endif
         } else if (rel_path) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *rel_path_prefixed =
             simple_archiver_helper_insert_prefix_in_link_path(
@@ -7982,7 +7856,6 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                       errno);
             }
           }
-#endif
         } else {
           fprintf(
               stderr,
@@ -8031,13 +7904,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
   }
 
   if (do_extract && state->parsed->user_cwd) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     if (chdir(state->parsed->user_cwd)) {
       return SDAS_FAILED_TO_CHANGE_CWD;
     }
-#endif
   }
 
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -8125,11 +7994,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
     const uint_fast8_t points_to_outside = (buf[1] & 8) ? 1 : 0;
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     mode_t permissions = permissions_from_bits_v1_symlink(buf, 0);
-#endif
 
     uint_fast8_t link_extracted = 0;
     uint_fast8_t skip_due_to_map = 0;
@@ -8177,13 +8042,9 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       } else {
         fprintf(stderr, "  Relative path preferred.\n");
       }
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       fprintf(stderr, "  Link Permissions: ");
       print_permissions(permissions);
       fprintf(stderr, "\n");
-#endif
     }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -8249,9 +8110,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             return SDAS_INTERNAL_ERROR;
           }
         }
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
         simple_archiver_helper_make_dirs_perms(
           link_name_prefixed ? link_name_prefixed : link_name,
           (state->parsed->flags & 0x2000)
@@ -8313,7 +8171,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                 abs_path_prefixed ? abs_path_prefixed : path);
       V1_SYMLINK_CREATE_AFTER_0:
         link_create_retry = 1;
-#endif
       } else if (!do_extract && lists_allowed) {
         fprintf(stderr, "  Abs path: %s\n", path);
       }
@@ -8358,9 +8215,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             return SDAS_INTERNAL_ERROR;
           }
         }
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
         simple_archiver_helper_make_dirs_perms(
           link_name_prefixed ? link_name_prefixed : link_name,
           (state->parsed->flags & 0x2000)
@@ -8437,7 +8291,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                 rel_path_prefixed ? rel_path_prefixed : path);
       V1_SYMLINK_CREATE_AFTER_1:
         link_create_retry = 1;
-#endif
       } else if (!do_extract && lists_allowed) {
         fprintf(stderr, "  Rel path: %s\n", path);
       }
@@ -8697,9 +8550,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     if (is_compressed) {
       // Start the decompressing process and read into files.
 
@@ -8840,9 +8690,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             && !skip_due_to_map
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           mode_t permissions;
           if (state->parsed->flags & 0x1000) {
             permissions =
@@ -8853,7 +8700,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
               file_info->bit_flags,
               0);
           }
-#endif
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
@@ -8902,9 +8748,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           if (ret != SDAS_SUCCESS) {
             return ret;
           }
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions)
                 == -1) {
@@ -8922,7 +8765,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                       : file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
-#endif
         } else if (!skip_due_to_map
                    && (file_info->other_flags & 1) == 0
                    && (file_info->other_flags & 2) != 0) {
@@ -8966,10 +8808,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         fprintf(stderr, "WARNING decompressor didn't reach EOF!\n");
       }
     } else {
-#else
-    // } (This comment exists so that vim can correctly match curly-braces).
-    if (!is_compressed) {
-#endif
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDAS_SIGINT;
@@ -9017,9 +8855,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             && !skip_due_to_map
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           mode_t permissions;
 
           if (state->parsed->flags & 0x1000) {
@@ -9032,7 +8867,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             permissions =
               permissions_from_bits_version_1(file_info->bit_flags, 0);
           }
-#endif
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
@@ -9077,9 +8911,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             return ret;
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions) == -1) {
             fprintf(stderr,
@@ -9099,7 +8930,6 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                     file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
-#endif
         } else if (!skip_due_to_map
                    && (file_info->other_flags & 1) == 0
                    && (file_info->other_flags & 2) != 0) {
@@ -9361,9 +9191,6 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
         fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
         return SDAS_INTERNAL_ERROR;
       }
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
       ret = chmod(abs_dir_path,
                   state && (state->parsed->flags & 0x10000)
@@ -9375,7 +9202,6 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
                 "WARNING: Failed to set permissions on dir \"%s\"!\n",
                 abs_dir_path);
       }
-#endif
     }
   }
 
@@ -9411,13 +9237,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
   }
 
   if (do_extract && state->parsed->user_cwd) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     if (chdir(state->parsed->user_cwd)) {
       return SDAS_FAILED_TO_CHANGE_CWD;
     }
-#endif
   }
 
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -9506,11 +9328,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
     const uint_fast8_t points_to_outside = (buf[1] & 8) ? 1 : 0;
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     mode_t permissions = permissions_from_bits_v1_symlink(buf, 0);
-#endif
 
     uint_fast8_t link_extracted = 0;
     uint_fast8_t skip_due_to_map = 0;
@@ -9553,13 +9371,9 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       } else {
         fprintf(stderr, "  Relative path preferred.\n");
       }
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       fprintf(stderr, "  Link Permissions: ");
       print_permissions(permissions);
       fprintf(stderr, "\n");
-#endif
     } else if (do_extract && lists_allowed) {
       if (is_invalid) {
         fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
@@ -9861,9 +9675,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         && lists_allowed
         && absolute_preferred
         && parsed_abs_path) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-  SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-  SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       simple_archiver_helper_make_dirs_perms(
         link_name_prefixed ? link_name_prefixed : link_name,
         (state->parsed->flags & 0x2000)
@@ -9924,16 +9735,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
               abs_path_prefixed ? abs_path_prefixed : parsed_abs_path);
     V3_SYMLINK_CREATE_AFTER_0:
       link_create_retry = 1;
-#endif
     } else if (do_extract
         && !skip_due_to_map
         && !skip_due_to_invalid
         && lists_allowed
         && !absolute_preferred
         && parsed_rel_path) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-  SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-  SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       simple_archiver_helper_make_dirs_perms(
         link_name_prefixed ? link_name_prefixed : link_name,
         (state->parsed->flags & 0x2000)
@@ -9995,7 +9802,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
               rel_path_prefixed ? rel_path_prefixed : parsed_rel_path);
     V3_SYMLINK_CREATE_AFTER_1:
       link_create_retry = 1;
-#endif
     }
 
     if (do_extract && lists_allowed && link_extracted && geteuid() == 0) {
@@ -10394,9 +10200,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
 
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
     if (is_compressed) {
       // Start the decompressing process and read into files.
 
@@ -10537,9 +10340,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             && !skip_due_to_map
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           mode_t permissions;
           if (state->parsed->flags & 0x1000) {
             permissions =
@@ -10550,7 +10350,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
               file_info->bit_flags,
               0);
           }
-#endif
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
@@ -10599,9 +10398,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           if (ret != SDAS_SUCCESS) {
             return ret;
           }
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions)
                 == -1) {
@@ -10619,7 +10415,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                       : file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
-#endif
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
@@ -10673,10 +10468,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         fprintf(stderr, "WARNING decompressor didn't reach EOF!\n");
       }
     } else {
-#else
-    // } (This comment exists so that vim can correctly match curly-braces).
-    if (!is_compressed) {
-#endif
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDAS_SIGINT;
@@ -10727,9 +10518,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             && !skip_due_to_map
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           mode_t permissions;
 
           if (state->parsed->flags & 0x1000) {
@@ -10742,7 +10530,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             permissions =
               permissions_from_bits_version_1(file_info->bit_flags, 0);
           }
-#endif
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
@@ -10787,9 +10574,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             return ret;
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions)
                 == -1) {
@@ -10810,7 +10594,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
               filename_prefixed ? filename_prefixed : file_info->filename);
             return SDAS_INTERNAL_ERROR;
           }
-#endif
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
@@ -11140,9 +10923,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
         return SDAS_INTERNAL_ERROR;
       }
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
       mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
       ret = chmod(abs_dir_path,
                   state && (state->parsed->flags & 0x10000)
@@ -11154,7 +10934,6 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                 "WARNING: Failed to set permissions on dir \"%s\"!\n",
                 abs_dir_path);
       }
-#endif
     }
   }
 
@@ -12891,9 +12670,6 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
                                 const char *cmd, void *pid_out) {
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   posix_spawn_file_actions_t file_actions;
   memset(&file_actions, 0, sizeof(file_actions));
   if (posix_spawn_file_actions_init(&file_actions) != 0) {
@@ -12942,9 +12718,6 @@ int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
   posix_spawn_file_actions_destroy(&file_actions);
 
   return 0;
-#else
-  return 1;
-#endif
 }
 
 char *simple_archiver_filenames_to_relative_path(const char *from_abs,
