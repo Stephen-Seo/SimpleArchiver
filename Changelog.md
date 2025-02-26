@@ -7,6 +7,9 @@ than 4 billion files.
 
 Some minor fixes.
 
+Changed behavior of permissions for temp-file (created during compression) to
+be more strict. This may not be important to most end-users.
+
 ## Version 1.17
 
 Fix `--whitelist-begins-with <text>` and `--whitelist-ends-with <text>`.
