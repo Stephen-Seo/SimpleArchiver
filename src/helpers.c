@@ -905,7 +905,9 @@ FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
     }
   } while (1);
 
+  mode_t prev_umask = umask(S_IRWXG | S_IRWXO);
   FILE *temp_file = fopen(temp_filename, "w+b");
+  umask(prev_umask);
 
   if (temp_file) {
     if (out_temp_filename) {
