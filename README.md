@@ -99,7 +99,8 @@ file](https://github.com/Stephen-Seo/SimpleArchiver/blob/dev/Changelog.md#versio
 In case the temporary file cannot be created in the default directory,
 [`tmpfile()`](https://man7.org/linux/man-pages/man3/tmpfile.3.html) is used
 instead as a fallback. Thus, `--temp-files-dir <dir>` changes the default dir
-to store the temporary compressed chunk.
+to store the temporary compressed chunk. Note that `--force-tmpfile` exists to
+force simplearchiver to use `tmpfile()`.
 
 When storing symlinks, `simplearchiver` will typically store relative and
 absolute-paths for all symlinks. If a symlink points to something that will be
