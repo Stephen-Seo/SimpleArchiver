@@ -59,6 +59,15 @@ int main(int argc, const char **argv) {
     return 6;
   }
 
+  if (parsed.temp_dir && (parsed.flags & 0x40000)) {
+    fprintf(stderr,
+            "ERROR: \"--temp-files-dir\" and \"--force-tmpfile\" is mutually "
+            "exclusive!\n");
+    sleep(2);
+    simple_archiver_print_usage();
+    return 9;
+  }
+
   if ((parsed.flags & 0x3) == 0 && (parsed.flags & 0x2000) != 0) {
     fprintf(stderr,
             "WARNING: --force-dir-permissions specified, but has no effect "

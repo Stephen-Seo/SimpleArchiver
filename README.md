@@ -31,7 +31,8 @@ API calls.
     --no-abs-symlink : do not store absolute paths for symlinks
     --preserve-symlinks : preserve the symlink's path on archive creation instead of deriving abs/relative paths, ignores "--no-abs-symlink" (It is not recommended to use this option, as absolute-path-symlinks may be clobbered on extraction)
     --no-safe-links : keep symlinks that link to outside archive contents
-    --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to same directory as output file)
+    --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to same directory as output file) (this is mutually exclusive with "--force-tmpfile")
+    --force-tmpfile : Force the use of "tmpfile()" during compression (this is mutually exclusive with "--temp-files-dir")
     --write-version <version> : Force write version file format (default 4)
     --chunk-min-size <bytes> : minimum chunk size (default 4194304 or 4MiB) when using chunks (file formats v. 1 and up)
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)

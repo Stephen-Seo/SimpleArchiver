@@ -61,6 +61,7 @@ typedef struct SDArchiverParsed {
   /// 0b xxxx xxx1 xxxx xxxx xxxx xxxx - Force set empty directory permissions.
   /// 0b xxxx xx1x xxxx xxxx xxxx xxxx - white/black-list checking is
   ///   case-insensitive.
+  /// 0b xxxx x1xx xxxx xxxx xxxx xxxx - Force use tmpfile.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;

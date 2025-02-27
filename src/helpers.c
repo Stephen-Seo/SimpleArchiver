@@ -852,6 +852,10 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
 
 FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
                                       char **out_temp_filename) {
+  if (parsed->flags & 0x40000) {
+    return tmpfile();
+  }
+
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *real_path_to_filename = parsed->temp_dir
     ? strdup(parsed->temp_dir)

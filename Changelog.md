@@ -10,6 +10,10 @@ Some minor fixes.
 Changed behavior of permissions for temp-file (created during compression) to
 be more strict. This may not be important to most end-users.
 
+Added `--force-tmpfile`, which acts like `--temp-files-dir <dir>` but forces the
+use of `tmpdir()` instead of forcing the temporary file's directory.  
+Note that these two flags are mutually exclusive.
+
 ## Version 1.17
 
 Fix `--whitelist-begins-with <text>` and `--whitelist-ends-with <text>`.

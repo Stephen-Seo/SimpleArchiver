@@ -186,7 +186,12 @@ void simple_archiver_print_usage(void) {
           "contents\n");
   fprintf(stderr,
           "--temp-files-dir <dir> : where to store temporary files created "
-          "when compressing (defaults to same directory as output file)\n");
+          "when compressing (defaults to same directory as output file) "
+          "(this is mutually exclusive with \"--force-tmpfile\")\n");
+  fprintf(stderr,
+          "--force-tmpfile : Force the use of \"tmpfile()\" during "
+          "compression (this is mutually exclusive with \"--temp-files-dir\")"
+          "\n");
   fprintf(stderr,
           "--write-version <version> : Force write version file format "
           "(default 4)\n");
@@ -479,6 +484,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->temp_dir = simple_archiver_helper_real_path_to_name(argv[1]);
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--force-tmpfile") == 0) {
+        out->flags |= 0x40000;
       } else if (strcmp(argv[0], "--write-version") == 0) {
         if (argc < 2) {
           fprintf(stderr,
