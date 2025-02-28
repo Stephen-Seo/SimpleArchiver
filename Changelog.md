@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 1.18
+
 Add file format version 4 to support more than 4 billion symlinks, and more
 than 4 billion files.
 
