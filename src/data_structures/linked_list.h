@@ -20,6 +20,7 @@
 #define SEODISPARATE_COM_SIMPLE_ARCHIVER_DATA_STRUCTURE_LINKED_LIST_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct SDArchiverLLNode {
   struct SDArchiverLLNode *next;
@@ -31,7 +32,7 @@ typedef struct SDArchiverLLNode {
 typedef struct SDArchiverLinkedList {
   SDArchiverLLNode *head;
   SDArchiverLLNode *tail;
-  size_t count;
+  uint64_t count;
 } SDArchiverLinkedList;
 
 SDArchiverLinkedList *simple_archiver_list_init(void);
@@ -55,9 +56,9 @@ int simple_archiver_list_add_front(SDArchiverLinkedList *list, void *data,
 /// Returns number of removed items.
 /// data_check_fn must return non-zero if the data passed to it is to be
 /// removed.
-int simple_archiver_list_remove(SDArchiverLinkedList *list,
-                                int (*data_check_fn)(void *, void *),
-                                void *user_data);
+uint64_t simple_archiver_list_remove(SDArchiverLinkedList *list,
+                                     int (*data_check_fn)(void *, void *),
+                                     void *user_data);
 
 /// Returns 1 on removed, 0 if not removed.
 /// data_check_fn must return non-zero if the data passed to it is to be

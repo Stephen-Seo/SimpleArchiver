@@ -186,10 +186,15 @@ void simple_archiver_print_usage(void) {
           "contents\n");
   fprintf(stderr,
           "--temp-files-dir <dir> : where to store temporary files created "
-          "when compressing (defaults to same directory as output file)\n");
+          "when compressing (defaults to same directory as output file) "
+          "(this is mutually exclusive with \"--force-tmpfile\")\n");
+  fprintf(stderr,
+          "--force-tmpfile : Force the use of \"tmpfile()\" during "
+          "compression (this is mutually exclusive with \"--temp-files-dir\")"
+          "\n");
   fprintf(stderr,
           "--write-version <version> : Force write version file format "
-          "(default 3)\n");
+          "(default 4)\n");
   fprintf(stderr,
           "--chunk-min-size <bytes> : minimum chunk size (default 4194304 or "
           "4MiB) when using chunks (file formats v. 1 and up)\n");
@@ -304,7 +309,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.working_files = NULL;
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
-  parsed.write_version = 3;
+  parsed.write_version = 4;
   parsed.minimum_chunk_size = 4194304;
   parsed.uid = 0;
   parsed.gid = 0;
@@ -479,6 +484,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->temp_dir = simple_archiver_helper_real_path_to_name(argv[1]);
         --argc;
         ++argv;
+      } else if (strcmp(argv[0], "--force-tmpfile") == 0) {
+        out->flags |= 0x40000;
       } else if (strcmp(argv[0], "--write-version") == 0) {
         if (argc < 2) {
           fprintf(stderr,
@@ -491,8 +498,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           fprintf(stderr, "ERROR: --write-version cannot be negative!\n");
           simple_archiver_print_usage();
           return 1;
-        } else if (version > 3) {
-          fprintf(stderr, "ERROR: --write-version must be 0, 1, 2, or 3!\n");
+        } else if (version > 4) {
+          fprintf(stderr, "ERROR: --write-version must be 0, 1, 2, 3, or 4!\n");
           simple_archiver_print_usage();
           return 1;
         }
