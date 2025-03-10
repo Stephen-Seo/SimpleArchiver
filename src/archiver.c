@@ -1052,8 +1052,11 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
   return 0;
 }
 
-int read_buf_full_from_fd(FILE *fd, char *read_buf, const size_t read_buf_size,
-                          const size_t amount_total, char *dst_buf) {
+SDArchiverStateReturns read_buf_full_from_fd(FILE *fd,
+                                             char *read_buf,
+                                             const size_t read_buf_size,
+                                             const size_t amount_total,
+                                             char *dst_buf) {
   size_t amount = amount_total;
   while (amount != 0) {
     if (amount >= read_buf_size) {
@@ -1078,8 +1081,11 @@ int read_buf_full_from_fd(FILE *fd, char *read_buf, const size_t read_buf_size,
   return SDAS_SUCCESS;
 }
 
-int read_fd_to_out_fd(FILE *in_fd, FILE *out_fd, char *read_buf,
-                      const size_t read_buf_size, const size_t amount_total) {
+SDArchiverStateReturns read_fd_to_out_fd(FILE *in_fd,
+                                         FILE *out_fd,
+                                         char *read_buf,
+                                         const size_t read_buf_size,
+                                         const size_t amount_total) {
   size_t amount = amount_total;
   while (amount != 0) {
     if (amount >= read_buf_size) {
@@ -1101,9 +1107,13 @@ int read_fd_to_out_fd(FILE *in_fd, FILE *out_fd, char *read_buf,
   return SDAS_SUCCESS;
 }
 
-int try_write_to_decomp(int *to_dec_pipe, uint64_t *chunk_remaining, FILE *in_f,
-                        char *buf, const size_t buf_size, char *hold_buf,
-                        ssize_t *has_hold) {
+SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
+                                           uint64_t *chunk_remaining,
+                                           FILE *in_f,
+                                           char *buf,
+                                           const size_t buf_size,
+                                           char *hold_buf,
+                                           ssize_t *has_hold) {
   if (*to_dec_pipe >= 0) {
     if (*chunk_remaining > 0) {
       if (*chunk_remaining > buf_size) {
@@ -1216,11 +1226,16 @@ TRY_WRITE_TO_DECOMP_END:
 }
 
 /// Returns SDAS_SUCCESS on success.
-int read_decomp_to_out_file(const char *out_filename, int in_pipe,
-                            char *read_buf, const size_t read_buf_size,
-                            const uint64_t file_size, int *to_dec_pipe,
-                            uint64_t *chunk_remaining, FILE *in_f,
-                            char *hold_buf, ssize_t *has_hold) {
+SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
+                                               int in_pipe,
+                                               char *read_buf,
+                                               const size_t read_buf_size,
+                                               const uint64_t file_size,
+                                               int *to_dec_pipe,
+                                               uint64_t *chunk_remaining,
+                                               FILE *in_f,
+                                               char *hold_buf,
+                                               ssize_t *has_hold) {
   __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *out_fd =
       NULL;
   if (out_filename) {
@@ -1240,8 +1255,14 @@ int read_decomp_to_out_file(const char *out_filename, int in_pipe,
       fprintf(stderr, "ERROR: SIGPIPE while decompressing!\n");
       return SDAS_INTERNAL_ERROR;
     }
-    int ret = try_write_to_decomp(to_dec_pipe, chunk_remaining, in_f, read_buf,
-                                  read_buf_size, hold_buf, has_hold);
+    SDArchiverStateReturns ret =
+      try_write_to_decomp(to_dec_pipe,
+                          chunk_remaining,
+                          in_f,
+                          read_buf,
+                          read_buf_size,
+                          hold_buf,
+                          has_hold);
     if (ret != SDAS_SUCCESS) {
       return ret;
     } else if (is_sig_pipe_occurred) {
@@ -2182,8 +2203,10 @@ void simple_archiver_free_state(SDArchiverState **state) {
   }
 }
 
-int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
-                              const SDArchiverLinkedList *filenames) {
+SDArchiverStateRetStruct simple_archiver_write_all(
+    FILE *out_f,
+    SDArchiverState *state,
+    const SDArchiverLinkedList *filenames) {
   signal(SIGINT, handle_sig_int);
   switch (state->parsed->write_version) {
     case 0:
@@ -2199,12 +2222,14 @@ int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
     default:
       fprintf(stderr, "ERROR: Unsupported write version %" PRIu32 "!\n",
               state->parsed->write_version);
-      return SDAS_INVALID_WRITE_VERSION;
+      return SDA_RET_STRUCT(SDAS_INVALID_WRITE_VERSION);
   }
 }
 
-int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames) {
+SDArchiverStateRetStruct simple_archiver_write_v0(
+    FILE *out_f,
+    SDArchiverState *state,
+    const SDArchiverLinkedList *filenames) {
   fprintf(stderr, "Writing archive of file format 0\n");
 
   // Prune filenames based on white/black-lists.
@@ -2218,7 +2243,7 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
                                 simple_archiver_internal_prune_filenames_v0,
                                 ptr_array)) {
       free(ptr_array);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
     free(ptr_array);
   }
@@ -2234,13 +2259,13 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
                                  filenames_to_abs_map_fn,
                                  ptr_array)) {
       free(ptr_array);
-      return SDAS_FAILED_TO_CREATE_MAP;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_CREATE_MAP);
     }
     free(ptr_array);
   }
 
   if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   uint16_t u16 = 0;
@@ -2249,23 +2274,23 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
   // simple_archiver_helper_16_bit_be(&u16);
 
   if (fwrite(&u16, 2, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   if (state->parsed->compressor && !state->parsed->decompressor) {
-    return SDAS_NO_DECOMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_DECOMPRESSOR);
   } else if (!state->parsed->compressor && state->parsed->decompressor) {
-    return SDAS_NO_COMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_COMPRESSOR);
   } else if (state->parsed->compressor && state->parsed->decompressor) {
     // Write the four flag bytes with first bit set.
     uint8_t c = 1;
     if (fwrite(&c, 1, 1, out_f) != 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     c = 0;
     for (size_t i = 0; i < 3; ++i) {
       if (fwrite(&c, 1, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
     }
 
@@ -2273,48 +2298,48 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
     size_t temp_size = strlen(state->parsed->compressor);
     if (temp_size > 0xFFFF) {
       fprintf(stderr, "ERROR: Compressor cmd string is too large!\n");
-      return SDAS_NO_COMPRESSOR;
+      return SDA_RET_STRUCT(SDAS_NO_COMPRESSOR);
     }
     u16 = (uint16_t)temp_size;
     // To big-endian.
     simple_archiver_helper_16_bit_be(&u16);
     // Write the size in big-endian.
     if (fwrite(&u16, 2, 1, out_f) != 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     // From big-endian.
     simple_archiver_helper_16_bit_be(&u16);
     // Write the compressor cmd including the NULL at the end of the string.
     if (fwrite(state->parsed->compressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
     temp_size = strlen(state->parsed->decompressor);
     if (temp_size > 0xFFFF) {
       fprintf(stderr, "ERROR: Decompressor cmd string is too large!\n");
-      return SDAS_NO_DECOMPRESSOR;
+      return SDA_RET_STRUCT(SDAS_NO_DECOMPRESSOR);
     }
     u16 = (uint16_t)temp_size;
     // To big-endian.
     simple_archiver_helper_16_bit_be(&u16);
     // Write the size in big-endian.
     if (fwrite(&u16, 2, 1, out_f) != 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     // From big-endian.
     simple_archiver_helper_16_bit_be(&u16);
     // Write the decompressor cmd including the NULL at the end of the string.
     if (fwrite(state->parsed->decompressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   } else {
     // Write the four flag bytes with first bit NOT set.
     uint8_t c = 0;
     for (size_t i = 0; i < 4; ++i) {
       if (fwrite(&c, 1, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
     }
   }
@@ -2323,17 +2348,17 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
   {
     if (filenames_pruned->count > 0xFFFFFFFF) {
       fprintf(stderr, "ERROR: Filenames count is too large!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
     uint32_t u32 = (uint32_t)filenames_pruned->count;
     simple_archiver_helper_32_bit_be(&u32);
     if (fwrite(&u32, 1, 4, out_f) != 4) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   }
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
   // Iterate over files in list to write.
@@ -2348,7 +2373,7 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
   if (state->parsed->user_cwd) {
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
-      return 1;
+      return SDA_RET_STRUCT(1);
     }
   }
   char format_str[64];
@@ -2359,20 +2384,22 @@ int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
                                write_files_fn_file_v0,
                                state)) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     // Error occurred.
     fprintf(stderr, "Error ocurred writing file(s) to archive.\n");
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
   state->out_f = NULL;
 
   fprintf(stderr, "End archiving.\n");
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames) {
+SDArchiverStateRetStruct simple_archiver_write_v1(
+    FILE *out_f,
+    SDArchiverState *state,
+    const SDArchiverLinkedList *filenames) {
   fprintf(stderr, "Writing archive of file format 1\n");
   // First create a "set" of absolute paths to given filenames.
   __attribute__((cleanup(simple_archiver_hash_map_free)))
@@ -2382,7 +2409,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   ptr_array[1] = (void *)state->parsed->user_cwd;
   if (simple_archiver_list_get(filenames, filenames_to_abs_map_fn, ptr_array)) {
     free(ptr_array);
-    return SDAS_FAILED_TO_CREATE_MAP;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_CREATE_MAP);
   }
   free(ptr_array);
 
@@ -2410,7 +2437,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
     free(ptr_array);
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(ptr_array);
 
@@ -2427,11 +2454,11 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     fprintf(stderr,
             "ERROR: Count mismatch between files and symlinks and files from "
             "parser!\n");
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
 
   if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -2440,73 +2467,73 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   simple_archiver_helper_16_bit_be(&u16);
 
   if (fwrite(&u16, 2, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   if (state->parsed->compressor && !state->parsed->decompressor) {
-    return SDAS_NO_DECOMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_DECOMPRESSOR);
   } else if (!state->parsed->compressor && state->parsed->decompressor) {
-    return SDAS_NO_COMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_COMPRESSOR);
   } else if (state->parsed->compressor && state->parsed->decompressor) {
     // 4 bytes flags, using de/compressor.
     memset(buf, 0, 4);
     buf[0] |= 1;
     if (fwrite(buf, 1, 4, out_f) != 4) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
     size_t len = strlen(state->parsed->compressor);
     if (len >= 0xFFFF) {
       fprintf(stderr, "ERROR: Compressor cmd is too long!\n");
-      return SDAS_INVALID_PARSED_STATE;
+      return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
     }
 
     u16 = (uint16_t)len;
     simple_archiver_helper_16_bit_be(&u16);
     if (fwrite(&u16, 1, 2, out_f) != 2) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
     if (fwrite(state->parsed->compressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
     len = strlen(state->parsed->decompressor);
     if (len >= 0xFFFF) {
       fprintf(stderr, "ERROR: Decompressor cmd is too long!\n");
-      return SDAS_INVALID_PARSED_STATE;
+      return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
     }
 
     u16 = (uint16_t)len;
     simple_archiver_helper_16_bit_be(&u16);
     if (fwrite(&u16, 1, 2, out_f) != 2) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
     if (fwrite(state->parsed->decompressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   } else {
     // 4 bytes flags, not using de/compressor.
     memset(buf, 0, 4);
     if (fwrite(buf, 1, 4, out_f) != 4) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   }
 
   if (symlinks_list->count > 0xFFFFFFFF) {
     fprintf(stderr, "ERROR: Too many symlinks!\n");
-    return SDAS_INVALID_PARSED_STATE;
+    return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
   }
 
   uint32_t u32 = (uint32_t)symlinks_list->count;
   simple_archiver_helper_32_bit_be(&u32);
   if (fwrite(&u32, 4, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
   simple_archiver_helper_32_bit_be(&u32);
 
@@ -2516,7 +2543,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   if (state->parsed->user_cwd) {
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
@@ -2626,7 +2653,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       int stat_status =
           fstatat(AT_FDCWD, node->data, &stat_buf, AT_SYMLINK_NOFOLLOW);
       if (stat_status != 0) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       if ((stat_buf.st_mode & S_IRUSR) != 0) {
@@ -2662,7 +2689,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       }
 
       if (fwrite(buf, 1, 2, out_f) != 2) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       const size_t link_length = strlen(node->data);
@@ -2672,13 +2699,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       }
       if (len >= 0xFFFF) {
         fprintf(stderr, "ERROR: Link name is too long!\n");
-        return SDAS_INVALID_PARSED_STATE;
+        return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
       }
 
       u16 = (uint16_t)len;
       simple_archiver_helper_16_bit_be(&u16);
       if (fwrite(&u16, 2, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       simple_archiver_helper_16_bit_be(&u16);
       if (state->parsed->prefix) {
@@ -2688,10 +2715,10 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
                                    out_f);
         fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
         if (fwrite_ret != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 && !is_invalid) {
@@ -2703,47 +2730,47 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to abs symlink!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           const size_t abs_path_pref_length = strlen(abs_path_prefixed);
           if (abs_path_pref_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination absolute path with prefix is "
                     "too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)abs_path_pref_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(abs_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         } else {
           const size_t abs_path_length = strlen(abs_path);
           if (abs_path_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination absolute path is too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)abs_path_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -2756,47 +2783,47 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
           if (!rel_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to relative symlink!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           const size_t rel_path_pref_length = strlen(rel_path_prefixed);
           if (rel_path_pref_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination relative path with prefix is "
                     "too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)rel_path_pref_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(rel_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         } else {
           len = strlen(rel_path);
           if (len >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination relative path is too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)len;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
     }
@@ -2805,12 +2832,12 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
               "ERROR: Iterated through %" PRIu32 " symlinks out of %" PRIu64
               " total!\n",
               u32, symlinks_list->count);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -2827,7 +2854,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     if (simple_archiver_list_get(files_list, files_to_chunk_count, ptrs)) {
       free(ptrs);
       fprintf(stderr, "ERROR: Internal error calculating chunk counts!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
     free(ptrs);
     if ((chunk_counts->count == 0 || current_size > 0) && current_count > 0) {
@@ -2844,7 +2871,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
          node != chunk_counts->tail; node = node->next) {
       if (*((uint64_t *)node->data) > 0xFFFFFFFF) {
         fprintf(stderr, "ERROR: file count in chunk is too large!\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       count += *((uint64_t *)node->data);
       // fprintf(stderr, "DEBUG: chunk count %4llu\n",
@@ -2854,19 +2881,19 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       fprintf(stderr,
               "ERROR: Internal error calculating chunk counts (invalid number "
               "of files)!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
   // Write number of chunks.
   if (chunk_counts->count > 0xFFFFFFFF) {
     fprintf(stderr, "ERROR: Too many chunks!\n");
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   u32 = (uint32_t)chunk_counts->count;
   simple_archiver_helper_32_bit_be(&u32);
   if (fwrite(&u32, 4, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void
@@ -2881,7 +2908,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail; chunk_c_node = chunk_c_node->next) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
@@ -2895,14 +2922,14 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     u32 = (uint32_t)(*((uint64_t *)chunk_c_node->data));
     simple_archiver_helper_32_bit_be(&u32);
     if (fwrite(&u32, 4, 1, out_f) != 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     SDArchiverLLNode *saved_node = file_node;
     for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
          ++file_idx) {
       file_node = file_node->next;
       if (file_node == files_list->tail) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
       if (non_c_chunk_size) {
@@ -2913,43 +2940,43 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         const size_t total_length = filename_len + prefix_length;
         if (total_length >= 0xFFFF) {
           fprintf(stderr, "ERROR: Filename with prefix is too large!\n");
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         u16 = (uint16_t)total_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(state->parsed->prefix, 1, prefix_length, out_f)
             != prefix_length) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         } else if (fwrite(file_info_struct->filename,
                           1,
                           filename_len + 1,
                           out_f)
                      != filename_len + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         if (filename_len >= 0xFFFF) {
           fprintf(stderr, "ERROR: Filename is too large!\n");
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         u16 = (uint16_t)filename_len;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
             (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
       if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       // UID and GID.
@@ -2974,7 +3001,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       u32 = file_info_struct->gid;
@@ -2995,13 +3022,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       uint64_t u64 = file_info_struct->file_size;
       simple_archiver_helper_64_bit_be(&u64);
       if (fwrite(&u64, 8, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
     }
 
@@ -3029,7 +3056,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         if (!temp_fd) {
           fprintf(stderr,
                   "ERROR: Failed to create a temporary file for archival!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
 
@@ -3045,26 +3072,26 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (pipe(pipe_outof_cmd) != 0) {
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                              state->parsed->compressor,
                                              &compressor_pid) != 0) {
@@ -3073,7 +3100,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         close(pipe_outof_cmd[0]);
         fprintf(stderr,
                 "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       // Close unnecessary pipe fds on this end of the transfer.
@@ -3092,11 +3119,11 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
@@ -3113,13 +3140,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         while (!to_comp_finished) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           if (!to_comp_finished) {
             // Write to compressor.
             if (ferror(fd)) {
               fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
             if (has_hold < 0) {
               size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
@@ -3135,13 +3162,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
                     fprintf(
                         stderr,
                         "ERROR: Writing to compressor, pipe write error!\n");
-                    return SDAS_FAILED_TO_WRITE;
+                    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
                   }
                 } else if (write_ret == 0) {
                   fprintf(
                       stderr,
                       "ERROR: Writing to compressor, unable to write bytes!\n");
-                  return SDAS_FAILED_TO_WRITE;
+                  return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
                 } else if ((size_t)write_ret < fread_ret) {
                   has_hold = (ssize_t)fread_ret - write_ret;
                   memcpy(hold_buf, buf + write_ret, (size_t)has_hold);
@@ -3159,7 +3186,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
                   // Non-blocking write.
                   nanosleep(&nonblock_sleep, NULL);
                 } else {
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 }
               } else if (write_ret < has_hold) {
                 memcpy(buf, hold_buf + write_ret,
@@ -3167,7 +3194,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
                 memcpy(hold_buf, buf, (size_t)(has_hold - write_ret));
                 has_hold = has_hold - write_ret;
               } else if (write_ret != has_hold) {
-                return SDAS_INTERNAL_ERROR;
+                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
               } else {
                 has_hold = -1;
               }
@@ -3184,7 +3211,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -3195,7 +3222,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
         }
@@ -3208,7 +3235,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         while (1) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           ssize_t read_ret =
               read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
@@ -3219,7 +3246,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -3230,7 +3257,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
         }
@@ -3240,14 +3267,14 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       if (comp_chunk_size < 0) {
         fprintf(stderr,
                 "ERROR: Temp file reported negative size after compression!\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       // Write compressed chunk size.
       uint64_t u64 = (uint64_t)comp_chunk_size;
       simple_archiver_helper_64_bit_be(&u64);
       if (fwrite(&u64, 8, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       rewind(temp_fd);
@@ -3257,9 +3284,9 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       // Write compressed chunk.
       while (!feof(temp_fd)) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         } else if (ferror(temp_fd)) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
@@ -3269,7 +3296,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
             fprintf(stderr,
                     "ERROR: Partial write of read bytes from temp file to "
                     "output file!\n");
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       }
@@ -3277,7 +3304,7 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
       if (written_size != (size_t)comp_chunk_size) {
         fprintf(stderr,
                 "ERROR: Written chunk size is not actual chunk size!\n");
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       // Cleanup and remove temp_fd.
@@ -3285,18 +3312,18 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     } else {
       // Is NOT compressing.
       if (!non_c_chunk_size) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
@@ -3309,14 +3336,14 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
         while (!feof(fd)) {
           if (ferror(fd)) {
             fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
           if (fread_ret > 0) {
             size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
             if (fwrite_ret != fread_ret) {
               fprintf(stderr, "ERROR: Writing to chunk, file write error!\n");
-              return SDAS_FAILED_TO_WRITE;
+              return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
             }
           }
         }
@@ -3324,11 +3351,13 @@ int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
     }
   }
 
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames) {
+SDArchiverStateRetStruct simple_archiver_write_v2(
+    FILE *out_f,
+    SDArchiverState *state,
+    const SDArchiverLinkedList *filenames) {
   fprintf(stderr, "Writing archive of file format 2\n");
   // Because of some differences between version 1 and version 2, version 1's
   // write function cannot be called directly, so there will be some duplicate
@@ -3342,7 +3371,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   ptr_array[1] = (void *)state->parsed->user_cwd;
   if (simple_archiver_list_get(filenames, filenames_to_abs_map_fn, ptr_array)) {
     free(ptr_array);
-    return SDAS_FAILED_TO_CREATE_MAP;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_CREATE_MAP);
   }
   free(ptr_array);
 
@@ -3372,7 +3401,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
     free(ptr_array);
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(ptr_array);
 
@@ -3398,11 +3427,11 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
     //        files_list->count,
     //        dirs_list->count,
     //        filenames->count);
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
 
   if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   const size_t prefix_length = state->parsed->prefix
@@ -3415,73 +3444,73 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   simple_archiver_helper_16_bit_be(&u16);
 
   if (fwrite(&u16, 2, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   if (state->parsed->compressor && !state->parsed->decompressor) {
-    return SDAS_NO_DECOMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_DECOMPRESSOR);
   } else if (!state->parsed->compressor && state->parsed->decompressor) {
-    return SDAS_NO_COMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_COMPRESSOR);
   } else if (state->parsed->compressor && state->parsed->decompressor) {
     // 4 bytes flags, using de/compressor.
     memset(buf, 0, 4);
     buf[0] |= 1;
     if (fwrite(buf, 1, 4, out_f) != 4) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
     size_t len = strlen(state->parsed->compressor);
     if (len >= 0xFFFF) {
       fprintf(stderr, "ERROR: Compressor cmd is too long!\n");
-      return SDAS_INVALID_PARSED_STATE;
+      return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
     }
 
     u16 = (uint16_t)len;
     simple_archiver_helper_16_bit_be(&u16);
     if (fwrite(&u16, 1, 2, out_f) != 2) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
     if (fwrite(state->parsed->compressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
     len = strlen(state->parsed->decompressor);
     if (len >= 0xFFFF) {
       fprintf(stderr, "ERROR: Decompressor cmd is too long!\n");
-      return SDAS_INVALID_PARSED_STATE;
+      return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
     }
 
     u16 = (uint16_t)len;
     simple_archiver_helper_16_bit_be(&u16);
     if (fwrite(&u16, 1, 2, out_f) != 2) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
     if (fwrite(state->parsed->decompressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   } else {
     // 4 bytes flags, not using de/compressor.
     memset(buf, 0, 4);
     if (fwrite(buf, 1, 4, out_f) != 4) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   }
 
   if (symlinks_list->count > 0xFFFFFFFF) {
     fprintf(stderr, "ERROR: Too many symlinks!\n");
-    return SDAS_INVALID_PARSED_STATE;
+    return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
   }
 
   uint32_t u32 = (uint32_t)symlinks_list->count;
   simple_archiver_helper_32_bit_be(&u32);
   if (fwrite(&u32, 4, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
   simple_archiver_helper_32_bit_be(&u32);
 
@@ -3491,7 +3520,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   if (state->parsed->user_cwd) {
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
@@ -3598,7 +3627,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       int stat_status =
           fstatat(AT_FDCWD, node->data, &stat_buf, AT_SYMLINK_NOFOLLOW);
       if (stat_status != 0) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       if ((stat_buf.st_mode & S_IRUSR) != 0) {
@@ -3634,7 +3663,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       }
 
       if (fwrite(buf, 1, 2, out_f) != 2) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       const size_t link_length = strlen(node->data);
@@ -3644,13 +3673,13 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       }
       if (len >= 0xFFFF) {
         fprintf(stderr, "ERROR: Link name is too long!\n");
-        return SDAS_INVALID_PARSED_STATE;
+        return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
       }
 
       u16 = (uint16_t)len;
       simple_archiver_helper_16_bit_be(&u16);
       if (fwrite(&u16, 2, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       simple_archiver_helper_16_bit_be(&u16);
       if (state->parsed->prefix) {
@@ -3660,10 +3689,10 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
                                    out_f);
         fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
         if (fwrite_ret != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 && !is_invalid) {
@@ -3675,47 +3704,47 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to abs symlink!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           const size_t abs_path_pref_length = strlen(abs_path_prefixed);
           if (abs_path_pref_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination absolute path with prefix is "
                     "too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)abs_path_pref_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(abs_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         } else {
           const size_t abs_path_length = strlen(abs_path);
           if (abs_path_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination absolute path is too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)abs_path_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -3728,47 +3757,47 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
           if (!rel_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to relative symlink!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           const size_t rel_path_pref_length = strlen(rel_path_prefixed);
           if (rel_path_pref_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination relative path with prefix is "
                     "too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)rel_path_pref_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(rel_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         } else {
           len = strlen(rel_path);
           if (len >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination relative path is too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)len;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
     }
@@ -3777,12 +3806,12 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
               "ERROR: Iterated through %" PRIu32 " symlinks out of %" PRIu64
               " total!\n",
               u32, symlinks_list->count);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -3799,7 +3828,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
     if (simple_archiver_list_get(files_list, files_to_chunk_count, ptrs)) {
       free(ptrs);
       fprintf(stderr, "ERROR: Internal error calculating chunk counts!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
     free(ptrs);
     if ((chunk_counts->count == 0 || current_size > 0) && current_count > 0) {
@@ -3816,7 +3845,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
          node != chunk_counts->tail; node = node->next) {
       if (*((uint64_t *)node->data) > 0xFFFFFFFF) {
         fprintf(stderr, "ERROR: file count in chunk is too large!\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       count += *((uint64_t *)node->data);
       // fprintf(stderr, "DEBUG: chunk count %4llu\n",
@@ -3831,19 +3860,19 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       //    "count: %u, files_list_count: %u\n",
       //    count,
       //    files_list->count);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
   // Write number of chunks.
   if (chunk_counts->count > 0xFFFFFFFF) {
     fprintf(stderr, "ERROR: Too many chunks!\n");
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   u32 = (uint32_t)chunk_counts->count;
   simple_archiver_helper_32_bit_be(&u32);
   if (fwrite(&u32, 4, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void
@@ -3858,7 +3887,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail; chunk_c_node = chunk_c_node->next) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
@@ -3872,14 +3901,14 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
     u32 = (uint32_t)(*((uint64_t *)chunk_c_node->data));
     simple_archiver_helper_32_bit_be(&u32);
     if (fwrite(&u32, 4, 1, out_f) != 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     SDArchiverLLNode *saved_node = file_node;
     for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
          ++file_idx) {
       file_node = file_node->next;
       if (file_node == files_list->tail) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
       if (non_c_chunk_size) {
@@ -3890,43 +3919,43 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         const size_t total_length = filename_len + prefix_length;
         if (total_length >= 0xFFFF) {
           fprintf(stderr, "ERROR: Filename with prefix is too large!\n");
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         u16 = (uint16_t)total_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(state->parsed->prefix, 1, prefix_length, out_f)
             != prefix_length) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         } else if (fwrite(file_info_struct->filename,
                           1,
                           filename_len + 1,
                           out_f)
                      != filename_len + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         if (filename_len >= 0xFFFF) {
           fprintf(stderr, "ERROR: Filename is too large!\n");
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         u16 = (uint16_t)filename_len;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
             (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
       if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       // UID and GID.
 
@@ -3950,7 +3979,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       u32 = file_info_struct->gid;
       if ((state->parsed->flags & 0x800) == 0) {
@@ -3970,13 +3999,13 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       uint64_t u64 = file_info_struct->file_size;
       simple_archiver_helper_64_bit_be(&u64);
       if (fwrite(&u64, 8, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
     }
 
@@ -4002,7 +4031,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         if (!temp_fd) {
           fprintf(stderr,
                   "ERROR: Failed to create a temporary file for archival!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
 
@@ -4018,26 +4047,26 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (pipe(pipe_outof_cmd) != 0) {
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                              state->parsed->compressor,
                                              &compressor_pid) != 0) {
@@ -4046,7 +4075,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         close(pipe_outof_cmd[0]);
         fprintf(stderr,
                 "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       // Close unnecessary pipe fds on this end of the transfer.
@@ -4065,11 +4094,11 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
@@ -4086,13 +4115,13 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         while (!to_comp_finished) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           if (!to_comp_finished) {
             // Write to compressor.
             if (ferror(fd)) {
               fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
             if (has_hold < 0) {
               size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
@@ -4108,13 +4137,13 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
                     fprintf(
                         stderr,
                         "ERROR: Writing to compressor, pipe write error!\n");
-                    return SDAS_FAILED_TO_WRITE;
+                    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
                   }
                 } else if (write_ret == 0) {
                   fprintf(
                       stderr,
                       "ERROR: Writing to compressor, unable to write bytes!\n");
-                  return SDAS_FAILED_TO_WRITE;
+                  return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
                 } else if ((size_t)write_ret < fread_ret) {
                   has_hold = (ssize_t)fread_ret - write_ret;
                   memcpy(hold_buf, buf + write_ret, (size_t)has_hold);
@@ -4132,7 +4161,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
                   // Non-blocking write.
                   nanosleep(&nonblock_sleep, NULL);
                 } else {
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 }
               } else if (write_ret < has_hold) {
                 memcpy(buf, hold_buf + write_ret,
@@ -4140,7 +4169,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
                 memcpy(hold_buf, buf, (size_t)(has_hold - write_ret));
                 has_hold = has_hold - write_ret;
               } else if (write_ret != has_hold) {
-                return SDAS_INTERNAL_ERROR;
+                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
               } else {
                 has_hold = -1;
               }
@@ -4157,7 +4186,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -4168,7 +4197,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
         }
@@ -4181,7 +4210,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         while (1) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           ssize_t read_ret =
               read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
@@ -4192,7 +4221,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -4203,7 +4232,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
         }
@@ -4213,14 +4242,14 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       if (comp_chunk_size < 0) {
         fprintf(stderr,
                 "ERROR: Temp file reported negative size after compression!\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       // Write compressed chunk size.
       uint64_t u64 = (uint64_t)comp_chunk_size;
       simple_archiver_helper_64_bit_be(&u64);
       if (fwrite(&u64, 8, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       rewind(temp_fd);
@@ -4230,9 +4259,9 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       // Write compressed chunk.
       while (!feof(temp_fd)) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         } else if (ferror(temp_fd)) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
@@ -4242,7 +4271,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
             fprintf(stderr,
                     "ERROR: Partial write of read bytes from temp file to "
                     "output file!\n");
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       }
@@ -4250,7 +4279,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
       if (written_size != (size_t)comp_chunk_size) {
         fprintf(stderr,
                 "ERROR: Written chunk size is not actual chunk size!\n");
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       // Cleanup and remove temp_fd.
@@ -4258,18 +4287,18 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
     } else {
       // Is NOT compressing.
       if (!non_c_chunk_size) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
@@ -4282,14 +4311,14 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
         while (!feof(fd)) {
           if (ferror(fd)) {
             fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
           if (fread_ret > 0) {
             size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
             if (fwrite_ret != fread_ret) {
               fprintf(stderr, "ERROR: Writing to chunk, file write error!\n");
-              return SDAS_FAILED_TO_WRITE;
+              return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
             }
           }
         }
@@ -4301,7 +4330,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   //fprintf(stderr, "DEBUG: Writing directory entries\n");
 
   if (dirs_list->count > 0xFFFFFFFF) {
-    return SDAS_TOO_MANY_DIRS;
+    return SDA_RET_STRUCT(SDAS_TOO_MANY_DIRS);
   }
 
   u32 = (uint32_t)dirs_list->count;
@@ -4312,7 +4341,7 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
   simple_archiver_helper_32_bit_be(&u32);
 
   if (fwrite(&u32, 4, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   void **void_ptrs = malloc(sizeof(void*) * 2);
@@ -4323,15 +4352,17 @@ int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
                                internal_write_dir_entries_v2_v3_v4,
                                void_ptrs)) {
     free(void_ptrs);
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(void_ptrs);
 
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames) {
+SDArchiverStateRetStruct simple_archiver_write_v3(
+    FILE *out_f,
+    SDArchiverState *state,
+    const SDArchiverLinkedList *filenames) {
   fprintf(stderr, "Writing archive of file format 3\n");
 
   // First create a "set" of absolute paths to given filenames.
@@ -4342,7 +4373,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   ptr_array[1] = (void *)state->parsed->user_cwd;
   if (simple_archiver_list_get(filenames, filenames_to_abs_map_fn, ptr_array)) {
     free(ptr_array);
-    return SDAS_FAILED_TO_CREATE_MAP;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_CREATE_MAP);
   }
   free(ptr_array);
 
@@ -4372,7 +4403,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
     free(ptr_array);
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(ptr_array);
 
@@ -4398,11 +4429,11 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
     //        files_list->count,
     //        dirs_list->count,
     //        filenames->count);
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
 
   if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -4411,7 +4442,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   simple_archiver_helper_16_bit_be(&u16);
 
   if (fwrite(&u16, 2, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   const size_t prefix_length = state->parsed->prefix
@@ -4419,69 +4450,69 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
                                : 0;
 
   if (state->parsed->compressor && !state->parsed->decompressor) {
-    return SDAS_NO_DECOMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_DECOMPRESSOR);
   } else if (!state->parsed->compressor && state->parsed->decompressor) {
-    return SDAS_NO_COMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_COMPRESSOR);
   } else if (state->parsed->compressor && state->parsed->decompressor) {
     // 4 bytes flags, using de/compressor.
     memset(buf, 0, 4);
     buf[0] |= 1;
     if (fwrite(buf, 1, 4, out_f) != 4) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
     size_t len = strlen(state->parsed->compressor);
     if (len >= 0xFFFF) {
       fprintf(stderr, "ERROR: Compressor cmd is too long!\n");
-      return SDAS_INVALID_PARSED_STATE;
+      return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
     }
 
     u16 = (uint16_t)len;
     simple_archiver_helper_16_bit_be(&u16);
     if (fwrite(&u16, 1, 2, out_f) != 2) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
     if (fwrite(state->parsed->compressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
     len = strlen(state->parsed->decompressor);
     if (len >= 0xFFFF) {
       fprintf(stderr, "ERROR: Decompressor cmd is too long!\n");
-      return SDAS_INVALID_PARSED_STATE;
+      return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
     }
 
     u16 = (uint16_t)len;
     simple_archiver_helper_16_bit_be(&u16);
     if (fwrite(&u16, 1, 2, out_f) != 2) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
     if (fwrite(state->parsed->decompressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   } else {
     // 4 bytes flags, not using de/compressor.
     memset(buf, 0, 4);
     if (fwrite(buf, 1, 4, out_f) != 4) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   }
 
   if (symlinks_list->count > 0xFFFFFFFF) {
     fprintf(stderr, "ERROR: Too many symlinks!\n");
-    return SDAS_INVALID_PARSED_STATE;
+    return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
   }
 
   uint32_t u32 = (uint32_t)symlinks_list->count;
   simple_archiver_helper_32_bit_be(&u32);
   if (fwrite(&u32, 4, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
   simple_archiver_helper_32_bit_be(&u32);
 
@@ -4491,7 +4522,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   if (state->parsed->user_cwd) {
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
@@ -4599,7 +4630,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       int stat_status =
           fstatat(AT_FDCWD, node->data, &stat_buf, AT_SYMLINK_NOFOLLOW);
       if (stat_status != 0) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       if ((stat_buf.st_mode & S_IRUSR) != 0) {
@@ -4635,7 +4666,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
 
       if (fwrite(buf, 1, 2, out_f) != 2) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       const size_t link_length = strlen(node->data);
@@ -4645,13 +4676,13 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
       if (len >= 0xFFFF) {
         fprintf(stderr, "ERROR: Link name is too long!\n");
-        return SDAS_INVALID_PARSED_STATE;
+        return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
       }
 
       u16 = (uint16_t)len;
       simple_archiver_helper_16_bit_be(&u16);
       if (fwrite(&u16, 2, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       simple_archiver_helper_16_bit_be(&u16);
       if (state->parsed->prefix) {
@@ -4661,10 +4692,10 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
                                    out_f);
         fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
         if (fwrite_ret != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 && !is_invalid) {
@@ -4676,47 +4707,47 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to abs symlink!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           const size_t abs_path_pref_length = strlen(abs_path_prefixed);
           if (abs_path_pref_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination absolute path with prefix is "
                     "too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)abs_path_pref_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(abs_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         } else {
           const size_t abs_path_length = strlen(abs_path);
           if (abs_path_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination absolute path is too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)abs_path_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -4729,47 +4760,47 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
           if (!rel_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to relative symlink!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           const size_t rel_path_pref_length = strlen(rel_path_prefixed);
           if (rel_path_pref_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination relative path with prefix is "
                     "too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)rel_path_pref_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(rel_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         } else {
           len = strlen(rel_path);
           if (len >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination relative path is too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)len;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -4793,7 +4824,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       u32 = stat_buf.st_gid;
@@ -4816,7 +4847,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       u32 = stat_buf.st_uid;
@@ -4850,21 +4881,21 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         }
         unsigned long name_length = strlen(username);
         if (name_length > 0xFFFF) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         u16 = (uint16_t)name_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(username, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -4899,21 +4930,21 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         }
         unsigned long group_length = strlen(groupname);
         if (group_length > 0xFFFF) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         u16 = (uint16_t)group_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(groupname, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
     }
@@ -4922,12 +4953,12 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
               "ERROR: Iterated through %" PRIu32 " symlinks out of %" PRIu64
               " total!\n",
               idx, symlinks_list->count);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -4944,7 +4975,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
     if (simple_archiver_list_get(files_list, files_to_chunk_count, ptrs)) {
       free(ptrs);
       fprintf(stderr, "ERROR: Internal error calculating chunk counts!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
     free(ptrs);
     if ((chunk_counts->count == 0 || current_size > 0) && current_count > 0) {
@@ -4961,7 +4992,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
          node != chunk_counts->tail; node = node->next) {
       if (*((uint64_t *)node->data) > 0xFFFFFFFF) {
         fprintf(stderr, "ERROR: file count in chunk is too large!\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       count += *((uint64_t *)node->data);
       // fprintf(stderr, "DEBUG: chunk count %4llu\n",
@@ -4976,19 +5007,19 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       //    "count: %u, files_list_count: %u\n",
       //    count,
       //    files_list->count);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
   // Write number of chunks.
   if (chunk_counts->count > 0xFFFFFFFF) {
     fprintf(stderr, "ERROR: Too many chunks!\n");
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   u32 = (uint32_t)chunk_counts->count;
   simple_archiver_helper_32_bit_be(&u32);
   if (fwrite(&u32, 4, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void
@@ -5003,7 +5034,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail; chunk_c_node = chunk_c_node->next) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
@@ -5017,14 +5048,14 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
     u32 = (uint32_t)(*((uint64_t *)chunk_c_node->data));
     simple_archiver_helper_32_bit_be(&u32);
     if (fwrite(&u32, 4, 1, out_f) != 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     SDArchiverLLNode *saved_node = file_node;
     for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
          ++file_idx) {
       file_node = file_node->next;
       if (file_node == files_list->tail) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
       if (non_c_chunk_size) {
@@ -5035,43 +5066,43 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         const size_t total_length = filename_len + prefix_length;
         if (total_length >= 0xFFFF) {
           fprintf(stderr, "ERROR: Filename with prefix is too large!\n");
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         u16 = (uint16_t)total_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(state->parsed->prefix, 1, prefix_length, out_f)
             != prefix_length) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         } else if (fwrite(file_info_struct->filename,
                           1,
                           filename_len + 1,
                           out_f)
                      != filename_len + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         if (filename_len >= 0xFFFF) {
           fprintf(stderr, "ERROR: Filename is too large!\n");
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         u16 = (uint16_t)filename_len;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
             (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
       if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       // UID and GID.
 
@@ -5095,7 +5126,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       u32 = file_info_struct->gid;
       if ((state->parsed->flags & 0x800) == 0) {
@@ -5115,7 +5146,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       u32 = file_info_struct->uid;
@@ -5144,21 +5175,21 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         }
         unsigned long name_length = strlen(username);
         if (name_length > 0xFFFF) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         u16 = (uint16_t)name_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(username, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -5188,27 +5219,27 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         }
         unsigned long group_length = strlen(groupname);
         if (group_length > 0xFFFF) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         u16 = (uint16_t)group_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(groupname, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
       uint64_t u64 = file_info_struct->file_size;
       simple_archiver_helper_64_bit_be(&u64);
       if (fwrite(&u64, 8, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
     }
 
@@ -5234,7 +5265,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         if (!temp_fd) {
           fprintf(stderr,
                   "ERROR: Failed to create a temporary file for archival!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
 
@@ -5250,26 +5281,26 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (pipe(pipe_outof_cmd) != 0) {
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                              state->parsed->compressor,
                                              &compressor_pid) != 0) {
@@ -5278,7 +5309,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         close(pipe_outof_cmd[0]);
         fprintf(stderr,
                 "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       // Close unnecessary pipe fds on this end of the transfer.
@@ -5297,11 +5328,11 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
@@ -5318,13 +5349,13 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         while (!to_comp_finished) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           if (!to_comp_finished) {
             // Write to compressor.
             if (ferror(fd)) {
               fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
             if (has_hold < 0) {
               size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
@@ -5340,13 +5371,13 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
                     fprintf(
                         stderr,
                         "ERROR: Writing to compressor, pipe write error!\n");
-                    return SDAS_FAILED_TO_WRITE;
+                    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
                   }
                 } else if (write_ret == 0) {
                   fprintf(
                       stderr,
                       "ERROR: Writing to compressor, unable to write bytes!\n");
-                  return SDAS_FAILED_TO_WRITE;
+                  return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
                 } else if ((size_t)write_ret < fread_ret) {
                   has_hold = (ssize_t)fread_ret - write_ret;
                   memcpy(hold_buf, buf + write_ret, (size_t)has_hold);
@@ -5364,7 +5395,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
                   // Non-blocking write.
                   nanosleep(&nonblock_sleep, NULL);
                 } else {
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 }
               } else if (write_ret < has_hold) {
                 memcpy(buf, hold_buf + write_ret,
@@ -5372,7 +5403,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
                 memcpy(hold_buf, buf, (size_t)(has_hold - write_ret));
                 has_hold = has_hold - write_ret;
               } else if (write_ret != has_hold) {
-                return SDAS_INTERNAL_ERROR;
+                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
               } else {
                 has_hold = -1;
               }
@@ -5389,7 +5420,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -5400,7 +5431,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
         }
@@ -5413,7 +5444,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         while (1) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           ssize_t read_ret =
               read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
@@ -5424,7 +5455,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -5435,7 +5466,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
         }
@@ -5445,14 +5476,14 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       if (comp_chunk_size < 0) {
         fprintf(stderr,
                 "ERROR: Temp file reported negative size after compression!\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       // Write compressed chunk size.
       uint64_t u64 = (uint64_t)comp_chunk_size;
       simple_archiver_helper_64_bit_be(&u64);
       if (fwrite(&u64, 8, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       rewind(temp_fd);
@@ -5462,9 +5493,9 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       // Write compressed chunk.
       while (!feof(temp_fd)) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         } else if (ferror(temp_fd)) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
@@ -5474,7 +5505,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
             fprintf(stderr,
                     "ERROR: Partial write of read bytes from temp file to "
                     "output file!\n");
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       }
@@ -5482,7 +5513,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
       if (written_size != (size_t)comp_chunk_size) {
         fprintf(stderr,
                 "ERROR: Written chunk size is not actual chunk size!\n");
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       // Cleanup and remove temp_fd.
@@ -5490,18 +5521,18 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
     } else {
       // Is NOT compressing.
       if (!non_c_chunk_size) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
@@ -5514,14 +5545,14 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
         while (!feof(fd)) {
           if (ferror(fd)) {
             fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
           if (fread_ret > 0) {
             size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
             if (fwrite_ret != fread_ret) {
               fprintf(stderr, "ERROR: Writing to chunk, file write error!\n");
-              return SDAS_FAILED_TO_WRITE;
+              return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
             }
           }
         }
@@ -5532,7 +5563,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   // Write directory entries.
 
   if (dirs_list->count > 0xFFFFFFFF) {
-    return SDAS_TOO_MANY_DIRS;
+    return SDA_RET_STRUCT(SDAS_TOO_MANY_DIRS);
   }
 
   u32 = (uint32_t)dirs_list->count;
@@ -5543,7 +5574,7 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
   simple_archiver_helper_32_bit_be(&u32);
 
   if (fwrite(&u32, 4, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   void **void_ptrs = malloc(sizeof(void*) * 2);
@@ -5554,15 +5585,17 @@ int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
                                internal_write_dir_entries_v2_v3_v4,
                                void_ptrs)) {
     free(void_ptrs);
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(void_ptrs);
 
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames) {
+SDArchiverStateRetStruct simple_archiver_write_v4(
+    FILE *out_f,
+    SDArchiverState *state,
+    const SDArchiverLinkedList *filenames) {
   fprintf(stderr, "Writing archive of file format 4\n");
 
   // First create a "set" of absolute paths to given filenames.
@@ -5573,7 +5606,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
   ptr_array[1] = (void *)state->parsed->user_cwd;
   if (simple_archiver_list_get(filenames, filenames_to_abs_map_fn, ptr_array)) {
     free(ptr_array);
-    return SDAS_FAILED_TO_CREATE_MAP;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_CREATE_MAP);
   }
   free(ptr_array);
 
@@ -5603,7 +5636,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
   if (simple_archiver_list_get(filenames, symlinks_and_files_from_files,
                                ptr_array)) {
     free(ptr_array);
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(ptr_array);
 
@@ -5622,11 +5655,11 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
     fprintf(stderr,
             "ERROR: Count mismatch between files and symlinks and files from "
             "parser!\n");
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
 
   if (fwrite("SIMPLE_ARCHIVE_VER", 1, 18, out_f) != 18) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -5635,7 +5668,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
   simple_archiver_helper_16_bit_be(&u16);
 
   if (fwrite(&u16, 2, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   const size_t prefix_length = state->parsed->prefix
@@ -5643,57 +5676,57 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
                                : 0;
 
   if (state->parsed->compressor && !state->parsed->decompressor) {
-    return SDAS_NO_DECOMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_DECOMPRESSOR);
   } else if (!state->parsed->compressor && state->parsed->decompressor) {
-    return SDAS_NO_COMPRESSOR;
+    return SDA_RET_STRUCT(SDAS_NO_COMPRESSOR);
   } else if (state->parsed->compressor && state->parsed->decompressor) {
     // 4 bytes flags, using de/compressor.
     memset(buf, 0, 4);
     buf[0] |= 1;
     if (fwrite(buf, 1, 4, out_f) != 4) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
     size_t len = strlen(state->parsed->compressor);
     if (len >= 0xFFFF) {
       fprintf(stderr, "ERROR: Compressor cmd is too long!\n");
-      return SDAS_INVALID_PARSED_STATE;
+      return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
     }
 
     u16 = (uint16_t)len;
     simple_archiver_helper_16_bit_be(&u16);
     if (fwrite(&u16, 1, 2, out_f) != 2) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
     if (fwrite(state->parsed->compressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
     len = strlen(state->parsed->decompressor);
     if (len >= 0xFFFF) {
       fprintf(stderr, "ERROR: Decompressor cmd is too long!\n");
-      return SDAS_INVALID_PARSED_STATE;
+      return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
     }
 
     u16 = (uint16_t)len;
     simple_archiver_helper_16_bit_be(&u16);
     if (fwrite(&u16, 1, 2, out_f) != 2) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
     if (fwrite(state->parsed->decompressor, 1, u16 + 1, out_f) !=
         (size_t)u16 + 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   } else {
     // 4 bytes flags, not using de/compressor.
     memset(buf, 0, 4);
     if (fwrite(buf, 1, 4, out_f) != 4) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
   }
 
@@ -5701,7 +5734,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
   uint64_t u64 = symlinks_list->count;
   simple_archiver_helper_64_bit_be(&u64);
   if (fwrite(&u64, 8, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
   simple_archiver_helper_64_bit_be(&u64);
 
@@ -5711,7 +5744,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
   if (state->parsed->user_cwd) {
     original_cwd = realpath(".", NULL);
     if (chdir(state->parsed->user_cwd)) {
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
@@ -5819,7 +5852,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       int stat_status =
           fstatat(AT_FDCWD, node->data, &stat_buf, AT_SYMLINK_NOFOLLOW);
       if (stat_status != 0) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       if ((stat_buf.st_mode & S_IRUSR) != 0) {
@@ -5855,7 +5888,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       }
 
       if (fwrite(buf, 1, 2, out_f) != 2) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       const size_t link_length = strlen(node->data);
@@ -5865,13 +5898,13 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       }
       if (len >= 0xFFFF) {
         fprintf(stderr, "ERROR: Link name is too long!\n");
-        return SDAS_INVALID_PARSED_STATE;
+        return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
       }
 
       u16 = (uint16_t)len;
       simple_archiver_helper_16_bit_be(&u16);
       if (fwrite(&u16, 2, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       simple_archiver_helper_16_bit_be(&u16);
       if (state->parsed->prefix) {
@@ -5881,10 +5914,10 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
                                    out_f);
         fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
         if (fwrite_ret != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 && !is_invalid) {
@@ -5896,47 +5929,47 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to abs symlink!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           const size_t abs_path_pref_length = strlen(abs_path_prefixed);
           if (abs_path_pref_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination absolute path with prefix is "
                     "too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)abs_path_pref_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(abs_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         } else {
           const size_t abs_path_length = strlen(abs_path);
           if (abs_path_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination absolute path is too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)abs_path_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(abs_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -5949,47 +5982,47 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
           if (!rel_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to relative symlink!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           const size_t rel_path_pref_length = strlen(rel_path_prefixed);
           if (rel_path_pref_length >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination relative path with prefix is "
                     "too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)rel_path_pref_length;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(rel_path_prefixed, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         } else {
           len = strlen(rel_path);
           if (len >= 0xFFFF) {
             fprintf(stderr,
                     "ERROR: Symlink destination relative path is too long!\n");
-            return SDAS_INVALID_PARSED_STATE;
+            return SDA_RET_STRUCT(SDAS_INVALID_PARSED_STATE);
           }
 
           u16 = (uint16_t)len;
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(&u16, 2, 1, out_f) != 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           simple_archiver_helper_16_bit_be(&u16);
           if (fwrite(rel_path, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -6008,7 +6041,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       u32 = stat_buf.st_gid;
@@ -6026,7 +6059,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       u32 = stat_buf.st_uid;
@@ -6055,21 +6088,21 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         }
         unsigned long name_length = strlen(username);
         if (name_length > 0xFFFF) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         u16 = (uint16_t)name_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(username, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -6099,21 +6132,21 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         }
         unsigned long group_length = strlen(groupname);
         if (group_length > 0xFFFF) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         u16 = (uint16_t)group_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(groupname, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
     }
@@ -6122,12 +6155,12 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
               "ERROR: Iterated through %" PRIu64 " symlinks out of %" PRIu64
               " total!\n",
               idx, symlinks_list->count);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -6144,7 +6177,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
     if (simple_archiver_list_get(files_list, files_to_chunk_count, ptrs)) {
       free(ptrs);
       fprintf(stderr, "ERROR: Internal error calculating chunk counts!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
     free(ptrs);
     if ((chunk_counts->count == 0 || current_size > 0) && current_count > 0) {
@@ -6161,7 +6194,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
          node != chunk_counts->tail; node = node->next) {
       if (*((uint64_t *)node->data) > 0xFFFFFFFF) {
         fprintf(stderr, "ERROR: file count in chunk is too large!\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       count += *((uint64_t *)node->data);
     }
@@ -6169,7 +6202,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       fprintf(stderr,
               "ERROR: Internal error calculating chunk counts (invalid number "
               "of files)!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
   }
 
@@ -6177,7 +6210,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
   u64 = chunk_counts->count;
   simple_archiver_helper_64_bit_be(&u64);
   if (fwrite(&u64, 8, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void
@@ -6193,7 +6226,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
        chunk_c_node != chunk_counts->tail;
        chunk_c_node = chunk_c_node->next) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
@@ -6207,14 +6240,14 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
     u64 = (*((uint64_t *)chunk_c_node->data));
     simple_archiver_helper_64_bit_be(&u64);
     if (fwrite(&u64, 8, 1, out_f) != 1) {
-      return SDAS_FAILED_TO_WRITE;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
     SDArchiverLLNode *saved_node = file_node;
     for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
          ++file_idx) {
       file_node = file_node->next;
       if (file_node == files_list->tail) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
       if (non_c_chunk_size) {
@@ -6225,43 +6258,43 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         const size_t total_length = filename_len + prefix_length;
         if (total_length >= 0xFFFF) {
           fprintf(stderr, "ERROR: Filename with prefix is too large!\n");
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         u16 = (uint16_t)total_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(state->parsed->prefix, 1, prefix_length, out_f)
             != prefix_length) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         } else if (fwrite(file_info_struct->filename,
                           1,
                           filename_len + 1,
                           out_f)
                      != filename_len + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         if (filename_len >= 0xFFFF) {
           fprintf(stderr, "ERROR: Filename is too large!\n");
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         u16 = (uint16_t)filename_len;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(file_info_struct->filename, 1, u16 + 1, out_f) !=
             (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
       if (fwrite(file_info_struct->bit_flags, 1, 4, out_f) != 4) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       // UID and GID.
 
@@ -6280,7 +6313,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
       u32 = file_info_struct->gid;
       if ((state->parsed->flags & 0x800) == 0) {
@@ -6295,7 +6328,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       u32 = file_info_struct->uid;
@@ -6319,21 +6352,21 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         }
         unsigned long name_length = strlen(username);
         if (name_length > 0xFFFF) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         u16 = (uint16_t)name_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(username, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
 
@@ -6358,27 +6391,27 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         }
         unsigned long group_length = strlen(groupname);
         if (group_length > 0xFFFF) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         u16 = (uint16_t)group_length;
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
         simple_archiver_helper_16_bit_be(&u16);
         if (fwrite(groupname, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          return SDAS_FAILED_TO_WRITE;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
       uint64_t u64 = file_info_struct->file_size;
       simple_archiver_helper_64_bit_be(&u64);
       if (fwrite(&u64, 8, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
     }
 
@@ -6404,7 +6437,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         if (!temp_fd) {
           fprintf(stderr,
                   "ERROR: Failed to create a temporary file for archival!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
 
@@ -6420,26 +6453,26 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (pipe(pipe_outof_cmd) != 0) {
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                              state->parsed->compressor,
                                              &compressor_pid) != 0) {
@@ -6448,7 +6481,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         close(pipe_outof_cmd[0]);
         fprintf(stderr,
                 "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       // Close unnecessary pipe fds on this end of the transfer.
@@ -6467,11 +6500,11 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
@@ -6488,13 +6521,13 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         while (!to_comp_finished) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           if (!to_comp_finished) {
             // Write to compressor.
             if (ferror(fd)) {
               fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
             if (has_hold < 0) {
               size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
@@ -6510,13 +6543,13 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
                     fprintf(
                         stderr,
                         "ERROR: Writing to compressor, pipe write error!\n");
-                    return SDAS_FAILED_TO_WRITE;
+                    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
                   }
                 } else if (write_ret == 0) {
                   fprintf(
                       stderr,
                       "ERROR: Writing to compressor, unable to write bytes!\n");
-                  return SDAS_FAILED_TO_WRITE;
+                  return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
                 } else if ((size_t)write_ret < fread_ret) {
                   has_hold = (ssize_t)fread_ret - write_ret;
                   memcpy(hold_buf, buf + write_ret, (size_t)has_hold);
@@ -6534,7 +6567,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
                   // Non-blocking write.
                   nanosleep(&nonblock_sleep, NULL);
                 } else {
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 }
               } else if (write_ret < has_hold) {
                 memcpy(buf, hold_buf + write_ret,
@@ -6542,7 +6575,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
                 memcpy(hold_buf, buf, (size_t)(has_hold - write_ret));
                 has_hold = has_hold - write_ret;
               } else if (write_ret != has_hold) {
-                return SDAS_INTERNAL_ERROR;
+                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
               } else {
                 has_hold = -1;
               }
@@ -6559,7 +6592,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -6570,7 +6603,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
         }
@@ -6583,7 +6616,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         while (1) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           ssize_t read_ret =
               read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
@@ -6594,7 +6627,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -6605,7 +6638,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
         }
@@ -6615,14 +6648,14 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       if (comp_chunk_size < 0) {
         fprintf(stderr,
                 "ERROR: Temp file reported negative size after compression!\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       // Write compressed chunk size.
       uint64_t u64 = (uint64_t)comp_chunk_size;
       simple_archiver_helper_64_bit_be(&u64);
       if (fwrite(&u64, 8, 1, out_f) != 1) {
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       rewind(temp_fd);
@@ -6632,9 +6665,9 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       // Write compressed chunk.
       while (!feof(temp_fd)) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         } else if (ferror(temp_fd)) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
@@ -6644,7 +6677,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
             fprintf(stderr,
                     "ERROR: Partial write of read bytes from temp file to "
                     "output file!\n");
-            return SDAS_FAILED_TO_WRITE;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
         }
       }
@@ -6652,7 +6685,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
       if (written_size != (size_t)comp_chunk_size) {
         fprintf(stderr,
                 "ERROR: Written chunk size is not actual chunk size!\n");
-        return SDAS_FAILED_TO_WRITE;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
       // Cleanup and remove temp_fd.
@@ -6660,18 +6693,18 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
     } else {
       // Is NOT compressing.
       if (!non_c_chunk_size) {
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         file_node = file_node->next;
         if (file_node == files_list->tail) {
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
@@ -6684,14 +6717,14 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
         while (!feof(fd)) {
           if (ferror(fd)) {
             fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
           size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
           if (fread_ret > 0) {
             size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
             if (fwrite_ret != fread_ret) {
               fprintf(stderr, "ERROR: Writing to chunk, file write error!\n");
-              return SDAS_FAILED_TO_WRITE;
+              return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
             }
           }
         }
@@ -6702,7 +6735,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
   // Write directory entries.
 
   if (dirs_list->count > 0xFFFFFFFF) {
-    return SDAS_TOO_MANY_DIRS;
+    return SDA_RET_STRUCT(SDAS_TOO_MANY_DIRS);
   }
 
   u64 = dirs_list->count;
@@ -6713,7 +6746,7 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
   simple_archiver_helper_64_bit_be(&u64);
 
   if (fwrite(&u64, 8, 1, out_f) != 1) {
-    return SDAS_FAILED_TO_WRITE;
+    return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
   }
 
   void **void_ptrs = malloc(sizeof(void*) * 2);
@@ -6724,15 +6757,17 @@ int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
                                internal_write_dir_entries_v2_v3_v4,
                                void_ptrs)) {
     free(void_ptrs);
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(void_ptrs);
 
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
-                                       const SDArchiverState *state) {
+SDArchiverStateRetStruct simple_archiver_parse_archive_info(
+    FILE *in_f,
+    int_fast8_t do_extract,
+    const SDArchiverState *state) {
   signal(SIGINT, handle_sig_int);
 
   uint8_t buf[32];
@@ -6740,11 +6775,11 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
   uint16_t u16;
 
   if (fread(buf, 1, 18, in_f) != 18) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   } else if (memcmp(buf, "SIMPLE_ARCHIVE_VER", 18) != 0) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   } else if (fread(buf, 1, 2, in_f) != 2) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
   memcpy(&u16, buf, 2);
@@ -6767,12 +6802,14 @@ int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
     return simple_archiver_parse_archive_version_4(in_f, do_extract, state);
   } else {
     fprintf(stderr, "ERROR Unsupported archive version %" PRIu16 "!\n", u16);
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 }
 
-int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
-                                            const SDArchiverState *state) {
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
+    FILE *in_f,
+    int_fast8_t do_extract,
+    const SDArchiverState *state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -6780,12 +6817,12 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
   int_fast8_t is_compressed = 0;
 
   if (fread(buf, 1, 4, in_f) != 4) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
   if (do_extract && state->parsed->user_cwd) {
     if (chdir(state->parsed->user_cwd)) {
-      return SDAS_FAILED_TO_CHANGE_CWD;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_CHANGE_CWD);
     }
   }
 
@@ -6798,13 +6835,13 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 
     // Read compressor data.
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     fprintf(stderr, "Compressor size is %" PRIu16 "\n", u16);
     if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
       fprintf(stderr, "Compressor cmd: %s\n", buf);
@@ -6814,7 +6851,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           malloc(u16 + 1);
       uint8_t *uc_heap_buf = heap_buf;
       if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       uc_heap_buf[u16 - 1] = 0;
       fprintf(stderr, "Compressor cmd: %s\n", uc_heap_buf);
@@ -6822,13 +6859,13 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 
     // Read decompressor data.
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     fprintf(stderr, "Decompressor size is %" PRIu16 "\n", u16);
     if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
       fprintf(stderr, "Decompressor cmd: %s\n", buf);
@@ -6841,7 +6878,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           malloc(u16 + 1);
       uint8_t *uc_heap_buf = heap_buf;
       if (fread(uc_heap_buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       uc_heap_buf[u16 - 1] = 0;
       fprintf(stderr, "Decompressor cmd: %s\n", uc_heap_buf);
@@ -6853,13 +6890,13 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
   }
 
   if (fread(&u32, 1, 4, in_f) != 4) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
   simple_archiver_helper_32_bit_be(&u32);
   fprintf(stderr, "File count is %" PRIu32 "\n", u32);
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
   const uint32_t size = u32;
@@ -6897,13 +6934,13 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 
   for (uint32_t idx = 0; idx < size; ++idx) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     skip = 0;
     if (feof(in_f) || ferror(in_f)) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     } else if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     __attribute__((cleanup(
@@ -6920,7 +6957,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
 
     if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
       lists_allowed = simple_archiver_helper_string_allowed_lists(
@@ -6996,7 +7033,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           malloc((uint32_t)u16 + 1);
       uint8_t *uc_heap_buf = heap_buf;
       if (fread(uc_heap_buf, 1, (uint32_t)u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       uc_heap_buf[u16] = 0;
       lists_allowed = simple_archiver_helper_string_allowed_lists(
@@ -7072,7 +7109,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     }
 
     if (fread(buf, 1, 4, in_f) != 4) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     // Check for "invalid entry" flag.
@@ -7190,7 +7227,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
     if ((buf[0] & 1) == 0) {
       // Not a sybolic link.
       if (fread(&u64, 8, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_64_bit_be(&u64);
       if (lists_allowed) {
@@ -7257,21 +7294,21 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             // Unable to create second set of pipes.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
             // Unable to set non-blocking on into-write-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
             close(pipe_outof_cmd[1]);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
             // Unable to set non-blocking on outof-read-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
             close(pipe_outof_cmd[1]);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
 
           if (state && state->parsed && state->parsed->decompressor) {
@@ -7284,7 +7321,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
               fprintf(
                   stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else {
             if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -7296,7 +7333,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
               fprintf(
                   stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
 
@@ -7316,7 +7353,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                       "WARNING: Exec failed (exec exit code %d)! Invalid "
                       "decompressor cmd?\n",
                       decompressor_return_val);
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else if (decompressor_ret == 0) {
             // Probably still running, continue on.
@@ -7325,7 +7362,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             fprintf(stderr,
                     "WARNING: Exec failed (exec exit code unknown)! Invalid "
                     "decompressor cmd?\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
 
           uint64_t compressed_file_size = u64;
@@ -7345,12 +7382,12 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                 close(pipe_outof_cmd[0]);
                 pipe_outof_cmd[0] = -1;
               }
-              return SDAS_SIGINT;
+              return SDA_RET_STRUCT(SDAS_SIGINT);
             } else if (is_sig_pipe_occurred) {
               fprintf(stderr,
                       "WARNING: Failed to write to decompressor (SIGPIPE)! "
                       "Invalid decompressor cmd?\n");
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
 
             // Read from file.
@@ -7387,14 +7424,14 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                     fprintf(stderr,
                             "WARNING: Failed to write to decompressor! Invalid "
                             "decompressor cmd?\n");
-                    return SDAS_INTERNAL_ERROR;
+                    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                   }
                 } else {
                   // Should be unreachable, error.
                   fprintf(stderr,
                           "WARNING: Failed to write to decompressor! Invalid "
                           "decompressor cmd?\n");
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 }
               }
             }
@@ -7413,13 +7450,13 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                   fprintf(stderr,
                           "WARNING: Failed to read from decompressor! Invalid "
                           "decompressor cmd?\n");
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 } else {
                   // Invalid state, error.
                   fprintf(stderr,
                           "WARNING: Failed to read from decompressor! Invalid "
                           "decompressor cmd?\n");
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 }
               } else if (read_ret == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -7430,7 +7467,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                   fprintf(stderr,
                           "WARNING: Failed to read from decompressor! Invalid "
                           "decompressor cmd?\n");
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 }
               } else if (read_ret == 0) {
                 // EOF.
@@ -7443,7 +7480,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                 fprintf(stderr,
                         "WARNING: Failed to read from decompressor! Invalid "
                         "decompressor cmd?\n");
-                return SDAS_INTERNAL_ERROR;
+                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
               }
             }
           }
@@ -7452,7 +7489,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             fprintf(stderr,
                     "WARNING: Failed to write to decompressor (SIGPIPE)! "
                     "Invalid decompressor cmd?\n");
-            return 1;
+            return SDA_RET_STRUCT(1);
           }
 
           waitpid(decompressor_pid, NULL, 0);
@@ -7464,13 +7501,13 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
               fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, in_f);
               if (ferror(in_f)) {
                 // Error.
-                return SDAS_INTERNAL_ERROR;
+                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
               }
               if (out_f) {
                 fwrite(buf, 1, fread_ret, out_f);
                 if (ferror(out_f)) {
                   // Error.
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 }
               }
               compressed_file_size -= fread_ret;
@@ -7478,13 +7515,13 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
               fread_ret = fread(buf, 1, compressed_file_size, in_f);
               if (ferror(in_f)) {
                 // Error.
-                return SDAS_INTERNAL_ERROR;
+                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
               }
               if (out_f) {
                 fwrite(buf, 1, fread_ret, out_f);
                 if (ferror(out_f)) {
                   // Error.
-                  return SDAS_INTERNAL_ERROR;
+                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
                 }
               }
               compressed_file_size -= fread_ret;
@@ -7497,7 +7534,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                     : (const char *)out_f_name,
                   permissions) == -1) {
           // Error.
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
 
         ptrs_array[0] = NULL;
@@ -7511,14 +7548,14 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             if (read_ret > 0) {
               u64 -= read_ret;
             } else if (ferror(in_f)) {
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           } else {
             size_t read_ret = fread(buf, 1, u64, in_f);
             if (read_ret > 0) {
               u64 -= read_ret;
             } else if (ferror(in_f)) {
-              return SDAS_INTERNAL_ERROR;
+              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
             }
           }
         }
@@ -7538,7 +7575,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           simple_archiver_helper_cleanup_malloced))) void *rel_path = NULL;
 
       if (fread(&u16, 2, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_16_bit_be(&u16);
       if (u16 == 0) {
@@ -7547,7 +7584,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
         }
       } else if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
         if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
         if (lists_allowed) {
@@ -7558,7 +7595,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       } else {
         abs_path = malloc(u16 + 1);
         if (fread(abs_path, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         ((char *)abs_path)[u16 - 1] = 0;
         if (lists_allowed) {
@@ -7567,7 +7604,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       }
 
       if (fread(&u16, 2, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_16_bit_be(&u16);
       if (u16 == 0) {
@@ -7576,7 +7613,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
         }
       } else if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
         if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
         if (lists_allowed) {
@@ -7587,7 +7624,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
       } else {
         rel_path = malloc(u16 + 1);
         if (fread(rel_path, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         ((char *)rel_path)[u16 - 1] = 0;
         if (lists_allowed) {
@@ -7624,7 +7661,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             if (filename_with_prefix && !abs_path_prefixed) {
               fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
                 " abs link with prefix!\n");
-              return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+              return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
             }
           V0_SYMLINK_CREATE_RETRY_0:
             ret = symlink(
@@ -7655,7 +7692,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                   goto V0_SYMLINK_CREATE_RETRY_0;
                 }
               } else {
-                return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+                return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
               }
             }
             if (links_list) {
@@ -7695,7 +7732,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
             if (filename_with_prefix && !rel_path_prefixed) {
               fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
                 " relative link with prefix!\n");
-              return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+              return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
             }
           V0_SYMLINK_CREATE_RETRY_1:
             ret = symlink(
@@ -7726,7 +7763,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
                   goto V0_SYMLINK_CREATE_RETRY_1;
                 }
               } else {
-                return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+                return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
               }
             }
             if (links_list) {
@@ -7772,7 +7809,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           if (filename_with_prefix && !abs_path_prefixed) {
             fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
               " abs link with prefix!\n");
-            return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
           }
           int ret = symlink(
             abs_path_prefixed
@@ -7782,7 +7819,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
               ? filename_with_prefix
               : out_f_name);
           if (ret == -1) {
-            return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
           }
           if (links_list) {
             simple_archiver_list_add(
@@ -7818,7 +7855,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
           if (filename_with_prefix && !rel_path_prefixed) {
             fprintf(stderr, "  ERROR: Prefix specified but unable to resolve"
               " relative link with prefix!\n");
-            return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
           }
           int ret = symlink(
             rel_path_prefixed
@@ -7828,7 +7865,7 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
               ? filename_with_prefix
               : out_f_name);
           if (ret == -1) {
-            return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
           }
           if (links_list) {
             simple_archiver_list_add(
@@ -7870,14 +7907,16 @@ int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
   }
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
-                                            const SDArchiverState *state) {
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
+    FILE *in_f,
+    int_fast8_t do_extract,
+    const SDArchiverState *state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -7900,12 +7939,12 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
   }
 
   if (fread(buf, 1, 4, in_f) != 4) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
   if (do_extract && state->parsed->user_cwd) {
     if (chdir(state->parsed->user_cwd)) {
-      return SDAS_FAILED_TO_CHANGE_CWD;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_CHANGE_CWD);
     }
   }
 
@@ -7933,29 +7972,29 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
   if (is_compressed) {
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     compressor_cmd = malloc(u16 + 1);
-    int ret =
+    SDArchiverStateReturns ret =
         read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
                               u16 + 1, compressor_cmd);
     if (ret != SDAS_SUCCESS) {
-      return ret;
+      return SDA_RET_STRUCT(ret);
     }
     compressor_cmd[u16] = 0;
 
     fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     decompressor_cmd = malloc(u16 + 1);
     ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
                                 u16 + 1, decompressor_cmd);
     if (ret != SDAS_SUCCESS) {
-      return ret;
+      return SDA_RET_STRUCT(ret);
     }
     decompressor_cmd[u16] = 0;
 
@@ -7967,7 +8006,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
   }
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
   const size_t prefix_length = state && state->parsed->prefix
@@ -7976,16 +8015,16 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
   // Link count.
   if (fread(&u32, 4, 1, in_f) != 1) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
   simple_archiver_helper_32_bit_be(&u32);
 
   for (uint32_t idx = 0; idx < u32; ++idx) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     if (fread(buf, 1, 2, in_f) != 2) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
@@ -7998,7 +8037,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     uint_fast8_t skip_due_to_invalid = is_invalid ? 1 : 0;
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -8008,13 +8047,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         cleanup(simple_archiver_helper_cleanup_c_string))) char *link_name =
         malloc(link_name_length + 1);
 
-    int ret = read_buf_full_from_fd(in_f,
+    SDArchiverStateReturns ret = read_buf_full_from_fd(in_f,
                                     (char *)buf,
                                     SIMPLE_ARCHIVER_BUFFER_SIZE,
                                     link_name_length + 1,
                                     link_name);
     if (ret != SDAS_SUCCESS) {
-      return ret;
+      return SDA_RET_STRUCT(ret);
     }
     link_name[link_name_length] = 0;
 
@@ -8070,7 +8109,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     char *abs_path_prefixed = NULL;
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     if (u16 != 0) {
@@ -8084,9 +8123,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                                   path_length + 1,
                                   path);
       if (ret != SDAS_SUCCESS) {
-        return ret;
+        return SDA_RET_STRUCT(ret);
       }
       path[path_length] = 0;
+      int iret;
       if (do_extract
           && !skip_due_to_map
           && !skip_due_to_invalid
@@ -8103,7 +8143,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to insert prefix to absolute path!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         }
         simple_archiver_helper_make_dirs_perms(
@@ -8116,11 +8156,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         int_fast8_t link_create_retry = 0;
       V1_SYMLINK_CREATE_RETRY_0:
-        ret = symlink(
+        iret = symlink(
           abs_path_prefixed ? abs_path_prefixed : path,
           link_name_prefixed ? link_name_prefixed : link_name
         );
-        if (ret == -1) {
+        if (iret == -1) {
           if (link_create_retry) {
             fprintf(
                 stderr,
@@ -8143,13 +8183,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
               goto V1_SYMLINK_CREATE_RETRY_0;
             }
           }
-          return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
         }
-        ret = fchmodat(AT_FDCWD,
+        iret = fchmodat(AT_FDCWD,
                        link_name_prefixed ? link_name_prefixed : link_name,
                        permissions,
                        AT_SYMLINK_NOFOLLOW);
-        if (ret == -1) {
+        if (iret == -1) {
           if (errno == EOPNOTSUPP) {
             fprintf(stderr,
                     "  NOTICE: Setting permissions of symlink is not supported "
@@ -8178,7 +8218,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     char *rel_path_prefixed = NULL;
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     if (u16 != 0) {
@@ -8192,9 +8232,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                                   path_length + 1,
                                   path);
       if (ret != SDAS_SUCCESS) {
-        return ret;
+        return SDA_RET_STRUCT(ret);
       }
       path[path_length] = 0;
+      int iret;
       if (do_extract
           && !skip_due_to_map
           && !skip_due_to_invalid
@@ -8207,7 +8248,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           if (!rel_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to insert prefix to relative path!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         }
         simple_archiver_helper_make_dirs_perms(
@@ -8220,10 +8261,10 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           (state->parsed->flags & 0x800) ? state->parsed->gid : getgid());
         int_fast8_t link_create_retry = 0;
       V1_SYMLINK_CREATE_RETRY_1:
-        ret = symlink(
+        iret = symlink(
           rel_path_prefixed ? rel_path_prefixed : path,
           link_name_prefixed ? link_name_prefixed : link_name);
-        if (ret == -1) {
+        if (iret == -1) {
           if (link_create_retry) {
             fprintf(
                 stderr,
@@ -8246,13 +8287,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
               goto V1_SYMLINK_CREATE_RETRY_1;
             }
           }
-          return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
         }
-        ret = fchmodat(AT_FDCWD,
+        iret = fchmodat(AT_FDCWD,
                        link_name_prefixed ? link_name_prefixed : link_name,
                        permissions,
                        AT_SYMLINK_NOFOLLOW);
-        if (ret == -1) {
+        if (iret == -1) {
           if (errno == EOPNOTSUPP) {
             fprintf(stderr,
                     "  NOTICE: Setting permissions of symlink is not supported "
@@ -8265,13 +8306,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         }
         if (geteuid() == 0
             && (state->parsed->flags & 0x400 || state->parsed->flags & 0x800)) {
-          ret = fchownat(
+          iret = fchownat(
               AT_FDCWD,
               link_name_prefixed ? link_name_prefixed : link_name,
               state->parsed->flags & 0x400 ? state->parsed->uid : getuid(),
               state->parsed->flags & 0x800 ? state->parsed->gid : getgid(),
               AT_SYMLINK_NOFOLLOW);
-          if (ret == -1) {
+          if (iret == -1) {
             fprintf(stderr,
                     "  WARNING: Failed to force set UID/GID of symlink \"%s\""
                     "(errno %d)!\n",
@@ -8311,14 +8352,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
   }
 
   if (fread(&u32, 4, 1, in_f) != 1) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t chunk_count = u32;
   for (uint32_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
             "CHUNK %3" PRIu32 " of %3" PRIu32 "\n",
@@ -8326,7 +8367,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             chunk_count);
 
     if (fread(&u32, 4, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&u32);
 
@@ -8343,16 +8384,16 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       memset(file_info, 0, sizeof(SDArchiverInternalFileInfo));
 
       if (fread(&u16, 2, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_16_bit_be(&u16);
 
       file_info->filename = malloc(u16 + 1);
-      int ret =
+      SDArchiverStateReturns ret =
           read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
                                 u16 + 1, file_info->filename);
       if (ret != SDAS_SUCCESS) {
-        return ret;
+        return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
 
@@ -8396,11 +8437,11 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       }
 
       if (fread(file_info->bit_flags, 1, 4, in_f) != 4) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
       if (fread(&u32, 4, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (do_extract
@@ -8456,7 +8497,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       }
 
       if (fread(&u32, 4, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_32_bit_be(&u32);
       if (do_extract && state && (state->parsed->flags & 0x800)) {
@@ -8511,7 +8552,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
       }
 
       if (fread(&u64, 8, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_64_bit_be(&u64);
       file_info->file_size = u64;
@@ -8527,7 +8568,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     }
 
     if (fread(&u64, 8, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_64_bit_be(&u64);
 
@@ -8556,21 +8597,21 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       if (state && state->parsed && state->parsed->decompressor) {
@@ -8582,7 +8623,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       } else {
         if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -8593,7 +8634,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
 
@@ -8620,7 +8661,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                   "WARNING: Exec failed (exec exit code %d)! Invalid "
                   "decompressor cmd?\n",
                   decompressor_return_val);
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       } else if (decompressor_ret == 0) {
         // Probably still running, continue on.
@@ -8629,7 +8670,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         fprintf(stderr,
                 "WARNING: Exec failed (exec exit code unknown)! Invalid "
                 "decompressor cmd?\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -8637,7 +8678,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
 
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
@@ -8698,13 +8739,13 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              int ret = read_decomp_to_out_file(
+              SDArchiverStateReturns ret = read_decomp_to_out_file(
                   NULL, pipe_outof_read, (char *)buf,
                   SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
                   &pipe_into_write, &chunk_remaining, in_f, hold_buf,
                   &has_hold);
               if (ret != SDAS_SUCCESS) {
-                return ret;
+                return SDA_RET_STRUCT(ret);
               }
               continue;
             }
@@ -8722,7 +8763,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             (state->parsed->flags & 0x800)
               ? state->parsed->gid
               : file_info->gid);
-          int ret = read_decomp_to_out_file(
+          SDArchiverStateReturns ret = read_decomp_to_out_file(
               filename_prefixed ? filename_prefixed : file_info->filename,
               pipe_outof_read,
               (char *)buf,
@@ -8734,12 +8775,12 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
               hold_buf,
               &has_hold);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions)
                 == -1) {
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -8751,7 +8792,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                     filename_prefixed
                       ? filename_prefixed
                       : file_info->filename);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else if (!skip_due_to_map
                    && (file_info->other_flags & 1) == 0
@@ -8771,20 +8812,20 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                     "    File size: %" PRIu64 "\n",
                     file_info->file_size);
           }
-          int ret = read_decomp_to_out_file(
+          SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
               hold_buf, &has_hold);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         } else {
-          int ret = read_decomp_to_out_file(
+          SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
               hold_buf, &has_hold);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         }
       }
@@ -8798,7 +8839,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     } else {
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
@@ -8812,7 +8853,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
 
         const size_t filename_length = strlen(file_info->filename);
@@ -8866,11 +8907,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              int ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                              SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                              file_info->file_size, NULL);
+              SDArchiverStateReturns ret = read_buf_full_from_fd(
+                in_f,
+                (char *)buf,
+                SIMPLE_ARCHIVER_BUFFER_SIZE,
+                file_info->file_size,
+                NULL);
               if (ret != SDAS_SUCCESS) {
-                return ret;
+                return SDA_RET_STRUCT(ret);
               }
               continue;
             }
@@ -8892,11 +8936,14 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                                  ? filename_prefixed
                                  : file_info->filename,
                                "wb");
-          int ret = read_fd_to_out_fd(in_f, out_fd, (char *)buf,
-                                      SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                      file_info->file_size);
+          SDArchiverStateReturns ret =
+            read_fd_to_out_fd(in_f,
+                              out_fd,
+                              (char *)buf,
+                              SIMPLE_ARCHIVER_BUFFER_SIZE,
+                              file_info->file_size);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
@@ -8906,7 +8953,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                     filename_prefixed
                       ? filename_prefixed
                       : file_info->filename);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -8916,7 +8963,7 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
                     file_info->filename);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else if (!skip_due_to_map
                    && (file_info->other_flags & 1) == 0
@@ -8936,18 +8983,24 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
                     "    File size: %" PRIu64 "\n",
                     file_info->file_size);
           }
-          int ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                          SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                          file_info->file_size, NULL);
+          SDArchiverStateReturns ret = read_buf_full_from_fd(
+            in_f,
+            (char *)buf,
+            SIMPLE_ARCHIVER_BUFFER_SIZE,
+            file_info->file_size,
+            NULL);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         } else {
-          int ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                          SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                          file_info->file_size, NULL);
+          SDArchiverStateReturns ret = read_buf_full_from_fd(
+            in_f,
+            (char *)buf,
+            SIMPLE_ARCHIVER_BUFFER_SIZE,
+            file_info->file_size,
+            NULL);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         }
       }
@@ -8958,20 +9011,25 @@ int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
     simple_archiver_safe_links_enforce(links_list, files_map);
   }
 
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
-                                            const SDArchiverState *state) {
-  int ret = simple_archiver_parse_archive_version_1(in_f, do_extract, state);
-  if (ret != SDAS_SUCCESS) {
-    return ret;
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
+    FILE *in_f,
+    int_fast8_t do_extract,
+    const SDArchiverState *state) {
+  {
+    SDArchiverStateRetStruct ret =
+      simple_archiver_parse_archive_version_1(in_f, do_extract, state);
+    if (ret.ret != SDAS_SUCCESS) {
+      return ret;
+    }
   }
 
   uint32_t u32;
   if (fread(&u32, 4, 1, in_f) != 1) {
     fprintf(stderr, "ERROR: Failed to read directory count!\n");
-    return SDAS_INTERNAL_ERROR;
+    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
 
   simple_archiver_helper_32_bit_be(&u32);
@@ -8984,7 +9042,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
   for (uint32_t idx = 0; idx < size; ++idx) {
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr, "ERROR: Failed to read directory name length!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
 
     simple_archiver_helper_16_bit_be(&u16);
@@ -8993,7 +9051,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
 
     if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
       fprintf(stderr, "ERROR: Failed to read directory name!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
 
     buf[u16] = 0;
@@ -9009,7 +9067,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
       fprintf(stderr,
               "ERROR: Failed to read permission flags for \"%s\"!\n",
               buf);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
     perms_flags[2] = 0;
     perms_flags[3] = 0;
@@ -9018,7 +9076,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     if (fread(&uid, 4, 1, in_f) != 1) {
       fprintf(stderr,
               "ERROR: Failed to read UID for \"%s\"!\n", buf);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
     simple_archiver_helper_32_bit_be(&uid);
 
@@ -9026,7 +9084,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     if (fread(&gid, 4, 1, in_f) != 1) {
       fprintf(stderr,
               "ERROR: Failed to read GID for \"%s\"!\n", buf);
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
     simple_archiver_helper_32_bit_be(&gid);
 
@@ -9136,7 +9194,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
       fprintf(
         stderr,
         "ERROR: Failed to get abs_path_dir of current working directory!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
 
     __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
@@ -9177,7 +9235,7 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
         state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
       if (ret != 0) {
         fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
       ret = chmod(abs_dir_path,
@@ -9193,12 +9251,13 @@ int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
     }
   }
 
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-int simple_archiver_parse_archive_version_3(FILE *in_f,
-                                            int_fast8_t do_extract,
-                                            const SDArchiverState *state) {
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
+    FILE *in_f,
+    int_fast8_t do_extract,
+    const SDArchiverState *state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -9221,12 +9280,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
   }
 
   if (fread(buf, 1, 4, in_f) != 4) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
   if (do_extract && state->parsed->user_cwd) {
     if (chdir(state->parsed->user_cwd)) {
-      return SDAS_FAILED_TO_CHANGE_CWD;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_CHANGE_CWD);
     }
   }
 
@@ -9254,29 +9313,29 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
   if (is_compressed) {
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     compressor_cmd = malloc(u16 + 1);
-    int ret =
+    SDArchiverStateReturns ret =
         read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
                               u16 + 1, compressor_cmd);
     if (ret != SDAS_SUCCESS) {
-      return ret;
+      return SDA_RET_STRUCT(ret);
     }
     compressor_cmd[u16] = 0;
 
     fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     decompressor_cmd = malloc(u16 + 1);
     ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
                                 u16 + 1, decompressor_cmd);
     if (ret != SDAS_SUCCESS) {
-      return ret;
+      return SDA_RET_STRUCT(ret);
     }
     decompressor_cmd[u16] = 0;
 
@@ -9288,7 +9347,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
   }
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
   const size_t prefix_length = state && state->parsed->prefix
@@ -9297,17 +9356,17 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
   // Link count.
   if (fread(&u32, 4, 1, in_f) != 1) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t count = u32;
   for (uint32_t idx = 0; idx < count; ++idx) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     if (fread(buf, 1, 2, in_f) != 2) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
@@ -9320,7 +9379,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     uint_fast8_t skip_due_to_invalid = is_invalid ? 1 : 0;
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -9329,13 +9388,14 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *link_name = malloc(link_name_length + 1);
 
-    int ret = read_buf_full_from_fd(in_f,
-                                    (char *)buf,
-                                    SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                    link_name_length + 1,
-                                    link_name);
+    SDArchiverStateReturns ret = read_buf_full_from_fd(
+      in_f,
+      (char *)buf,
+      SIMPLE_ARCHIVER_BUFFER_SIZE,
+      link_name_length + 1,
+      link_name);
     if (ret != SDAS_SUCCESS) {
-      return ret;
+      return SDA_RET_STRUCT(ret);
     }
     link_name[link_name_length] = 0;
 
@@ -9391,7 +9451,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -9409,7 +9469,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                                   path_length + 1,
                                   parsed_abs_path);
       if (ret != SDAS_SUCCESS) {
-        return ret;
+        return SDA_RET_STRUCT(ret);
       }
       parsed_abs_path[path_length] = 0;
       if (!do_extract && lists_allowed) {
@@ -9427,7 +9487,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         if (!abs_path_prefixed) {
           fprintf(stderr,
                   "ERROR: Failed to insert prefix to absolute path!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
     } else if (!do_extract && lists_allowed) {
@@ -9435,7 +9495,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -9453,7 +9513,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                                   path_length + 1,
                                   parsed_rel_path);
       if (ret != SDAS_SUCCESS) {
-        return ret;
+        return SDA_RET_STRUCT(ret);
       }
       parsed_rel_path[path_length] = 0;
       if (!do_extract && lists_allowed) {
@@ -9467,7 +9527,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         if (!rel_path_prefixed) {
           fprintf(stderr,
                   "ERROR: Failed to insert prefix to relative path!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
     } else if (!do_extract && lists_allowed) {
@@ -9476,7 +9536,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
     if (fread(&u32, 4, 1, in_f) != 1) {
       fprintf(stderr, "  ERROR: Failed to read UID for symlink!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&u32);
 
@@ -9487,7 +9547,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
     if (fread(&u32, 4, 1, in_f) != 1) {
       fprintf(stderr, "  ERROR: Failed to read GID for symlink!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&u32);
 
@@ -9498,7 +9558,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr, "  ERROR: Failed to read Username length for symlink!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -9508,7 +9568,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     if (u16 != 0) {
       if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         fprintf(stderr, "  ERROR: Failed to read Username for symlink!\n");
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       username[u16] = 0;
       if (lists_allowed) {
@@ -9577,7 +9637,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr,
               "  ERROR: Failed to read Groupname length for symlink!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -9587,7 +9647,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     if (u16 != 0) {
       if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         fprintf(stderr, "  ERROR: Failed to read Groupname for symlink!\n");
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       groupname[u16] = 0;
       if (lists_allowed) {
@@ -9668,11 +9728,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
         (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
       int_fast8_t link_create_retry = 0;
+      int iret;
     V3_SYMLINK_CREATE_RETRY_0:
-      ret = symlink(
+      iret = symlink(
         abs_path_prefixed ? abs_path_prefixed : parsed_abs_path,
         link_name_prefixed ? link_name_prefixed : link_name);
-      if (ret == -1) {
+      if (iret == -1) {
         if (link_create_retry) {
           fprintf(
               stderr,
@@ -9695,13 +9756,13 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             goto V3_SYMLINK_CREATE_RETRY_0;
           }
         }
-        return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
       }
-      ret = fchmodat(AT_FDCWD,
+      iret = fchmodat(AT_FDCWD,
                      link_name_prefixed ? link_name_prefixed : link_name,
                      permissions,
                      AT_SYMLINK_NOFOLLOW);
-      if (ret == -1) {
+      if (iret == -1) {
         if (errno == EOPNOTSUPP) {
           fprintf(stderr,
                   "  NOTICE: Setting permissions of symlink is not supported "
@@ -9734,11 +9795,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
         (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
       int_fast8_t link_create_retry = 0;
+      int iret;
     V3_SYMLINK_CREATE_RETRY_1:
-      ret = symlink(
+      iret = symlink(
         rel_path_prefixed ? rel_path_prefixed : parsed_rel_path,
         link_name_prefixed ? link_name_prefixed : link_name);
-      if (ret == -1) {
+      if (iret == -1) {
         if (link_create_retry) {
           fprintf(
               stderr,
@@ -9761,13 +9823,13 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             goto V3_SYMLINK_CREATE_RETRY_1;
           }
         }
-        return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
       }
-      ret = fchmodat(AT_FDCWD,
+      iret = fchmodat(AT_FDCWD,
                      link_name_prefixed ? link_name_prefixed : link_name,
                      permissions,
                      AT_SYMLINK_NOFOLLOW);
-      if (ret == -1) {
+      if (iret == -1) {
         if (errno == EOPNOTSUPP) {
           fprintf(stderr,
                   "  NOTICE: Setting permissions of symlink is not supported "
@@ -9800,7 +9862,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             fprintf(stderr,
                     "ERROR: Failed to pick uid for link \"%s\"!\n",
                     link_name);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else {
           if (user_remapped_uid) {
@@ -9811,7 +9873,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             fprintf(stderr,
                     "ERROR: Failed to pick uid for link \"%s\"!\n",
                     link_name);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         }
       } else {
@@ -9834,7 +9896,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             fprintf(stderr,
                     "ERROR: Failed to pick gid for link \"%s\"!\n",
                     link_name);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else {
           if (group_remapped_gid) {
@@ -9845,7 +9907,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             fprintf(stderr,
                     "ERROR: Failed to pick gid for link \"%s\"!\n",
                     link_name);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         }
       } else {
@@ -9857,13 +9919,13 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           picked_gid = gid;
         }
       }
-      ret = fchownat(
+      int iret = fchownat(
           AT_FDCWD,
           link_name_prefixed ? link_name_prefixed : link_name,
           state->parsed->flags & 0x400 ? state->parsed->uid : picked_uid,
           state->parsed->flags & 0x800 ? state->parsed->gid : picked_gid,
           AT_SYMLINK_NOFOLLOW);
-      if (ret == -1) {
+      if (iret == -1) {
         fprintf(stderr,
                 "  WARNING: Failed to force set UID/GID of symlink \"%s\""
                 "(errno %d)!\n",
@@ -9890,14 +9952,14 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
   }
 
   if (fread(&u32, 4, 1, in_f) != 1) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t chunk_count = u32;
   for (uint32_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
             "CHUNK %3" PRIu32 " of %3" PRIu32 "\n",
@@ -9905,7 +9967,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             chunk_count);
 
     if (fread(&u32, 4, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&u32);
 
@@ -9922,16 +9984,16 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       memset(file_info, 0, sizeof(SDArchiverInternalFileInfo));
 
       if (fread(&u16, 2, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_16_bit_be(&u16);
 
       file_info->filename = malloc(u16 + 1);
-      int ret =
+      SDArchiverStateReturns ret =
           read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
                                 u16 + 1, file_info->filename);
       if (ret != SDAS_SUCCESS) {
-        return ret;
+        return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
 
@@ -9973,11 +10035,11 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       if (fread(file_info->bit_flags, 1, 4, in_f) != 4) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
       if (fread(&u32, 4, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_32_bit_be(&u32);
       __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
@@ -10000,7 +10062,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       if (fread(&u32, 4, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_32_bit_be(&u32);
       __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
@@ -10023,7 +10085,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       if (fread(&u16, 2, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_16_bit_be(&u16);
 
@@ -10032,7 +10094,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
       if (u16 != 0) {
         if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         username[u16] = 0;
         file_info->username = strdup(username);
@@ -10056,7 +10118,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       if (fread(&u16, 2, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_16_bit_be(&u16);
 
@@ -10065,7 +10127,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
       if (u16 != 0) {
         if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         groupname[u16] = 0;
         file_info->groupname = strdup(groupname);
@@ -10153,7 +10215,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       }
 
       if (fread(&u64, 8, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_64_bit_be(&u64);
       file_info->file_size = u64;
@@ -10169,7 +10231,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
 
     if (fread(&u64, 8, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_64_bit_be(&u64);
 
@@ -10198,21 +10260,21 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       if (state && state->parsed && state->parsed->decompressor) {
@@ -10224,7 +10286,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       } else {
         if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -10235,7 +10297,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
 
@@ -10262,7 +10324,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                   "WARNING: Exec failed (exec exit code %d)! Invalid "
                   "decompressor cmd?\n",
                   decompressor_return_val);
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       } else if (decompressor_ret == 0) {
         // Probably still running, continue on.
@@ -10271,7 +10333,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         fprintf(stderr,
                 "WARNING: Exec failed (exec exit code unknown)! Invalid "
                 "decompressor cmd?\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -10279,7 +10341,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
@@ -10340,13 +10402,13 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              int ret = read_decomp_to_out_file(
+              SDArchiverStateReturns ret = read_decomp_to_out_file(
                   NULL, pipe_outof_read, (char *)buf,
                   SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
                   &pipe_into_write, &chunk_remaining, in_f, hold_buf,
                   &has_hold);
               if (ret != SDAS_SUCCESS) {
-                return ret;
+                return SDA_RET_STRUCT(ret);
               }
               continue;
             }
@@ -10364,7 +10426,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
             (state->parsed->flags & 0x800)
               ? state->parsed->gid
               : file_info->gid);
-          int ret = read_decomp_to_out_file(
+          SDArchiverStateReturns ret = read_decomp_to_out_file(
               filename_prefixed ? filename_prefixed : file_info->filename,
               pipe_outof_read,
               (char *)buf,
@@ -10376,12 +10438,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
               hold_buf,
               &has_hold);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions)
                 == -1) {
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -10393,7 +10455,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                     filename_prefixed
                       ? filename_prefixed
                       : file_info->filename);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
@@ -10423,20 +10485,20 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                     "    File size: %" PRIu64 "\n",
                     file_info->file_size);
           }
-          int ret = read_decomp_to_out_file(
+          SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
               hold_buf, &has_hold);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         } else {
-          int ret = read_decomp_to_out_file(
+          SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
               hold_buf, &has_hold);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         }
       }
@@ -10450,7 +10512,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     } else {
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
@@ -10465,7 +10527,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
 
         const size_t filename_length = strlen(file_info->filename);
@@ -10521,11 +10583,14 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              int ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                              SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                              file_info->file_size, NULL);
+              SDArchiverStateReturns ret =
+                read_buf_full_from_fd(in_f,
+                                      (char *)buf,
+                                      SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                      file_info->file_size,
+                                      NULL);
               if (ret != SDAS_SUCCESS) {
-                return ret;
+                return SDA_RET_STRUCT(ret);
               }
               continue;
             }
@@ -10547,11 +10612,14 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                                  ? filename_prefixed
                                  : file_info->filename,
                                "wb");
-          int ret = read_fd_to_out_fd(in_f, out_fd, (char *)buf,
-                                      SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                      file_info->file_size);
+          SDArchiverStateReturns ret =
+            read_fd_to_out_fd(in_f,
+                              out_fd,
+                              (char *)buf,
+                              SIMPLE_ARCHIVER_BUFFER_SIZE,
+                              file_info->file_size);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
@@ -10561,7 +10629,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
               stderr,
               "ERROR Failed to set permissions of file \"%s\"!\n",
               filename_prefixed ? filename_prefixed : file_info->filename);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -10572,7 +10640,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
               stderr,
               "    ERROR Failed to set UID/GID of file \"%s\"!\n",
               filename_prefixed ? filename_prefixed : file_info->filename);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
@@ -10602,18 +10670,24 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
                     "    File size: %" PRIu64 "\n",
                     file_info->file_size);
           }
-          int ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                          SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                          file_info->file_size, NULL);
+          SDArchiverStateReturns ret =
+            read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  file_info->file_size,
+                                  NULL);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         } else {
-          int ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                          SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                          file_info->file_size, NULL);
+          SDArchiverStateReturns ret =
+            read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  file_info->file_size,
+                                  NULL);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         }
       }
@@ -10626,7 +10700,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
   if (fread(&u32, 4, 1, in_f) != 1) {
     fprintf(stderr, "ERROR: Failed to read directory count!\n");
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
   simple_archiver_helper_32_bit_be(&u32);
@@ -10635,7 +10709,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
   for (uint32_t idx = 0; idx < size; ++idx) {
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr, "ERROR: Failed to read directory name length!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     simple_archiver_helper_16_bit_be(&u16);
@@ -10645,7 +10719,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
     if (fread(archive_dir_name, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
       fprintf(stderr, "ERROR: Failed to read directory name!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     archive_dir_name[u16] = 0;
@@ -10661,7 +10735,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       fprintf(stderr,
               "ERROR: Failed to read permission flags for \"%s\"!\n",
               archive_dir_name);
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     perms_flags[2] = 0;
     perms_flags[3] = 0;
@@ -10670,7 +10744,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     if (fread(&uid, 4, 1, in_f) != 1) {
       fprintf(stderr,
               "ERROR: Failed to read UID for \"%s\"!\n", archive_dir_name);
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&uid);
 
@@ -10678,12 +10752,12 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     if (fread(&gid, 4, 1, in_f) != 1) {
       fprintf(stderr,
               "ERROR: Failed to read GID for \"%s\"!\n", archive_dir_name);
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&gid);
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -10692,7 +10766,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
     if (u16 != 0) {
       if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       username[u16] = 0;
     } else {
@@ -10701,7 +10775,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -10710,7 +10784,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
 
     if (u16 != 0) {
       if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       groupname[u16] = 0;
     } else {
@@ -10860,7 +10934,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
       fprintf(
         stderr,
         "ERROR: Failed to get abs_path_dir of current working directory!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
 
     __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
@@ -10901,7 +10975,7 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
         state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
       if (ret != 0) {
         fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
       ret = chmod(abs_dir_path,
@@ -10917,12 +10991,13 @@ int simple_archiver_parse_archive_version_3(FILE *in_f,
     }
   }
 
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-int simple_archiver_parse_archive_version_4(FILE *in_f,
-                                            int_fast8_t do_extract,
-                                            const SDArchiverState *state) {
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
+    FILE *in_f,
+    int_fast8_t do_extract,
+    const SDArchiverState *state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -10945,12 +11020,12 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
   }
 
   if (fread(buf, 1, 4, in_f) != 4) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
   if (do_extract && state->parsed->user_cwd) {
     if (chdir(state->parsed->user_cwd)) {
-      return SDAS_FAILED_TO_CHANGE_CWD;
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_CHANGE_CWD);
     }
   }
 
@@ -10978,29 +11053,29 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
   if (is_compressed) {
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     compressor_cmd = malloc(u16 + 1);
-    int ret =
+    SDArchiverStateReturns ret =
         read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
                               u16 + 1, compressor_cmd);
     if (ret != SDAS_SUCCESS) {
-      return ret;
+      return SDA_RET_STRUCT(ret);
     }
     compressor_cmd[u16] = 0;
 
     fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
     decompressor_cmd = malloc(u16 + 1);
     ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
                                 u16 + 1, decompressor_cmd);
     if (ret != SDAS_SUCCESS) {
-      return ret;
+      return SDA_RET_STRUCT(ret);
     }
     decompressor_cmd[u16] = 0;
 
@@ -11012,7 +11087,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
   }
 
   if (is_sig_int_occurred) {
-    return SDAS_SIGINT;
+    return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
   const size_t prefix_length = state && state->parsed->prefix
@@ -11021,17 +11096,17 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
   // Link count.
   if (fread(&u64, 8, 1, in_f) != 1) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
   simple_archiver_helper_64_bit_be(&u64);
 
   const uint64_t count = u64;
   for (uint64_t idx = 0; idx < count; ++idx) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     if (fread(buf, 1, 2, in_f) != 2) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     const uint_fast8_t absolute_preferred = (buf[0] & 1) ? 1 : 0;
     const uint_fast8_t is_invalid = (buf[1] & 4) ? 1 : 0;
@@ -11044,7 +11119,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     uint_fast8_t skip_due_to_invalid = is_invalid ? 1 : 0;
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -11053,13 +11128,14 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *link_name = malloc(link_name_length + 1);
 
-    int ret = read_buf_full_from_fd(in_f,
-                                    (char *)buf,
-                                    SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                    link_name_length + 1,
-                                    link_name);
+    SDArchiverStateReturns ret =
+      read_buf_full_from_fd(in_f,
+                            (char *)buf,
+                            SIMPLE_ARCHIVER_BUFFER_SIZE,
+                            link_name_length + 1,
+                            link_name);
     if (ret != SDAS_SUCCESS) {
-      return ret;
+      return SDA_RET_STRUCT(ret);
     }
     link_name[link_name_length] = 0;
 
@@ -11115,7 +11191,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     }
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -11133,7 +11209,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
                                   path_length + 1,
                                   parsed_abs_path);
       if (ret != SDAS_SUCCESS) {
-        return ret;
+        return SDA_RET_STRUCT(ret);
       }
       parsed_abs_path[path_length] = 0;
       if (!do_extract && lists_allowed) {
@@ -11151,7 +11227,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
         if (!abs_path_prefixed) {
           fprintf(stderr,
                   "ERROR: Failed to insert prefix to absolute path!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
     } else if (!do_extract && lists_allowed) {
@@ -11159,7 +11235,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     }
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -11177,7 +11253,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
                                   path_length + 1,
                                   parsed_rel_path);
       if (ret != SDAS_SUCCESS) {
-        return ret;
+        return SDA_RET_STRUCT(ret);
       }
       parsed_rel_path[path_length] = 0;
       if (!do_extract && lists_allowed) {
@@ -11191,7 +11267,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
         if (!rel_path_prefixed) {
           fprintf(stderr,
                   "ERROR: Failed to insert prefix to relative path!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
     } else if (!do_extract && lists_allowed) {
@@ -11200,7 +11276,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
     if (fread(&u32, 4, 1, in_f) != 1) {
       fprintf(stderr, "  ERROR: Failed to read UID for symlink!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&u32);
 
@@ -11211,7 +11287,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
     if (fread(&u32, 4, 1, in_f) != 1) {
       fprintf(stderr, "  ERROR: Failed to read GID for symlink!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&u32);
 
@@ -11222,7 +11298,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr, "  ERROR: Failed to read Username length for symlink!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -11232,7 +11308,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     if (u16 != 0) {
       if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         fprintf(stderr, "  ERROR: Failed to read Username for symlink!\n");
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       username[u16] = 0;
       if (lists_allowed) {
@@ -11301,7 +11377,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr,
               "  ERROR: Failed to read Groupname length for symlink!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -11311,7 +11387,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     if (u16 != 0) {
       if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
         fprintf(stderr, "  ERROR: Failed to read Groupname for symlink!\n");
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       groupname[u16] = 0;
       if (lists_allowed) {
@@ -11392,11 +11468,12 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
         (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
         (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
       int_fast8_t link_create_retry = 0;
+      int iret;
     V4_SYMLINK_CREATE_RETRY_0:
-      ret = symlink(
+      iret = symlink(
         abs_path_prefixed ? abs_path_prefixed : parsed_abs_path,
         link_name_prefixed ? link_name_prefixed : link_name);
-      if (ret == -1) {
+      if (iret == -1) {
         if (link_create_retry) {
           fprintf(
               stderr,
@@ -11419,13 +11496,13 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
             goto V4_SYMLINK_CREATE_RETRY_0;
           }
         }
-        return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
       }
-      ret = fchmodat(AT_FDCWD,
+      iret = fchmodat(AT_FDCWD,
                      link_name_prefixed ? link_name_prefixed : link_name,
                      permissions,
                      AT_SYMLINK_NOFOLLOW);
-      if (ret == -1) {
+      if (iret == -1) {
         if (errno == EOPNOTSUPP) {
           fprintf(stderr,
                   "  NOTICE: Setting permissions of symlink is not supported "
@@ -11458,11 +11535,12 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
         (state->parsed->flags & 0x400) ? state->parsed->uid : current_uid,
         (state->parsed->flags & 0x800) ? state->parsed->gid : current_gid);
       int_fast8_t link_create_retry = 0;
+      int iret;
     V4_SYMLINK_CREATE_RETRY_1:
-      ret = symlink(
+      iret = symlink(
         rel_path_prefixed ? rel_path_prefixed : parsed_rel_path,
         link_name_prefixed ? link_name_prefixed : link_name);
-      if (ret == -1) {
+      if (iret == -1) {
         if (link_create_retry) {
           fprintf(
               stderr,
@@ -11485,13 +11563,13 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
             goto V4_SYMLINK_CREATE_RETRY_1;
           }
         }
-        return SDAS_FAILED_TO_EXTRACT_SYMLINK;
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_EXTRACT_SYMLINK);
       }
-      ret = fchmodat(AT_FDCWD,
+      iret = fchmodat(AT_FDCWD,
                      link_name_prefixed ? link_name_prefixed : link_name,
                      permissions,
                      AT_SYMLINK_NOFOLLOW);
-      if (ret == -1) {
+      if (iret == -1) {
         if (errno == EOPNOTSUPP) {
           fprintf(stderr,
                   "  NOTICE: Setting permissions of symlink is not supported "
@@ -11524,7 +11602,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
             fprintf(stderr,
                     "ERROR: Failed to pick uid for link \"%s\"!\n",
                     link_name);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else {
           if (user_remapped_uid) {
@@ -11535,7 +11613,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
             fprintf(stderr,
                     "ERROR: Failed to pick uid for link \"%s\"!\n",
                     link_name);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         }
       } else {
@@ -11558,7 +11636,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
             fprintf(stderr,
                     "ERROR: Failed to pick gid for link \"%s\"!\n",
                     link_name);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else {
           if (group_remapped_gid) {
@@ -11569,7 +11647,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
             fprintf(stderr,
                     "ERROR: Failed to pick gid for link \"%s\"!\n",
                     link_name);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         }
       } else {
@@ -11581,13 +11659,13 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
           picked_gid = gid;
         }
       }
-      ret = fchownat(
+      int iret = fchownat(
           AT_FDCWD,
           link_name_prefixed ? link_name_prefixed : link_name,
           state->parsed->flags & 0x400 ? state->parsed->uid : picked_uid,
           state->parsed->flags & 0x800 ? state->parsed->gid : picked_gid,
           AT_SYMLINK_NOFOLLOW);
-      if (ret == -1) {
+      if (iret == -1) {
         fprintf(stderr,
                 "  WARNING: Failed to force set UID/GID of symlink \"%s\""
                 "(errno %d)!\n",
@@ -11614,14 +11692,14 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
   }
 
   if (fread(&u64, 8, 1, in_f) != 1) {
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
   simple_archiver_helper_64_bit_be(&u64);
 
   const uint64_t chunk_count = u64;
   for (uint64_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
-      return SDAS_SIGINT;
+      return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
@@ -11629,7 +11707,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
             chunk_count);
 
     if (fread(&u64, 8, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_64_bit_be(&u64);
 
@@ -11646,16 +11724,16 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       memset(file_info, 0, sizeof(SDArchiverInternalFileInfo));
 
       if (fread(&u16, 2, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_16_bit_be(&u16);
 
       file_info->filename = malloc(u16 + 1);
-      int ret =
+      SDArchiverStateReturns ret =
           read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
                                 u16 + 1, file_info->filename);
       if (ret != SDAS_SUCCESS) {
-        return ret;
+        return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
 
@@ -11697,11 +11775,11 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       }
 
       if (fread(file_info->bit_flags, 1, 4, in_f) != 4) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
       if (fread(&u32, 4, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_32_bit_be(&u32);
       __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
@@ -11724,7 +11802,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       }
 
       if (fread(&u32, 4, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_32_bit_be(&u32);
       __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
@@ -11747,7 +11825,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       }
 
       if (fread(&u16, 2, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_16_bit_be(&u16);
 
@@ -11756,7 +11834,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
       if (u16 != 0) {
         if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         username[u16] = 0;
         file_info->username = strdup(username);
@@ -11780,7 +11858,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       }
 
       if (fread(&u16, 2, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_16_bit_be(&u16);
 
@@ -11789,7 +11867,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
       if (u16 != 0) {
         if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-          return SDAS_INVALID_FILE;
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         groupname[u16] = 0;
         file_info->groupname = strdup(groupname);
@@ -11877,7 +11955,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       }
 
       if (fread(&u64, 8, 1, in_f) != 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_64_bit_be(&u64);
       file_info->file_size = u64;
@@ -11893,7 +11971,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     }
 
     if (fread(&u64, 1, 8, in_f) != 8) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_64_bit_be(&u64);
 
@@ -11922,21 +12000,21 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       if (state && state->parsed && state->parsed->decompressor) {
@@ -11948,7 +12026,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       } else {
         if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -11959,7 +12037,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
 
@@ -11986,7 +12064,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
                   "WARNING: Exec failed (exec exit code %d)! Invalid "
                   "decompressor cmd?\n",
                   decompressor_return_val);
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       } else if (decompressor_ret == 0) {
         // Probably still running, continue on.
@@ -11995,7 +12073,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
         fprintf(stderr,
                 "WARNING: Exec failed (exec exit code unknown)! Invalid "
                 "decompressor cmd?\n");
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
 
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -12003,7 +12081,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
@@ -12064,13 +12142,13 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              int ret = read_decomp_to_out_file(
+              SDArchiverStateReturns ret = read_decomp_to_out_file(
                   NULL, pipe_outof_read, (char *)buf,
                   SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
                   &pipe_into_write, &chunk_remaining, in_f, hold_buf,
                   &has_hold);
               if (ret != SDAS_SUCCESS) {
-                return ret;
+                return SDA_RET_STRUCT(ret);
               }
               continue;
             }
@@ -12088,7 +12166,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
             (state->parsed->flags & 0x800)
               ? state->parsed->gid
               : file_info->gid);
-          int ret = read_decomp_to_out_file(
+          SDArchiverStateReturns ret = read_decomp_to_out_file(
               filename_prefixed ? filename_prefixed : file_info->filename,
               pipe_outof_read,
               (char *)buf,
@@ -12100,12 +12178,12 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
               hold_buf,
               &has_hold);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions)
                 == -1) {
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -12117,7 +12195,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
                     filename_prefixed
                       ? filename_prefixed
                       : file_info->filename);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
@@ -12147,20 +12225,20 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
                     "    File size: %" PRIu64 "\n",
                     file_info->file_size);
           }
-          int ret = read_decomp_to_out_file(
+          SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
               hold_buf, &has_hold);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         } else {
-          int ret = read_decomp_to_out_file(
+          SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
               hold_buf, &has_hold);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         }
       }
@@ -12174,7 +12252,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     } else {
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
-          return SDAS_SIGINT;
+          return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
@@ -12189,7 +12267,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
 
         const size_t filename_length = strlen(file_info->filename);
@@ -12245,11 +12323,14 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              int ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                              SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                              file_info->file_size, NULL);
+              SDArchiverStateReturns ret =
+                read_buf_full_from_fd(in_f,
+                                      (char *)buf,
+                                      SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                      file_info->file_size,
+                                      NULL);
               if (ret != SDAS_SUCCESS) {
-                return ret;
+                return SDA_RET_STRUCT(ret);
               }
               continue;
             }
@@ -12271,11 +12352,14 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
                                  ? filename_prefixed
                                  : file_info->filename,
                                "wb");
-          int ret = read_fd_to_out_fd(in_f, out_fd, (char *)buf,
-                                      SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                      file_info->file_size);
+          SDArchiverStateReturns ret =
+            read_fd_to_out_fd(in_f,
+                              out_fd,
+                              (char *)buf,
+                              SIMPLE_ARCHIVER_BUFFER_SIZE,
+                              file_info->file_size);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
@@ -12285,7 +12369,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
               stderr,
               "ERROR Failed to set permissions of file \"%s\"!\n",
               filename_prefixed ? filename_prefixed : file_info->filename);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -12296,7 +12380,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
               stderr,
               "    ERROR Failed to set UID/GID of file \"%s\"!\n",
               filename_prefixed ? filename_prefixed : file_info->filename);
-            return SDAS_INTERNAL_ERROR;
+            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
@@ -12326,18 +12410,24 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
                     "    File size: %" PRIu64 "\n",
                     file_info->file_size);
           }
-          int ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                          SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                          file_info->file_size, NULL);
+          SDArchiverStateReturns ret =
+            read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  file_info->file_size,
+                                  NULL);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         } else {
-          int ret = read_buf_full_from_fd(in_f, (char *)buf,
-                                          SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                          file_info->file_size, NULL);
+          SDArchiverStateReturns ret =
+            read_buf_full_from_fd(in_f,
+                                  (char *)buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                  file_info->file_size,
+                                  NULL);
           if (ret != SDAS_SUCCESS) {
-            return ret;
+            return SDA_RET_STRUCT(ret);
           }
         }
       }
@@ -12350,7 +12440,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
   if (fread(&u64, 8, 1, in_f) != 1) {
     fprintf(stderr, "ERROR: Failed to read directory count!\n");
-    return SDAS_INVALID_FILE;
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
   simple_archiver_helper_64_bit_be(&u64);
@@ -12359,7 +12449,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
   for (uint64_t idx = 0; idx < size; ++idx) {
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr, "ERROR: Failed to read directory name length!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     simple_archiver_helper_16_bit_be(&u16);
@@ -12369,7 +12459,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
     if (fread(archive_dir_name, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
       fprintf(stderr, "ERROR: Failed to read directory name!\n");
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     archive_dir_name[u16] = 0;
@@ -12385,7 +12475,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       fprintf(stderr,
               "ERROR: Failed to read permission flags for \"%s\"!\n",
               archive_dir_name);
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     perms_flags[2] = 0;
     perms_flags[3] = 0;
@@ -12394,7 +12484,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     if (fread(&uid, 4, 1, in_f) != 1) {
       fprintf(stderr,
               "ERROR: Failed to read UID for \"%s\"!\n", archive_dir_name);
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&uid);
 
@@ -12402,12 +12492,12 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     if (fread(&gid, 4, 1, in_f) != 1) {
       fprintf(stderr,
               "ERROR: Failed to read GID for \"%s\"!\n", archive_dir_name);
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&gid);
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -12416,7 +12506,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
     if (u16 != 0) {
       if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       username[u16] = 0;
     } else {
@@ -12425,7 +12515,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     }
 
     if (fread(&u16, 2, 1, in_f) != 1) {
-      return SDAS_INVALID_FILE;
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_16_bit_be(&u16);
 
@@ -12434,7 +12524,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
 
     if (u16 != 0) {
       if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
-        return SDAS_INVALID_FILE;
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       groupname[u16] = 0;
     } else {
@@ -12584,7 +12674,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
       fprintf(
         stderr,
         "ERROR: Failed to get abs_path_dir of current working directory!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
 
     __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
@@ -12625,7 +12715,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
         state && (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
       if (ret != 0) {
         fprintf(stderr, "ERROR: Failed to make dirs (%d)!\n", ret);
-        return SDAS_INTERNAL_ERROR;
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
       mode_t perms = simple_archiver_internal_bits_to_mode_t(perms_flags);
       ret = chmod(abs_dir_path,
@@ -12641,7 +12731,7 @@ int simple_archiver_parse_archive_version_4(FILE *in_f,
     }
   }
 
-  return SDAS_SUCCESS;
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],

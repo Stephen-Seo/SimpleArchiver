@@ -57,55 +57,86 @@ typedef enum SDArchiverStateReturns {
   SDAS_TOO_MANY_DIRS
 } SDArchiverStateReturns;
 
+typedef struct SDArchiverStateRetStruct {
+  size_t line;
+  SDArchiverStateReturns ret;
+} SDArchiverStateRetStruct;
+
+#define SDA_RET_STRUCT(enum_val) \
+  (SDArchiverStateRetStruct){.line=__LINE__, .ret=enum_val}
+
 /// Returned pointer must not be freed.
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error);
 
 SDArchiverState *simple_archiver_init_state(const SDArchiverParsed *parsed);
 void simple_archiver_free_state(SDArchiverState **state);
 
-/// Returns zero on success. Otherwise one value from SDArchiverStateReturns
-/// enum.
-int simple_archiver_write_all(FILE *out_f, SDArchiverState *state,
-                              const SDArchiverLinkedList *filenames);
+/// Returns zero in "ret" field on success.
+SDArchiverStateRetStruct simple_archiver_write_all(
+  FILE *out_f,
+  SDArchiverState *state,
+  const SDArchiverLinkedList *filenames);
 
-int simple_archiver_write_v0(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames);
+SDArchiverStateRetStruct simple_archiver_write_v0(
+  FILE *out_f,
+  SDArchiverState *state,
+  const SDArchiverLinkedList *filenames);
 
-int simple_archiver_write_v1(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames);
+SDArchiverStateRetStruct simple_archiver_write_v1(
+  FILE *out_f,
+  SDArchiverState *state,
+  const SDArchiverLinkedList *filenames);
 
-int simple_archiver_write_v2(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames);
+SDArchiverStateRetStruct simple_archiver_write_v2(
+  FILE *out_f,
+  SDArchiverState *state,
+  const SDArchiverLinkedList *filenames);
 
-int simple_archiver_write_v3(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames);
+SDArchiverStateRetStruct simple_archiver_write_v3(
+  FILE *out_f,
+  SDArchiverState *state,
+  const SDArchiverLinkedList *filenames);
 
-int simple_archiver_write_v4(FILE *out_f, SDArchiverState *state,
-                             const SDArchiverLinkedList *filenames);
+SDArchiverStateRetStruct simple_archiver_write_v4(
+  FILE *out_f,
+  SDArchiverState *state,
+  const SDArchiverLinkedList *filenames);
 
-/// Returns zero on success.
-int simple_archiver_parse_archive_info(FILE *in_f, int_fast8_t do_extract,
-                                       const SDArchiverState *state);
+/// Returns zero in "ret" field on success.
+SDArchiverStateRetStruct simple_archiver_parse_archive_info(
+  FILE *in_f,
+  int_fast8_t do_extract,
+  const SDArchiverState *state);
 
-/// Returns zero on success.
-int simple_archiver_parse_archive_version_0(FILE *in_f, int_fast8_t do_extract,
-                                            const SDArchiverState *state);
+/// Returns zero in "ret" field on success.
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
+  FILE *in_f,
+  int_fast8_t do_extract,
+  const SDArchiverState *state);
 
-/// Returns zero on success.
-int simple_archiver_parse_archive_version_1(FILE *in_f, int_fast8_t do_extract,
-                                            const SDArchiverState *state);
+/// Returns zero in "ret" field on success.
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
+  FILE *in_f,
+  int_fast8_t do_extract,
+  const SDArchiverState *state);
 
-/// Returns zero on success.
-int simple_archiver_parse_archive_version_2(FILE *in_f, int_fast8_t do_extract,
-                                            const SDArchiverState *state);
+/// Returns zero in "ret" field on success.
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
+  FILE *in_f,
+  int_fast8_t do_extract,
+  const SDArchiverState *state);
 
-/// Returns zero on success.
-int simple_archiver_parse_archive_version_3(FILE *in_f, int_fast8_t do_extract,
-                                            const SDArchiverState *state);
+/// Returns zero in "ret" field on success.
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
+  FILE *in_f,
+  int_fast8_t do_extract,
+  const SDArchiverState *state);
 
-/// Returns zero on success.
-int simple_archiver_parse_archive_version_4(FILE *in_f, int_fast8_t do_extract,
-                                            const SDArchiverState *state);
+/// Returns zero in "ret" field on success.
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
+  FILE *in_f,
+  int_fast8_t do_extract,
+  const SDArchiverState *state);
 
 /// Returns zero on success.
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
