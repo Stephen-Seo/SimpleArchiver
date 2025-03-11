@@ -1129,10 +1129,10 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
                 memcpy(hold_buf, buf, fread_ret);
                 return SDAS_SUCCESS;
               } else {
-                return SDAS_INTERNAL_ERROR;
+                return SDAS_DECOMPRESSION_ERROR;
               }
             } else if (write_ret == 0) {
-              return SDAS_INTERNAL_ERROR;
+              return SDAS_DECOMPRESSION_ERROR;
             } else if ((size_t)write_ret < fread_ret) {
               *chunk_remaining -= (size_t)write_ret;
               *has_hold = (ssize_t)fread_ret - write_ret;
@@ -1148,10 +1148,10 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
               return SDAS_SUCCESS;
             } else {
-              return SDAS_INTERNAL_ERROR;
+              return SDAS_DECOMPRESSION_ERROR;
             }
           } else if (write_ret == 0) {
-            return SDAS_INTERNAL_ERROR;
+            return SDAS_DECOMPRESSION_ERROR;
           } else if (write_ret < *has_hold) {
             *chunk_remaining -= (size_t)write_ret;
             memcpy(buf, hold_buf + write_ret, (size_t)(*has_hold - write_ret));
@@ -1176,10 +1176,10 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
                 memcpy(hold_buf, buf, fread_ret);
                 return SDAS_SUCCESS;
               } else {
-                return SDAS_INTERNAL_ERROR;
+                return SDAS_DECOMPRESSION_ERROR;
               }
             } else if (write_ret == 0) {
-              return SDAS_INTERNAL_ERROR;
+              return SDAS_DECOMPRESSION_ERROR;
             } else if ((size_t)write_ret < fread_ret) {
               *chunk_remaining -= (size_t)write_ret;
               *has_hold = (ssize_t)fread_ret - write_ret;
@@ -1188,7 +1188,7 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
             } else if ((size_t)write_ret <= *chunk_remaining) {
               *chunk_remaining -= (size_t)write_ret;
             } else {
-              return SDAS_INTERNAL_ERROR;
+              return SDAS_DECOMPRESSION_ERROR;
             }
           }
         } else {
@@ -1197,10 +1197,10 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
               return SDAS_SUCCESS;
             } else {
-              return SDAS_INTERNAL_ERROR;
+              return SDAS_DECOMPRESSION_ERROR;
             }
           } else if (write_ret == 0) {
-            return SDAS_INTERNAL_ERROR;
+            return SDAS_DECOMPRESSION_ERROR;
           } else if (write_ret < *has_hold) {
             *chunk_remaining -= (size_t)write_ret;
             memcpy(buf, hold_buf + write_ret, (size_t)(*has_hold - write_ret));
@@ -1243,7 +1243,7 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
     if (!out_fd) {
       fprintf(stderr, "ERROR Failed to open \"%s\" for writing!\n",
               out_filename);
-      return SDAS_INTERNAL_ERROR;
+      return SDAS_FILE_CREATE_FAIL;
     }
   }
 
@@ -1253,7 +1253,7 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
   while (written_amt < file_size) {
     if (is_sig_pipe_occurred) {
       fprintf(stderr, "ERROR: SIGPIPE while decompressing!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDAS_DECOMPRESSION_ERROR;
     }
     SDArchiverStateReturns ret =
       try_write_to_decomp(to_dec_pipe,
@@ -1267,7 +1267,7 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
       return ret;
     } else if (is_sig_pipe_occurred) {
       fprintf(stderr, "ERROR: SIGPIPE while decompressing!\n");
-      return SDAS_INTERNAL_ERROR;
+      return SDAS_DECOMPRESSION_ERROR;
     } else if (file_size - written_amt >= read_buf_size) {
       read_ret = read(in_pipe, read_buf, read_buf_size);
       if (read_ret > 0) {
@@ -1277,12 +1277,12 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
             written_amt += fwrite_ret;
           } else if (ferror(out_fd)) {
             fprintf(stderr, "ERROR Failed to write decompressed data!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDAS_DECOMPRESSION_ERROR;
           } else {
             fprintf(
                 stderr,
                 "ERROR Failed to write decompressed data (invalid state)!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDAS_DECOMPRESSION_ERROR;
           }
         } else {
           written_amt += (size_t)read_ret;
@@ -1292,7 +1292,7 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         if (written_amt < file_size) {
           fprintf(stderr,
                   "ERROR Decompressed EOF while file needs more bytes!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDAS_DECOMPRESSION_ERROR;
         } else {
           break;
         }
@@ -1305,7 +1305,7 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
           // Error.
           fprintf(stderr, "ERROR Failed to read from decompressor! (%zu)\n",
                   read_ret);
-          return SDAS_INTERNAL_ERROR;
+          return SDAS_DECOMPRESSION_ERROR;
         }
       }
     } else {
@@ -1317,12 +1317,12 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
             written_amt += fwrite_ret;
           } else if (ferror(out_fd)) {
             fprintf(stderr, "ERROR Failed to write decompressed data!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDAS_DECOMPRESSION_ERROR;
           } else {
             fprintf(
                 stderr,
                 "ERROR Failed to write decompressed data (invalid state)!\n");
-            return SDAS_INTERNAL_ERROR;
+            return SDAS_DECOMPRESSION_ERROR;
           }
         } else {
           written_amt += (size_t)read_ret;
@@ -1332,7 +1332,7 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         if (written_amt < file_size) {
           fprintf(stderr,
                   "ERROR Decompressed EOF while file needs more bytes!\n");
-          return SDAS_INTERNAL_ERROR;
+          return SDAS_DECOMPRESSION_ERROR;
         } else {
           break;
         }
@@ -1345,13 +1345,13 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
           // Error.
           fprintf(stderr, "ERROR Failed to read from decompressor! (%d)\n",
                   errno);
-          return SDAS_INTERNAL_ERROR;
+          return SDAS_DECOMPRESSION_ERROR;
         }
       }
     }
   }
 
-  return written_amt == file_size ? SDAS_SUCCESS : SDAS_INTERNAL_ERROR;
+  return written_amt == file_size ? SDAS_SUCCESS : SDAS_DECOMPRESSION_ERROR;
 }
 
 void free_internal_file_info(void *data) {
@@ -2174,6 +2174,22 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
       return "Interrupt signal SIGINT recieved";
     case SDAS_TOO_MANY_DIRS:
       return "Too many directories (limit is 2^32)";
+    case SDAS_COMPRESSION_ERROR:
+      return "Error during compression";
+    case SDAS_DECOMPRESSION_ERROR:
+      return "Error during decompression";
+    case SDAS_NON_DEC_EXTRACT_ERROR:
+      return "Error during extraction of non-compressed data";
+    case SDAS_FILE_CREATE_FAIL:
+      return "Failed to create file for writing";
+    case SDAS_COMPRESSED_WRITE_FAIL:
+      return "Failed to write compressed data";
+    case SDAS_DIR_ENTRY_WRITE_FAIL:
+      return "Failed to store directory information";
+    case SDAS_PERMISSION_SET_FAIL:
+      return "Failed to set permissions";
+    case SDAS_UID_GID_SET_FAIL:
+      return "Failed to set ownership";
     default:
       return "Unknown error";
   }
@@ -3056,7 +3072,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         if (!temp_fd) {
           fprintf(stderr,
                   "ERROR: Failed to create a temporary file for archival!\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
         }
       }
 
@@ -3072,26 +3088,26 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (pipe(pipe_outof_cmd) != 0) {
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                              state->parsed->compressor,
                                              &compressor_pid) != 0) {
@@ -3100,7 +3116,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         close(pipe_outof_cmd[0]);
         fprintf(stderr,
                 "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       }
 
       // Close unnecessary pipe fds on this end of the transfer.
@@ -3140,13 +3156,13 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         while (!to_comp_finished) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
           }
           if (!to_comp_finished) {
             // Write to compressor.
             if (ferror(fd)) {
               fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
             if (has_hold < 0) {
               size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
@@ -3186,7 +3202,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
                   // Non-blocking write.
                   nanosleep(&nonblock_sleep, NULL);
                 } else {
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
                 }
               } else if (write_ret < has_hold) {
                 memcpy(buf, hold_buf + write_ret,
@@ -3194,7 +3210,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
                 memcpy(hold_buf, buf, (size_t)(has_hold - write_ret));
                 has_hold = has_hold - write_ret;
               } else if (write_ret != has_hold) {
-                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
               } else {
                 has_hold = -1;
               }
@@ -3211,7 +3227,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -3222,7 +3238,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           }
         }
@@ -3235,7 +3251,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         while (1) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
           }
           ssize_t read_ret =
               read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
@@ -3246,7 +3262,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -3257,7 +3273,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           }
         }
@@ -3267,7 +3283,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
       if (comp_chunk_size < 0) {
         fprintf(stderr,
                 "ERROR: Temp file reported negative size after compression!\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       }
 
       // Write compressed chunk size.
@@ -3286,7 +3302,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
         } else if (ferror(temp_fd)) {
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
         }
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
@@ -3336,7 +3352,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         while (!feof(fd)) {
           if (ferror(fd)) {
             fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
           }
           size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
           if (fread_ret > 0) {
@@ -4031,7 +4047,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         if (!temp_fd) {
           fprintf(stderr,
                   "ERROR: Failed to create a temporary file for archival!\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
         }
       }
 
@@ -4047,26 +4063,26 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (pipe(pipe_outof_cmd) != 0) {
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                              state->parsed->compressor,
                                              &compressor_pid) != 0) {
@@ -4075,7 +4091,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         close(pipe_outof_cmd[0]);
         fprintf(stderr,
                 "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       }
 
       // Close unnecessary pipe fds on this end of the transfer.
@@ -4115,13 +4131,13 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         while (!to_comp_finished) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
           }
           if (!to_comp_finished) {
             // Write to compressor.
             if (ferror(fd)) {
               fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
             if (has_hold < 0) {
               size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
@@ -4161,7 +4177,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
                   // Non-blocking write.
                   nanosleep(&nonblock_sleep, NULL);
                 } else {
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
                 }
               } else if (write_ret < has_hold) {
                 memcpy(buf, hold_buf + write_ret,
@@ -4169,7 +4185,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
                 memcpy(hold_buf, buf, (size_t)(has_hold - write_ret));
                 has_hold = has_hold - write_ret;
               } else if (write_ret != has_hold) {
-                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
               } else {
                 has_hold = -1;
               }
@@ -4186,7 +4202,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -4197,7 +4213,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           }
         }
@@ -4210,7 +4226,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         while (1) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
           }
           ssize_t read_ret =
               read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
@@ -4221,7 +4237,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -4232,7 +4248,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           }
         }
@@ -4242,7 +4258,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
       if (comp_chunk_size < 0) {
         fprintf(stderr,
                 "ERROR: Temp file reported negative size after compression!\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       }
 
       // Write compressed chunk size.
@@ -4261,7 +4277,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
         } else if (ferror(temp_fd)) {
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
         }
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
@@ -4352,7 +4368,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
                                internal_write_dir_entries_v2_v3_v4,
                                void_ptrs)) {
     free(void_ptrs);
-    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+    return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
   }
   free(void_ptrs);
 
@@ -5265,7 +5281,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         if (!temp_fd) {
           fprintf(stderr,
                   "ERROR: Failed to create a temporary file for archival!\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
         }
       }
 
@@ -5281,26 +5297,26 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (pipe(pipe_outof_cmd) != 0) {
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                              state->parsed->compressor,
                                              &compressor_pid) != 0) {
@@ -5309,7 +5325,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         close(pipe_outof_cmd[0]);
         fprintf(stderr,
                 "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       }
 
       // Close unnecessary pipe fds on this end of the transfer.
@@ -5349,13 +5365,13 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         while (!to_comp_finished) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
           }
           if (!to_comp_finished) {
             // Write to compressor.
             if (ferror(fd)) {
               fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
             if (has_hold < 0) {
               size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
@@ -5395,7 +5411,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
                   // Non-blocking write.
                   nanosleep(&nonblock_sleep, NULL);
                 } else {
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
                 }
               } else if (write_ret < has_hold) {
                 memcpy(buf, hold_buf + write_ret,
@@ -5403,7 +5419,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
                 memcpy(hold_buf, buf, (size_t)(has_hold - write_ret));
                 has_hold = has_hold - write_ret;
               } else if (write_ret != has_hold) {
-                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
               } else {
                 has_hold = -1;
               }
@@ -5420,7 +5436,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -5431,7 +5447,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           }
         }
@@ -5444,7 +5460,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         while (1) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
           }
           ssize_t read_ret =
               read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
@@ -5455,7 +5471,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -5466,7 +5482,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           }
         }
@@ -5476,7 +5492,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
       if (comp_chunk_size < 0) {
         fprintf(stderr,
                 "ERROR: Temp file reported negative size after compression!\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       }
 
       // Write compressed chunk size.
@@ -5495,7 +5511,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
         } else if (ferror(temp_fd)) {
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
         }
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
@@ -5585,7 +5601,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
                                internal_write_dir_entries_v2_v3_v4,
                                void_ptrs)) {
     free(void_ptrs);
-    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+    return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
   }
   free(void_ptrs);
 
@@ -6437,7 +6453,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
         if (!temp_fd) {
           fprintf(stderr,
                   "ERROR: Failed to create a temporary file for archival!\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
         }
       }
 
@@ -6453,26 +6469,26 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
 
       if (pipe(pipe_into_cmd) != 0) {
         // Unable to create pipes.
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (pipe(pipe_outof_cmd) != 0) {
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       } else if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                              state->parsed->compressor,
                                              &compressor_pid) != 0) {
@@ -6481,7 +6497,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
         close(pipe_outof_cmd[0]);
         fprintf(stderr,
                 "WARNING: Failed to start compressor cmd! Invalid cmd?\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       }
 
       // Close unnecessary pipe fds on this end of the transfer.
@@ -6521,13 +6537,13 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
         while (!to_comp_finished) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
           }
           if (!to_comp_finished) {
             // Write to compressor.
             if (ferror(fd)) {
               fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
             if (has_hold < 0) {
               size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, fd);
@@ -6567,7 +6583,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
                   // Non-blocking write.
                   nanosleep(&nonblock_sleep, NULL);
                 } else {
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
                 }
               } else if (write_ret < has_hold) {
                 memcpy(buf, hold_buf + write_ret,
@@ -6575,7 +6591,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
                 memcpy(hold_buf, buf, (size_t)(has_hold - write_ret));
                 has_hold = has_hold - write_ret;
               } else if (write_ret != has_hold) {
-                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
               } else {
                 has_hold = -1;
               }
@@ -6592,7 +6608,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -6603,7 +6619,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
             }
           }
         }
@@ -6616,7 +6632,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
         while (1) {
           if (is_sig_pipe_occurred) {
             fprintf(stderr, "ERROR: SIGPIPE while compressing!\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
           }
           ssize_t read_ret =
               read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
@@ -6627,7 +6643,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
             } else {
               fprintf(stderr,
                       "ERROR: Reading from compressor, pipe read error!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
             }
           } else if (read_ret == 0) {
             // EOF.
@@ -6638,7 +6654,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
               fprintf(stderr,
                       "ERROR: Reading from compressor, failed to write to "
                       "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
             }
           }
         }
@@ -6648,7 +6664,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
       if (comp_chunk_size < 0) {
         fprintf(stderr,
                 "ERROR: Temp file reported negative size after compression!\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
       }
 
       // Write compressed chunk size.
@@ -6667,7 +6683,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
         } else if (ferror(temp_fd)) {
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
         }
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
@@ -6757,7 +6773,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
                                internal_write_dir_entries_v2_v3_v4,
                                void_ptrs)) {
     free(void_ptrs);
-    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+    return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
   }
   free(void_ptrs);
 
@@ -7294,21 +7310,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
             // Unable to create second set of pipes.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
           } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
             // Unable to set non-blocking on into-write-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
             close(pipe_outof_cmd[1]);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
           } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
             // Unable to set non-blocking on outof-read-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
             close(pipe_outof_cmd[1]);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
           }
 
           if (state && state->parsed && state->parsed->decompressor) {
@@ -7321,7 +7337,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               fprintf(
                   stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
             }
           } else {
             if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -7333,7 +7349,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               fprintf(
                   stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
             }
           }
 
@@ -7353,7 +7369,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                       "WARNING: Exec failed (exec exit code %d)! Invalid "
                       "decompressor cmd?\n",
                       decompressor_return_val);
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
             }
           } else if (decompressor_ret == 0) {
             // Probably still running, continue on.
@@ -7362,7 +7378,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
             fprintf(stderr,
                     "WARNING: Exec failed (exec exit code unknown)! Invalid "
                     "decompressor cmd?\n");
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
           }
 
           uint64_t compressed_file_size = u64;
@@ -7387,7 +7403,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               fprintf(stderr,
                       "WARNING: Failed to write to decompressor (SIGPIPE)! "
                       "Invalid decompressor cmd?\n");
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
             }
 
             // Read from file.
@@ -7424,14 +7440,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                     fprintf(stderr,
                             "WARNING: Failed to write to decompressor! Invalid "
                             "decompressor cmd?\n");
-                    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                    return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
                   }
                 } else {
                   // Should be unreachable, error.
                   fprintf(stderr,
                           "WARNING: Failed to write to decompressor! Invalid "
                           "decompressor cmd?\n");
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
                 }
               }
             }
@@ -7450,13 +7466,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                   fprintf(stderr,
                           "WARNING: Failed to read from decompressor! Invalid "
                           "decompressor cmd?\n");
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
                 } else {
                   // Invalid state, error.
                   fprintf(stderr,
                           "WARNING: Failed to read from decompressor! Invalid "
                           "decompressor cmd?\n");
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
                 }
               } else if (read_ret == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -7467,7 +7483,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                   fprintf(stderr,
                           "WARNING: Failed to read from decompressor! Invalid "
                           "decompressor cmd?\n");
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
                 }
               } else if (read_ret == 0) {
                 // EOF.
@@ -7480,7 +7496,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                 fprintf(stderr,
                         "WARNING: Failed to read from decompressor! Invalid "
                         "decompressor cmd?\n");
-                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
               }
             }
           }
@@ -7501,13 +7517,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, in_f);
               if (ferror(in_f)) {
                 // Error.
-                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                return SDA_RET_STRUCT(SDAS_NON_DEC_EXTRACT_ERROR);
               }
               if (out_f) {
                 fwrite(buf, 1, fread_ret, out_f);
                 if (ferror(out_f)) {
                   // Error.
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_NON_DEC_EXTRACT_ERROR);
                 }
               }
               compressed_file_size -= fread_ret;
@@ -7515,13 +7531,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               fread_ret = fread(buf, 1, compressed_file_size, in_f);
               if (ferror(in_f)) {
                 // Error.
-                return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                return SDA_RET_STRUCT(SDAS_NON_DEC_EXTRACT_ERROR);
               }
               if (out_f) {
                 fwrite(buf, 1, fread_ret, out_f);
                 if (ferror(out_f)) {
                   // Error.
-                  return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  return SDA_RET_STRUCT(SDAS_NON_DEC_EXTRACT_ERROR);
                 }
               }
               compressed_file_size -= fread_ret;
@@ -7534,7 +7550,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                     : (const char *)out_f_name,
                   permissions) == -1) {
           // Error.
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
         }
 
         ptrs_array[0] = NULL;
@@ -7548,14 +7564,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
             if (read_ret > 0) {
               u64 -= read_ret;
             } else if (ferror(in_f)) {
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_INVALID_FILE);
             }
           } else {
             size_t read_ret = fread(buf, 1, u64, in_f);
             if (read_ret > 0) {
               u64 -= read_ret;
             } else if (ferror(in_f)) {
-              return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+              return SDA_RET_STRUCT(SDAS_INVALID_FILE);
             }
           }
         }
@@ -8597,21 +8613,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       }
 
       if (state && state->parsed && state->parsed->decompressor) {
@@ -8623,7 +8639,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
         }
       } else {
         if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -8634,7 +8650,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
         }
       }
 
@@ -8661,7 +8677,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                   "WARNING: Exec failed (exec exit code %d)! Invalid "
                   "decompressor cmd?\n",
                   decompressor_return_val);
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
         }
       } else if (decompressor_ret == 0) {
         // Probably still running, continue on.
@@ -8670,7 +8686,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         fprintf(stderr,
                 "WARNING: Exec failed (exec exit code unknown)! Invalid "
                 "decompressor cmd?\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       }
 
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -8780,7 +8796,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions)
                 == -1) {
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -8792,7 +8808,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     filename_prefixed
                       ? filename_prefixed
                       : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if (!skip_due_to_map
                    && (file_info->other_flags & 1) == 0
@@ -8853,7 +8869,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
 
         const size_t filename_length = strlen(file_info->filename);
@@ -8953,7 +8969,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     filename_prefixed
                       ? filename_prefixed
                       : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -8963,7 +8979,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
                     file_info->filename);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if (!skip_due_to_map
                    && (file_info->other_flags & 1) == 0
@@ -9029,7 +9045,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
   uint32_t u32;
   if (fread(&u32, 4, 1, in_f) != 1) {
     fprintf(stderr, "ERROR: Failed to read directory count!\n");
-    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+    return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
   simple_archiver_helper_32_bit_be(&u32);
@@ -9042,7 +9058,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
   for (uint32_t idx = 0; idx < size; ++idx) {
     if (fread(&u16, 2, 1, in_f) != 1) {
       fprintf(stderr, "ERROR: Failed to read directory name length!\n");
-      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     simple_archiver_helper_16_bit_be(&u16);
@@ -9051,7 +9067,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
 
     if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
       fprintf(stderr, "ERROR: Failed to read directory name!\n");
-      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     buf[u16] = 0;
@@ -9067,7 +9083,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
       fprintf(stderr,
               "ERROR: Failed to read permission flags for \"%s\"!\n",
               buf);
-      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     perms_flags[2] = 0;
     perms_flags[3] = 0;
@@ -9076,7 +9092,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
     if (fread(&uid, 4, 1, in_f) != 1) {
       fprintf(stderr,
               "ERROR: Failed to read UID for \"%s\"!\n", buf);
-      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&uid);
 
@@ -9084,7 +9100,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
     if (fread(&gid, 4, 1, in_f) != 1) {
       fprintf(stderr,
               "ERROR: Failed to read GID for \"%s\"!\n", buf);
-      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
     simple_archiver_helper_32_bit_be(&gid);
 
@@ -10260,21 +10276,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       }
 
       if (state && state->parsed && state->parsed->decompressor) {
@@ -10286,7 +10302,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
         }
       } else {
         if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -10297,7 +10313,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
         }
       }
 
@@ -10324,7 +10340,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                   "WARNING: Exec failed (exec exit code %d)! Invalid "
                   "decompressor cmd?\n",
                   decompressor_return_val);
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
         }
       } else if (decompressor_ret == 0) {
         // Probably still running, continue on.
@@ -10333,7 +10349,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         fprintf(stderr,
                 "WARNING: Exec failed (exec exit code unknown)! Invalid "
                 "decompressor cmd?\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       }
 
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -10443,7 +10459,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions)
                 == -1) {
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -10455,7 +10471,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                     filename_prefixed
                       ? filename_prefixed
                       : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
@@ -10527,7 +10543,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
 
         const size_t filename_length = strlen(file_info->filename);
@@ -10629,7 +10645,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               stderr,
               "ERROR Failed to set permissions of file \"%s\"!\n",
               filename_prefixed ? filename_prefixed : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -10640,7 +10656,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               stderr,
               "    ERROR Failed to set UID/GID of file \"%s\"!\n",
               filename_prefixed ? filename_prefixed : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
@@ -12000,21 +12016,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
         // Unable to create second set of pipes.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       }
 
       if (state && state->parsed && state->parsed->decompressor) {
@@ -12026,7 +12042,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
         }
       } else {
         if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
@@ -12037,7 +12053,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
                   "WARNING: Failed to start decompressor cmd! Invalid cmd?\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
         }
       }
 
@@ -12064,7 +12080,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                   "WARNING: Exec failed (exec exit code %d)! Invalid "
                   "decompressor cmd?\n",
                   decompressor_return_val);
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
         }
       } else if (decompressor_ret == 0) {
         // Probably still running, continue on.
@@ -12073,7 +12089,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
         fprintf(stderr,
                 "WARNING: Exec failed (exec exit code unknown)! Invalid "
                 "decompressor cmd?\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
       }
 
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -12183,7 +12199,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
           if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
                     permissions)
                 == -1) {
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -12195,7 +12211,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                     filename_prefixed
                       ? filename_prefixed
                       : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
@@ -12267,7 +12283,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
         chunk_idx += file_info->file_size;
         if (chunk_idx > chunk_size) {
           fprintf(stderr, "ERROR Files in chunk is larger than chunk!\n");
-          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
 
         const size_t filename_length = strlen(file_info->filename);
@@ -12369,7 +12385,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
               stderr,
               "ERROR Failed to set permissions of file \"%s\"!\n",
               filename_prefixed ? filename_prefixed : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
                      chown(filename_prefixed
                              ? filename_prefixed
@@ -12380,7 +12396,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
               stderr,
               "    ERROR Failed to set UID/GID of file \"%s\"!\n",
               filename_prefixed ? filename_prefixed : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+            return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if (!skip_due_to_map
             && (file_info->other_flags & 1) == 0
