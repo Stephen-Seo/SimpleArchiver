@@ -3307,7 +3307,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
           size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
-          written_size += fread_ret;
+          written_size += fwrite_ret;
           if (fwrite_ret != fread_ret) {
             fprintf(stderr,
                     "ERROR: Partial write of read bytes from temp file to "
@@ -4282,7 +4282,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
           size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
-          written_size += fread_ret;
+          written_size += fwrite_ret;
           if (fwrite_ret != fread_ret) {
             fprintf(stderr,
                     "ERROR: Partial write of read bytes from temp file to "
@@ -5516,7 +5516,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
           size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
-          written_size += fread_ret;
+          written_size += fwrite_ret;
           if (fwrite_ret != fread_ret) {
             fprintf(stderr,
                     "ERROR: Partial write of read bytes from temp file to "
@@ -6688,7 +6688,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
         size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
         if (fread_ret > 0) {
           size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
-          written_size += fread_ret;
+          written_size += fwrite_ret;
           if (fwrite_ret != fread_ret) {
             fprintf(stderr,
                     "ERROR: Partial write of read bytes from temp file to "
