@@ -2,6 +2,13 @@
 
 ## Upcoming Changes
 
+## Version 1.19
+
+Fix bug where writes fail sometimes (due to checking against wrong byte count
+(read instead of write)).
+
+Refactoring of error handling.
+
 ## Version 1.18
 
 Add file format version 4 to support more than 4 billion symlinks, and more
