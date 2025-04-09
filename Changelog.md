@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Need to fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
 ## Version 1.19
 
 Fix bug where writes fail sometimes (due to checking against wrong byte count
