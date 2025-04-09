@@ -5,7 +5,7 @@
 ## Version 1.19
 
 Fix bug where writes fail sometimes (due to checking against wrong byte count
-(read instead of write)).
+(read instead of write)). This can cause creation of archives to fail.
 
 Refactoring of error handling.
 
