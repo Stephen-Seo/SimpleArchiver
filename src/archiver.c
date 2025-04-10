@@ -6627,6 +6627,14 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
         }
       }
 
+      const int existing_pipe_flags = fcntl(pipe_into_write, F_GETFL);
+      const int existing_pipe_flags_blocking =
+        existing_pipe_flags & ~O_NONBLOCK;
+      if (fcntl(pipe_into_write, F_SETFL, existing_pipe_flags_blocking) == -1) {
+        fprintf(stderr,
+                "ERROR: Unable to remove non-blocking on into-write-pipe!\n");
+        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
+      }
       simple_archiver_internal_cleanup_int_fd(&pipe_into_write);
 
       // Finish writing.
