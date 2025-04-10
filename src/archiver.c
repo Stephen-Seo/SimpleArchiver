@@ -185,14 +185,14 @@ int write_files_fn_file_v0(void *data, void *ud) {
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return 1;
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return 1;
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -3094,14 +3094,14 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -4069,14 +4069,14 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -5303,14 +5303,14 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -6475,15 +6475,17 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
-        // Unable to set non-blocking on into-write-pipe.
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
+        fprintf(stderr,
+                "ERROR: Unable to set non-blocking on into-write-pipe!\n");
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
-        // Unable to set non-blocking on outof-read-pipe.
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
+        fprintf(stderr,
+                "ERROR: Unable to set non-blocking on outof-read-pipe!\n");
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
@@ -7311,14 +7313,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-          } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+          } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
             // Unable to set non-blocking on into-write-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
             close(pipe_outof_cmd[1]);
             return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-          } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+          } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
             // Unable to set non-blocking on outof-read-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
@@ -8614,14 +8616,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -10277,14 +10279,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -12017,14 +12019,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
