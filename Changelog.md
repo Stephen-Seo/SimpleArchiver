@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+TODO: Refactor the priority heap data structure.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
@@ -9,6 +11,9 @@
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
 ## Version 1.20
+
+Fix errors for file format 4 archive creation when file/chunk/directory counts
+were actually larger than 32-bits.
 
 Fix erronous usage of return value from `fcntl(...)`.
 
