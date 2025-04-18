@@ -2,9 +2,13 @@
 
 ## Upcoming Changes
 
-Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
-
 Fix erronous usage of return value from `fcntl(...)`.
+
+## Alternate Changes
+
+(Alternate Changes are changes that are not in `main` or `dev`.)
+
+Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
 ## Version 1.19
 
