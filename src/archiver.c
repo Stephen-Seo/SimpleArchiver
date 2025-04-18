@@ -256,7 +256,7 @@ int write_files_fn_file_v0(void *data, void *ud) {
       int_fast8_t write_again = 0;
       int_fast8_t write_done = 0;
       int_fast8_t read_done = 0;
-      size_t write_count;
+      size_t write_count = 0;
       size_t read_count;
       ssize_t ret;
       while (!write_done || !read_done) {
