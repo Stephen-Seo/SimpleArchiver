@@ -6237,10 +6237,6 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
     uint64_t count = 0;
     for (SDArchiverLLNode *node = chunk_counts->head->next;
          node != chunk_counts->tail; node = node->next) {
-      if (*((uint64_t *)node->data) > 0xFFFFFFFF) {
-        fprintf(stderr, "ERROR: file count in chunk is too large!\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
-      }
       count += *((uint64_t *)node->data);
     }
     if (count != files_list->count) {
@@ -6780,11 +6776,6 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
   }
 
   // Write directory entries.
-
-  if (dirs_list->count > 0xFFFFFFFF) {
-    return SDA_RET_STRUCT(SDAS_TOO_MANY_DIRS);
-  }
-
   u64 = dirs_list->count;
   if (u64 != 0) {
     fprintf(stderr, "Directories:\n");
