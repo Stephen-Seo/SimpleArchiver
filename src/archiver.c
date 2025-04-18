@@ -93,14 +93,16 @@ int write_list_datas_fn(void *data, void *ud) {
   FILE *out_f = ud;
 
   // Handling in case of 32-bit system, but this function probably will never
-  // have to write more than 0xFFFFFFFF bytes (2^32 - 1).
+  // have to write more than 0x7FFFFFFF bytes (2^31 - 1).
+  // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
+  // compiling for 32-bit systems.
   uint64_t temp = to_write->size;
   char *buf_ptr = to_write->buf;
   while (temp > 0) {
-    if (sizeof(uintptr_t) == 4 && temp > 0xFFFFFFFF) {
-      fwrite(buf_ptr, 1, 0xFFFFFFFF, out_f);
-      temp -= 0xFFFFFFFF;
-      buf_ptr += 0xFFFFFFFF;
+    if (sizeof(uintptr_t) == 4 && temp > 0x7FFFFFFF) {
+      fwrite(buf_ptr, 1, 0x7FFFFFFF, out_f);
+      temp -= 0x7FFFFFFF;
+      buf_ptr += 0x7FFFFFFF;
     } else {
       fwrite(buf_ptr, 1, (size_t)temp, out_f);
       temp = 0;
@@ -1182,9 +1184,11 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
         if (*has_hold < 0) {
           // Handling for 32-bit systems.
           // size_t and uintptr_t is 4 bytes on 32-bit systems.
+          // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
+          // compiling for 32-bit systems.
           size_t fread_ret;
-          if (sizeof(uintptr_t) == 4 && *chunk_remaining > 0xFFFFFFFF) {
-            fread_ret = fread(buf, 1, 0xFFFFFFFF, in_f);
+          if (sizeof(uintptr_t) == 4 && *chunk_remaining > 0x7FFFFFFF) {
+            fread_ret = fread(buf, 1, 0x7FFFFFFF, in_f);
           } else {
             fread_ret = fread(buf, 1, (size_t)*chunk_remaining, in_f);
           }
@@ -1333,9 +1337,11 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
     } else {
       // Handling for 32-bit systems.
       // size_t and uintptr_t is 4 bytes on 32-bit systems.
+      // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
+      // compiling for 32-bit systems.
       uint64_t read_amount = file_size - written_amt;
-      if (sizeof(uintptr_t) == 4 && read_amount > 0xFFFFFFFF) {
-        read_ret = read(in_pipe, read_buf, 0xFFFFFFFF);
+      if (sizeof(uintptr_t) == 4 && read_amount > 0x7FFFFFFF) {
+        read_ret = read(in_pipe, read_buf, 0x7FFFFFFF);
       } else {
         read_ret = read(in_pipe, read_buf, (size_t)read_amount);
       }
