@@ -314,8 +314,8 @@ char *simple_archiver_helper_cut_substr(const char *s, size_t start_idx,
   }
 }
 
-size_t simple_archiver_helper_num_digits(size_t value) {
-  size_t digits = 0;
+uint64_t simple_archiver_helper_num_digits(uint64_t value) {
+  uint64_t digits = 0;
   do {
     ++digits;
     value /= 10;

@@ -2,13 +2,24 @@
 
 ## Upcoming Changes
 
-Fix erronous usage of return value from `fcntl(...)`.
+TODO: Refactor the priority heap data structure.
 
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 1.20
+
+Fix errors for file format 4 archive creation when file/chunk/directory counts
+were actually larger than 32-bits.
+
+Fix erronous usage of return value from `fcntl(...)`.
+
+Cleanup of warnings that show when building for 32-bit systems, including
+integer conversions between `size_t` and `uint64_t` (`size_t` is 4 bytes on
+32-bit systems and 8 bytes on 64-bit systems).
 
 ## Version 1.19
 

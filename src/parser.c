@@ -1077,7 +1077,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
           file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
           ssize_t count = readlinkat(AT_FDCWD, filename, file_info->link_dest,
                                      MAX_SYMBOLIC_LINK_SIZE - 1);
-          if (count >= MAX_SYMBOLIC_LINK_SIZE - 1) {
+          if (count >= (ssize_t)MAX_SYMBOLIC_LINK_SIZE - 1) {
             file_info->link_dest[MAX_SYMBOLIC_LINK_SIZE - 1] = 0;
           } else if (count > 0) {
             file_info->link_dest[count] = 0;
@@ -1181,7 +1181,7 @@ SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
                   ssize_t count =
                       readlinkat(AT_FDCWD, combined_path, file_info->link_dest,
                                  MAX_SYMBOLIC_LINK_SIZE - 1);
-                  if (count >= MAX_SYMBOLIC_LINK_SIZE - 1) {
+                  if (count >= (ssize_t)MAX_SYMBOLIC_LINK_SIZE - 1) {
                     file_info->link_dest[MAX_SYMBOLIC_LINK_SIZE - 1] = 0;
                   } else if (count > 0) {
                     file_info->link_dest[count] = 0;

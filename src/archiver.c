@@ -42,8 +42,8 @@
 #include "users.h"
 
 #define FILE_COUNTS_OUTPUT_FORMAT_STR_0 \
-  "\nFile %%%zu" PRIu32 " of %%%zu" PRIu32 ".\n"
-#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 "[%%%zuzu/%%%zuzu]\n"
+  "\nFile %%%" PRIu64 PRIu32 " of %%%" PRIu64 PRIu32 ".\n"
+#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 "[%%%" PRIu64 "zu/%%%" PRIu64 PRIu64 "]\n"
 
 #define SIMPLE_ARCHIVER_BUFFER_SIZE (1024 * 32)
 
@@ -92,7 +92,22 @@ int write_list_datas_fn(void *data, void *ud) {
   SDArchiverInternalToWrite *to_write = data;
   FILE *out_f = ud;
 
-  fwrite(to_write->buf, 1, to_write->size, out_f);
+  // Handling in case of 32-bit system, but this function probably will never
+  // have to write more than 0x7FFFFFFF bytes (2^31 - 1).
+  // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
+  // compiling for 32-bit systems.
+  uint64_t temp = to_write->size;
+  char *buf_ptr = to_write->buf;
+  while (temp > 0) {
+    if (sizeof(uintptr_t) == 4 && temp > 0x7FFFFFFF) {
+      fwrite(buf_ptr, 1, 0x7FFFFFFF, out_f);
+      temp -= 0x7FFFFFFF;
+      buf_ptr += 0x7FFFFFFF;
+    } else {
+      fwrite(buf_ptr, 1, (size_t)temp, out_f);
+      temp = 0;
+    }
+  }
   return 0;
 }
 
@@ -185,14 +200,14 @@ int write_files_fn_file_v0(void *data, void *ud) {
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return 1;
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return 1;
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -243,7 +258,7 @@ int write_files_fn_file_v0(void *data, void *ud) {
       int_fast8_t write_again = 0;
       int_fast8_t write_done = 0;
       int_fast8_t read_done = 0;
-      size_t write_count;
+      size_t write_count = 0;
       size_t read_count;
       ssize_t ret;
       while (!write_done || !read_done) {
@@ -1055,24 +1070,26 @@ int filenames_to_abs_map_fn(void *data, void *ud) {
 SDArchiverStateReturns read_buf_full_from_fd(FILE *fd,
                                              char *read_buf,
                                              const size_t read_buf_size,
-                                             const size_t amount_total,
+                                             const uint64_t amount_total,
                                              char *dst_buf) {
-  size_t amount = amount_total;
+  uint64_t amount = amount_total;
   while (amount != 0) {
-    if (amount >= read_buf_size) {
+    if (amount >= (uint64_t)read_buf_size) {
       if (fread(read_buf, 1, read_buf_size, fd) != read_buf_size) {
         return SDAS_INVALID_FILE;
       }
       if (dst_buf) {
-        memcpy(dst_buf + (amount_total - amount), read_buf, read_buf_size);
+        memcpy(dst_buf, read_buf, read_buf_size);
+        dst_buf += read_buf_size;
       }
-      amount -= read_buf_size;
+      amount -= (uint64_t)read_buf_size;
     } else {
-      if (fread(read_buf, 1, amount, fd) != amount) {
+      if (fread(read_buf, 1, (size_t)amount, fd) != (size_t)amount) {
         return SDAS_INVALID_FILE;
       }
       if (dst_buf) {
-        memcpy(dst_buf + (amount_total - amount), read_buf, amount);
+        memcpy(dst_buf, read_buf, (size_t)amount);
+        dst_buf += (size_t)amount;
       }
       amount = 0;
     }
@@ -1085,20 +1102,20 @@ SDArchiverStateReturns read_fd_to_out_fd(FILE *in_fd,
                                          FILE *out_fd,
                                          char *read_buf,
                                          const size_t read_buf_size,
-                                         const size_t amount_total) {
-  size_t amount = amount_total;
+                                         const uint64_t amount_total) {
+  uint64_t amount = amount_total;
   while (amount != 0) {
-    if (amount >= read_buf_size) {
+    if (amount >= (uint64_t)read_buf_size) {
       if (fread(read_buf, 1, read_buf_size, in_fd) != read_buf_size) {
         return SDAS_INVALID_FILE;
       } else if (fwrite(read_buf, 1, read_buf_size, out_fd) != read_buf_size) {
         return SDAS_FAILED_TO_WRITE;
       }
-      amount -= read_buf_size;
+      amount -= (uint64_t)read_buf_size;
     } else {
-      if (fread(read_buf, 1, amount, in_fd) != amount) {
+      if (fread(read_buf, 1, (size_t)amount, in_fd) != (size_t)amount) {
         return SDAS_INVALID_FILE;
-      } else if (fwrite(read_buf, 1, amount, out_fd) != amount) {
+      } else if (fwrite(read_buf, 1, (size_t)amount, out_fd) != (size_t)amount) {
         return SDAS_FAILED_TO_WRITE;
       }
       amount = 0;
@@ -1165,7 +1182,16 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
         }
       } else {
         if (*has_hold < 0) {
-          size_t fread_ret = fread(buf, 1, *chunk_remaining, in_f);
+          // Handling for 32-bit systems.
+          // size_t and uintptr_t is 4 bytes on 32-bit systems.
+          // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
+          // compiling for 32-bit systems.
+          size_t fread_ret;
+          if (sizeof(uintptr_t) == 4 && *chunk_remaining > 0x7FFFFFFF) {
+            fread_ret = fread(buf, 1, 0x7FFFFFFF, in_f);
+          } else {
+            fread_ret = fread(buf, 1, (size_t)*chunk_remaining, in_f);
+          }
           if (fread_ret == 0) {
             goto TRY_WRITE_TO_DECOMP_END;
           } else {
@@ -1309,7 +1335,16 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         }
       }
     } else {
-      read_ret = read(in_pipe, read_buf, file_size - written_amt);
+      // Handling for 32-bit systems.
+      // size_t and uintptr_t is 4 bytes on 32-bit systems.
+      // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
+      // compiling for 32-bit systems.
+      uint64_t read_amount = file_size - written_amt;
+      if (sizeof(uintptr_t) == 4 && read_amount > 0x7FFFFFFF) {
+        read_ret = read(in_pipe, read_buf, 0x7FFFFFFF);
+      } else {
+        read_ret = read(in_pipe, read_buf, (size_t)read_amount);
+      }
       if (read_ret > 0) {
         if (out_fd) {
           fwrite_ret = fwrite(read_buf, 1, (size_t)read_ret, out_fd);
@@ -3094,14 +3129,14 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -4069,14 +4104,14 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -5303,14 +5338,14 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -6208,10 +6243,6 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
     uint64_t count = 0;
     for (SDArchiverLLNode *node = chunk_counts->head->next;
          node != chunk_counts->tail; node = node->next) {
-      if (*((uint64_t *)node->data) > 0xFFFFFFFF) {
-        fprintf(stderr, "ERROR: file count in chunk is too large!\n");
-        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
-      }
       count += *((uint64_t *)node->data);
     }
     if (count != files_list->count) {
@@ -6475,15 +6506,17 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
-        // Unable to set non-blocking on into-write-pipe.
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
+        fprintf(stderr,
+                "ERROR: Unable to set non-blocking on into-write-pipe!\n");
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
-        // Unable to set non-blocking on outof-read-pipe.
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
+        fprintf(stderr,
+                "ERROR: Unable to set non-blocking on outof-read-pipe!\n");
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
@@ -6749,11 +6782,6 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
   }
 
   // Write directory entries.
-
-  if (dirs_list->count > 0xFFFFFFFF) {
-    return SDA_RET_STRUCT(SDAS_TOO_MANY_DIRS);
-  }
-
   u64 = dirs_list->count;
   if (u64 != 0) {
     fprintf(stderr, "Directories:\n");
@@ -6916,7 +6944,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
   }
 
   const uint32_t size = u32;
-  const size_t digits = simple_archiver_helper_num_digits(size);
+  const uint64_t digits = simple_archiver_helper_num_digits(size);
   char format_str[128];
   snprintf(format_str, 128, FILE_COUNTS_OUTPUT_FORMAT_STR_0, digits, digits);
   int_fast8_t skip;
@@ -7311,14 +7339,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-          } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+          } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
             // Unable to set non-blocking on into-write-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
             close(pipe_outof_cmd[0]);
             close(pipe_outof_cmd[1]);
             return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-          } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+          } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
             // Unable to set non-blocking on outof-read-pipe.
             close(pipe_into_cmd[0]);
             close(pipe_into_cmd[1]);
@@ -7387,7 +7415,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
           int_fast8_t read_pipe_done = 0;
           size_t fread_ret = 0;
           char recv_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
-          size_t amount_to_read;
+          uint64_t amount_to_read;
           while (!write_pipe_done || !read_pipe_done) {
             if (is_sig_int_occurred) {
               if (pipe_into_cmd[1] >= 0) {
@@ -7414,7 +7442,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                 } else {
                   amount_to_read = compressed_file_size;
                 }
-                fread_ret = fread(buf, 1, amount_to_read, in_f);
+
+                // amount_to_read is at most SIMPLE_ARCHIVER_BUFFER_SIZE, so
+                // it should be safe to convert to size_t.
+                fread_ret = fread(buf, 1, (size_t)amount_to_read, in_f);
+
                 if (fread_ret > 0) {
                   compressed_file_size -= fread_ret;
                 }
@@ -7528,7 +7560,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               }
               compressed_file_size -= fread_ret;
             } else {
-              fread_ret = fread(buf, 1, compressed_file_size, in_f);
+              // Safe to convert to size_t since in this branch it is not
+              // bigger than SIMPLE_ARCHIVER_BUFFER_SIZE.
+              fread_ret = fread(buf, 1, (size_t)compressed_file_size, in_f);
               if (ferror(in_f)) {
                 // Error.
                 return SDA_RET_STRUCT(SDAS_NON_DEC_EXTRACT_ERROR);
@@ -7567,7 +7601,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               return SDA_RET_STRUCT(SDAS_INVALID_FILE);
             }
           } else {
-            size_t read_ret = fread(buf, 1, u64, in_f);
+            // Safe to convert to size_t since u64 is not bigger than
+            // SIMPLE_ARCHIVER_BUFFER_SIZE.
+            size_t read_ret = fread(buf, 1, (size_t)u64, in_f);
             if (read_ret > 0) {
               u64 -= read_ret;
             } else if (ferror(in_f)) {
@@ -8614,14 +8650,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -10277,14 +10313,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
@@ -12017,14 +12053,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_into_cmd[1], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on into-write-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
         close(pipe_outof_cmd[0]);
         close(pipe_outof_cmd[1]);
         return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
-      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) != 0) {
+      } else if (fcntl(pipe_outof_cmd[0], F_SETFL, O_NONBLOCK) == -1) {
         // Unable to set non-blocking on outof-read-pipe.
         close(pipe_into_cmd[0]);
         close(pipe_into_cmd[1]);
