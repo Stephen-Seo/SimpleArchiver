@@ -66,7 +66,7 @@ int simple_archiver_helper_make_dirs_perms(const char *file_path,
 char *simple_archiver_helper_cut_substr(const char *s, size_t start_idx,
                                         size_t end_idx);
 
-size_t simple_archiver_helper_num_digits(size_t value);
+uint64_t simple_archiver_helper_num_digits(uint64_t value);
 
 typedef enum SAHelperPrefixValResult {
   SAHPrefixVal_OK = 0,
