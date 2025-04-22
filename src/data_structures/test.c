@@ -355,6 +355,38 @@ int main(void) {
 
     simple_archiver_chunked_array_cleanup(&chunked_array);
 
+    // Same test but with NULL free/cleanup function.
+    chunked_array = simple_archiver_chunked_array_init(0, sizeof(int));
+
+    value = 1;
+    CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+
+    value = 20;
+    CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+
+    value = 300;
+    CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+
+    int_ptr = simple_archiver_chunked_array_at(&chunked_array, 0);
+    CHECK_TRUE(int_ptr);
+    CHECK_TRUE(*int_ptr == 1);
+
+    int_ptr = simple_archiver_chunked_array_at(&chunked_array, 1);
+    CHECK_TRUE(int_ptr);
+    CHECK_TRUE(*int_ptr == 20);
+
+    int_ptr = simple_archiver_chunked_array_at(&chunked_array, 2);
+    CHECK_TRUE(int_ptr);
+    CHECK_TRUE(*int_ptr == 300);
+
+    int_ptr = simple_archiver_chunked_array_at(&chunked_array, 3);
+    CHECK_FALSE(int_ptr);
+
+    int_ptr = simple_archiver_chunked_array_at(&chunked_array, 4);
+    CHECK_FALSE(int_ptr);
+
+    simple_archiver_chunked_array_cleanup(&chunked_array);
+
     // Test arbitrary data.
     chunked_array =
       simple_archiver_chunked_array_init(cleanup_test_struct_fn,

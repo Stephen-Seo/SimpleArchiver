@@ -57,18 +57,22 @@ void simple_archiver_chunked_array_cleanup(
            inner_idx < SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE;
            ++inner_idx) {
 
-        chunked_array->elem_cleanup_fn(
-          (char*)chunked_array->array[idx]
-          + inner_idx * chunked_array->elem_size);
+        if (chunked_array->elem_cleanup_fn) {
+          chunked_array->elem_cleanup_fn(
+            (char*)chunked_array->array[idx]
+            + inner_idx * chunked_array->elem_size);
+        }
       }
     } else {
       for (size_t inner_idx = 0;
            inner_idx < chunked_array->last_size;
            ++inner_idx) {
 
-        chunked_array->elem_cleanup_fn(
-          (char*)chunked_array->array[idx]
-          + inner_idx * chunked_array->elem_size);
+        if (chunked_array->elem_cleanup_fn) {
+          chunked_array->elem_cleanup_fn(
+            (char*)chunked_array->array[idx]
+            + inner_idx * chunked_array->elem_size);
+        }
       }
     }
     free(chunked_array->array[idx]);
@@ -175,9 +179,11 @@ void *simple_archiver_chunked_array_pop(SDArchiverChunkedArr *chunked_array) {
            + inner_idx * chunked_array->elem_size,
          chunked_array->elem_size);
 
-  chunked_array->elem_cleanup_fn(
-    (char*)chunked_array->array[chunked_array->chunk_count - 1]
-      + chunked_array->last_size * chunked_array->elem_size);
+  if (chunked_array->elem_cleanup_fn) {
+    chunked_array->elem_cleanup_fn(
+      (char*)chunked_array->array[chunked_array->chunk_count - 1]
+        + chunked_array->last_size * chunked_array->elem_size);
+  }
 
   return ret;
 }
@@ -207,9 +213,11 @@ int simple_archiver_chunked_array_pop_no_ret(
     --chunked_array->last_size;
   }
 
-  chunked_array->elem_cleanup_fn(
-    (char*)chunked_array->array[chunked_array->chunk_count - 1]
-      + chunked_array->last_size * chunked_array->elem_size);
+  if (chunked_array->elem_cleanup_fn) {
+    chunked_array->elem_cleanup_fn(
+      (char*)chunked_array->array[chunked_array->chunk_count - 1]
+        + chunked_array->last_size * chunked_array->elem_size);
+  }
 
   return 1;
 }
