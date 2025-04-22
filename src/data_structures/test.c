@@ -27,6 +27,7 @@
 #include "../algorithms/linear_congruential_gen.h"
 #include "hash_map.h"
 #include "linked_list.h"
+#include "chunked_array.h"
 #include "priority_heap.h"
 
 #define SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE 100
@@ -106,6 +107,21 @@ void test_iter_fn_priority_heap(void *data, void *user_data) {
     }
   } else {
     printf("WARNING: data in priority heap is NULL!\n");
+  }
+}
+
+typedef struct TestStruct {
+  int *first;
+  int *second;
+} TestStruct;
+
+void cleanup_test_struct_fn(void *ptr) {
+  TestStruct *t = ptr;
+  if (t->first) {
+    free(t->first);
+  }
+  if (t->second) {
+    free(t->second);
   }
 }
 
@@ -295,6 +311,144 @@ int main(void) {
   //    printf("Bucket %u: %u\n", idx, counts[idx]);
   //  }
   //}
+
+  // Test ChunkedArray.
+  {
+    // Test cleanup immediately after init.
+    SDArchiverChunkedArr chunked_array =
+      simple_archiver_chunked_array_init(no_free_fn,
+                                         sizeof(int));
+
+    simple_archiver_chunked_array_cleanup(&chunked_array);
+
+    // Test cleanup after pushing some values.
+    chunked_array =
+      simple_archiver_chunked_array_init(no_free_fn,
+                                         sizeof(int));
+
+    int value = 1;
+    CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+
+    value = 20;
+    CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+
+    value = 300;
+    CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+
+    int *int_ptr = simple_archiver_chunked_array_at(&chunked_array, 0);
+    CHECK_TRUE(int_ptr);
+    CHECK_TRUE(*int_ptr == 1);
+
+    int_ptr = simple_archiver_chunked_array_at(&chunked_array, 1);
+    CHECK_TRUE(int_ptr);
+    CHECK_TRUE(*int_ptr == 20);
+
+    int_ptr = simple_archiver_chunked_array_at(&chunked_array, 2);
+    CHECK_TRUE(int_ptr);
+    CHECK_TRUE(*int_ptr == 300);
+
+    int_ptr = simple_archiver_chunked_array_at(&chunked_array, 3);
+    CHECK_FALSE(int_ptr);
+
+    int_ptr = simple_archiver_chunked_array_at(&chunked_array, 4);
+    CHECK_FALSE(int_ptr);
+
+    simple_archiver_chunked_array_cleanup(&chunked_array);
+
+    // Test arbitrary data.
+    chunked_array =
+      simple_archiver_chunked_array_init(cleanup_test_struct_fn,
+                                         sizeof(TestStruct));
+    TestStruct t = (TestStruct){.first=malloc(sizeof(int)),
+                                .second=malloc(sizeof(int))};
+    *t.first = 100;
+    *t.second = 200;
+
+    CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &t) == 0);
+
+    t.first = malloc(sizeof(int));
+    *t.first = 3000;
+
+    t.second = malloc(sizeof(int));
+    *t.second = 4444;
+
+    CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &t) == 0);
+
+    TestStruct *t_ptr = simple_archiver_chunked_array_at(&chunked_array, 0);
+
+    CHECK_TRUE(t_ptr);
+    CHECK_TRUE(*t_ptr->first == 100);
+    CHECK_TRUE(*t_ptr->second == 200);
+
+    t_ptr = simple_archiver_chunked_array_at(&chunked_array, 1);
+
+    CHECK_TRUE(t_ptr);
+    CHECK_TRUE(*t_ptr->first == 3000);
+    CHECK_TRUE(*t_ptr->second == 4444);
+
+    CHECK_FALSE(simple_archiver_chunked_array_at(&chunked_array, 2));
+    CHECK_FALSE(simple_archiver_chunked_array_at(&chunked_array, 3));
+    CHECK_FALSE(simple_archiver_chunked_array_at(&chunked_array, 3090));
+
+    simple_archiver_chunked_array_cleanup(&chunked_array);
+
+    // Test push more than 32 elements.
+    chunked_array =
+      simple_archiver_chunked_array_init(no_free_fn,
+                                         sizeof(int));
+
+    for (int idx = 0; idx < 100; ++idx) {
+      value = idx;
+      CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+    }
+
+    for (int idx = 0; idx < 110; ++idx) {
+      int_ptr = simple_archiver_chunked_array_at(&chunked_array, idx);
+      if (idx < 100) {
+        CHECK_TRUE(int_ptr);
+        CHECK_TRUE(*int_ptr == idx);
+      } else {
+        CHECK_FALSE(int_ptr);
+      }
+    }
+
+    for (int idx = 100; idx-- > 0;) {
+      int_ptr = simple_archiver_chunked_array_pop(&chunked_array);
+      CHECK_TRUE(int_ptr);
+      CHECK_TRUE(*int_ptr == idx);
+      free(int_ptr);
+    }
+
+    for (int idx = 0; idx < 10; ++idx) {
+      int_ptr = simple_archiver_chunked_array_pop(&chunked_array);
+      CHECK_FALSE(int_ptr);
+    }
+
+    simple_archiver_chunked_array_cleanup(&chunked_array);
+
+    // Repeat test but use "clear" at end.
+    chunked_array =
+      simple_archiver_chunked_array_init(no_free_fn,
+                                         sizeof(int));
+
+    for (int idx = 0; idx < 100; ++idx) {
+      value = idx;
+      CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+    }
+
+    for (int idx = 0; idx < 110; ++idx) {
+      int_ptr = simple_archiver_chunked_array_at(&chunked_array, idx);
+      if (idx < 100) {
+        CHECK_TRUE(int_ptr);
+        CHECK_TRUE(*int_ptr == idx);
+      } else {
+        CHECK_FALSE(int_ptr);
+      }
+    }
+
+    simple_archiver_chunked_array_clear(&chunked_array);
+    simple_archiver_chunked_array_cleanup(&chunked_array);
+  }
 
   // Test PriorityHeap.
   {

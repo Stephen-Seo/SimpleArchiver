@@ -10,6 +10,7 @@ set(SimpleArchiver_SOURCES
     src/archiver.c
     src/data_structures/linked_list.c
     src/data_structures/hash_map.c
+    src/data_structures/chunked_array.c
     src/data_structures/priority_heap.c
     src/algorithms/linear_congruential_gen.c
     src/users.c
@@ -108,6 +109,7 @@ add_executable(test_datastructures
     src/data_structures/test.c
     src/data_structures/linked_list.c
     src/data_structures/hash_map.c
+    src/data_structures/chunked_array.c
     src/data_structures/priority_heap.c
     src/algorithms/linear_congruential_gen.c
 )
