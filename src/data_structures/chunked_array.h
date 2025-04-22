@@ -58,4 +58,8 @@ int simple_archiver_chunked_array_pop_no_ret(SDArchiverChunkedArr *);
 /// Clears the chunked array so that it is as if it was newly initialized.
 void simple_archiver_chunked_array_clear(SDArchiverChunkedArr *);
 
+/// Returns the number of elements in the chunked array.
+/// This will return 0 if the chunked_array is invalid.
+uint64_t simple_archiver_chunked_array_size(SDArchiverChunkedArr *);
+
 #endif

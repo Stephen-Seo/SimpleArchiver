@@ -399,9 +399,13 @@ int main(void) {
       simple_archiver_chunked_array_push(&chunked_array, &t);
     }
 
+    // Check size.
+    CHECK_TRUE(simple_archiver_chunked_array_size(&chunked_array) == 100);
+
     for (int idx = 100; idx-- > 0;) {
       if (idx > 50) {
-        CHECK_TRUE(simple_archiver_chunked_array_pop_no_ret(&chunked_array) != 0);
+        CHECK_TRUE(
+          simple_archiver_chunked_array_pop_no_ret(&chunked_array) != 0);
       } else {
         t_ptr = simple_archiver_chunked_array_pop(&chunked_array);
         CHECK_TRUE(t_ptr);
@@ -410,6 +414,9 @@ int main(void) {
         }
       }
     }
+
+    // Check size.
+    CHECK_TRUE(simple_archiver_chunked_array_size(&chunked_array) == 0);
 
     simple_archiver_chunked_array_cleanup(&chunked_array);
 
@@ -420,7 +427,8 @@ int main(void) {
 
     for (int idx = 0; idx < 100; ++idx) {
       value = idx;
-      CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+      CHECK_TRUE(
+        simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
     }
 
     for (int idx = 0; idx < 110; ++idx) {
@@ -454,7 +462,8 @@ int main(void) {
 
     for (int idx = 0; idx < 100; ++idx) {
       value = idx;
-      CHECK_TRUE(simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+      CHECK_TRUE(
+        simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
     }
 
     for (int idx = 0; idx < 110; ++idx) {

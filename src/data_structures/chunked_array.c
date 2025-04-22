@@ -224,3 +224,14 @@ void simple_archiver_chunked_array_clear(SDArchiverChunkedArr *chunked_array) {
   simple_archiver_chunked_array_cleanup(chunked_array);
   *chunked_array = simple_archiver_chunked_array_init(elem_cleanup, elem_size);
 }
+
+uint64_t simple_archiver_chunked_array_size(
+    SDArchiverChunkedArr *chunked_array) {
+  if (chunked_array->chunk_count == 0 || !chunked_array->array) {
+    return 0;
+  }
+
+  return (chunked_array->chunk_count - 1)
+           * SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE
+         + chunked_array->last_size;
+}
