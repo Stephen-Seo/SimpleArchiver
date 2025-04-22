@@ -24,7 +24,6 @@
 #include <stddef.h>
 
 #define SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE 32
-#define SD_SA_DS_CHUNKED_ARR_DEFAULT_CAPACITY 4
 
 typedef struct SDArchiverChunkedArr {
     uint64_t chunk_count;
