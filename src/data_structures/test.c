@@ -438,10 +438,17 @@ int main(void) {
       if (idx > 50) {
         CHECK_TRUE(
           simple_archiver_chunked_array_pop_no_ret(&chunked_array) != 0);
-      } else {
-        t_ptr = simple_archiver_chunked_array_pop(&chunked_array);
+      } else if (idx > 70) {
+        t_ptr = simple_archiver_chunked_array_pop(&chunked_array, 0);
         CHECK_TRUE(t_ptr);
         if (t_ptr) {
+          free(t_ptr);
+        }
+      } else {
+        t_ptr = simple_archiver_chunked_array_pop(&chunked_array, 1);
+        CHECK_TRUE(t_ptr);
+        if (t_ptr) {
+          cleanup_test_struct_fn(t_ptr);
           free(t_ptr);
         }
       }
@@ -474,14 +481,14 @@ int main(void) {
     }
 
     for (int idx = 100; idx-- > 0;) {
-      int_ptr = simple_archiver_chunked_array_pop(&chunked_array);
+      int_ptr = simple_archiver_chunked_array_pop(&chunked_array, 0);
       CHECK_TRUE(int_ptr);
       CHECK_TRUE(*int_ptr == idx);
       free(int_ptr);
     }
 
     for (int idx = 0; idx < 10; ++idx) {
-      int_ptr = simple_archiver_chunked_array_pop(&chunked_array);
+      int_ptr = simple_archiver_chunked_array_pop(&chunked_array, 0);
       CHECK_FALSE(int_ptr);
     }
 

@@ -49,7 +49,9 @@ int simple_archiver_chunked_array_push(SDArchiverChunkedArr *, void *to_copy);
 
 /// Returns non-null on success.
 /// Returned ptr is newly allocated and must be free'd.
-void *simple_archiver_chunked_array_pop(SDArchiverChunkedArr *);
+/// If "no_cleanup" is non-zero, then the cleanup function will not be run on
+/// the element before a newly allocated copy of it is returned.
+void *simple_archiver_chunked_array_pop(SDArchiverChunkedArr *, int no_cleanup);
 
 /// Returns non-zero if an element was removed.
 int simple_archiver_chunked_array_pop_no_ret(SDArchiverChunkedArr *);

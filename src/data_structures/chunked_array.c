@@ -138,7 +138,8 @@ int simple_archiver_chunked_array_push(SDArchiverChunkedArr *chunked_array,
   return 0;
 }
 
-void *simple_archiver_chunked_array_pop(SDArchiverChunkedArr *chunked_array) {
+void *simple_archiver_chunked_array_pop(SDArchiverChunkedArr *chunked_array,
+                                        int no_cleanup) {
   if (chunked_array->chunk_count == 0 || !chunked_array->array) {
     return 0;
   }
@@ -179,7 +180,7 @@ void *simple_archiver_chunked_array_pop(SDArchiverChunkedArr *chunked_array) {
            + inner_idx * chunked_array->elem_size,
          chunked_array->elem_size);
 
-  if (chunked_array->elem_cleanup_fn) {
+  if (no_cleanup == 0 && chunked_array->elem_cleanup_fn) {
     chunked_array->elem_cleanup_fn(
       (char*)chunked_array->array[chunked_array->chunk_count - 1]
         + chunked_array->last_size * chunked_array->elem_size);
