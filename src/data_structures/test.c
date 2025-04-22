@@ -97,7 +97,7 @@ void test_iter_fn_priority_heap(void *data, void *user_data) {
 
   uint32_t *uint_data = data;
   if (uint_data) {
-    printf("Got data %" PRIu32 "\n", *uint_data);
+    //printf("Got data %" PRIu32 "\n", *uint_data);
     if (*uint_data < *size) {
       elems[*uint_data] = 1;
     } else {
@@ -690,7 +690,7 @@ int main(void) {
         simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
         elems[idx] = 0;
       }
-      printf("Begin iteration of 15 elements:\n");
+      //printf("Begin iteration of 15 elements:\n");
 
       void **ptrs = malloc(sizeof(void*) * 2);
       ptrs[0] = elems;

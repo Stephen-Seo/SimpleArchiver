@@ -22,6 +22,9 @@
 // Standard library includes.
 #include <stdint.h>
 
+// Local includes.
+#include "chunked_array.h"
+
 #define SC_SA_DS_PRIORITY_HEAP_START_SIZE 32
 
 typedef struct SDArchiverPHNode {
@@ -33,11 +36,11 @@ typedef struct SDArchiverPHNode {
 } SDArchiverPHNode;
 
 typedef struct SDArchiverPHeap {
-  SDArchiverPHNode *nodes;
-  uint64_t capacity;
-  uint64_t size;
+  SDArchiverChunkedArr node_array;
   int (*less_fn)(int64_t, int64_t);
 } SDArchiverPHeap;
+
+void internal_simple_archiver_cleanup_priority_heap_node(void *);
 
 /// Default "less" function to determine if a has higher priority than b.
 /// Returns non-zero if "less".
@@ -72,5 +75,7 @@ void *simple_archiver_priority_heap_pop(SDArchiverPHeap *priority_heap);
 void simple_archiver_priority_heap_iter(SDArchiverPHeap *priority_heap,
                                         void(*iter_fn)(void*, void*),
                                         void *user_data);
+
+uint64_t simple_archiver_priority_heap_size(SDArchiverPHeap *priority_heap);
 
 #endif

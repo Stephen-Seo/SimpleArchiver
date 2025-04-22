@@ -18,32 +18,30 @@
 
 #include "priority_heap.h"
 
+// Standard library includes.
 #include <stdlib.h>
+#include <string.h>
 
-void simple_archiver_priority_heap_internal_realloc(
-    SDArchiverPHeap *priority_heap) {
-  SDArchiverPHeap new_priority_heap;
+// Local includes.
+#include "chunked_array.h"
 
-  new_priority_heap.capacity = priority_heap->capacity * 2;
-  new_priority_heap.size = 0;
-  new_priority_heap.less_fn = priority_heap->less_fn;
+#ifndef NDEBUG
+# include <stdio.h>
+# include <stdint.h>
+# include <inttypes.h>
+#endif
 
-  new_priority_heap.nodes =
-      calloc(new_priority_heap.capacity, sizeof(SDArchiverPHNode));
+void internal_simple_archiver_cleanup_priority_heap_node(void *p) {
+  SDArchiverPHNode *node = p;
 
-  for (size_t idx = 1; idx < priority_heap->size + 1; ++idx) {
-    if (priority_heap->nodes[idx].is_valid != 0) {
-      simple_archiver_priority_heap_insert(
-          &new_priority_heap, priority_heap->nodes[idx].priority,
-          priority_heap->nodes[idx].data,
-          priority_heap->nodes[idx].data_cleanup_fn);
-      priority_heap->nodes[idx].is_valid = 0;
+  if (node && node->is_valid && node->data) {
+    if (node->data_cleanup_fn) {
+      node->data_cleanup_fn(node->data);
+    } else {
+      free(node->data);
     }
+    node->data = 0;
   }
-
-  free(priority_heap->nodes);
-
-  *priority_heap = new_priority_heap;
 }
 
 int simple_archiver_priority_heap_default_less(int64_t a, int64_t b) {
@@ -53,12 +51,19 @@ int simple_archiver_priority_heap_default_less(int64_t a, int64_t b) {
 SDArchiverPHeap *simple_archiver_priority_heap_init(void) {
   SDArchiverPHeap *priority_heap = malloc(sizeof(SDArchiverPHeap));
 
-  priority_heap->capacity = SC_SA_DS_PRIORITY_HEAP_START_SIZE;
-  priority_heap->size = 0;
   priority_heap->less_fn = simple_archiver_priority_heap_default_less;
 
-  priority_heap->nodes =
-      calloc(priority_heap->capacity, sizeof(SDArchiverPHNode));
+  priority_heap->node_array =
+    simple_archiver_chunked_array_init(
+      internal_simple_archiver_cleanup_priority_heap_node,
+      sizeof(SDArchiverPHNode));
+
+  // Priorty-heap expects an "unused" first element at idx 0.
+  SDArchiverPHNode *hole_node = malloc(sizeof(SDArchiverPHNode));
+  memset(hole_node, 0, sizeof(SDArchiverPHNode));
+
+  simple_archiver_chunked_array_push(&priority_heap->node_array, hole_node);
+  free(hole_node);
 
   return priority_heap;
 }
@@ -67,12 +72,19 @@ SDArchiverPHeap *simple_archiver_priority_heap_init_less_fn(
     int (*less_fn)(int64_t, int64_t)) {
   SDArchiverPHeap *priority_heap = malloc(sizeof(SDArchiverPHeap));
 
-  priority_heap->capacity = SC_SA_DS_PRIORITY_HEAP_START_SIZE;
-  priority_heap->size = 0;
   priority_heap->less_fn = less_fn;
 
-  priority_heap->nodes =
-      calloc(priority_heap->capacity, sizeof(SDArchiverPHNode));
+  priority_heap->node_array =
+    simple_archiver_chunked_array_init(
+      internal_simple_archiver_cleanup_priority_heap_node,
+      sizeof(SDArchiverPHNode));
+
+  // Priorty-heap expects an "unused" first element at idx 0.
+  SDArchiverPHNode *hole_node = malloc(sizeof(SDArchiverPHNode));
+  memset(hole_node, 0, sizeof(SDArchiverPHNode));
+
+  simple_archiver_chunked_array_push(&priority_heap->node_array, hole_node);
+  free(hole_node);
 
   return priority_heap;
 }
@@ -80,19 +92,7 @@ SDArchiverPHeap *simple_archiver_priority_heap_init_less_fn(
 void simple_archiver_priority_heap_free_single_ptr(
     SDArchiverPHeap *priority_heap) {
   if (priority_heap) {
-    for (size_t idx = 1; idx < priority_heap->size + 1; ++idx) {
-      if (priority_heap->nodes[idx].is_valid != 0) {
-        if (priority_heap->nodes[idx].data_cleanup_fn) {
-          priority_heap->nodes[idx].data_cleanup_fn(
-              priority_heap->nodes[idx].data);
-        } else {
-          free(priority_heap->nodes[idx].data);
-        }
-        priority_heap->nodes[idx].is_valid = 0;
-      }
-    }
-
-    free(priority_heap->nodes);
+    simple_archiver_chunked_array_cleanup(&priority_heap->node_array);
     free(priority_heap);
   }
 }
@@ -111,71 +111,111 @@ void simple_archiver_priority_heap_insert(SDArchiverPHeap *priority_heap,
     return;
   }
 
-  if (priority_heap->size + 1 >= priority_heap->capacity) {
-    simple_archiver_priority_heap_internal_realloc(priority_heap);
-  }
+  uint64_t hole =
+    simple_archiver_chunked_array_size(&priority_heap->node_array);
 
-  size_t hole = priority_heap->size + 1;
+  SDArchiverPHNode node;
+  memset(&node, 0, sizeof(SDArchiverPHNode));
+
+  simple_archiver_chunked_array_push(&priority_heap->node_array, &node);
 
   while (hole > 1 &&
-         priority_heap->less_fn(priority,
-                                priority_heap->nodes[hole / 2].priority) != 0) {
-    priority_heap->nodes[hole] = priority_heap->nodes[hole / 2];
+         priority_heap->less_fn(
+           priority,
+           ((SDArchiverPHNode *)
+             (simple_archiver_chunked_array_at(
+               &priority_heap->node_array, hole / 2)))
+           ->priority) != 0) {
+    SDArchiverPHNode *to =
+      simple_archiver_chunked_array_at(&priority_heap->node_array, hole);
+    SDArchiverPHNode *from =
+      simple_archiver_chunked_array_at(&priority_heap->node_array, hole / 2);
+
+    memcpy(to, from, sizeof(SDArchiverPHNode));
     hole /= 2;
   }
 
-  priority_heap->nodes[hole].priority = priority;
-  priority_heap->nodes[hole].data = data;
-  priority_heap->nodes[hole].data_cleanup_fn = data_cleanup_fn;
-  priority_heap->nodes[hole].is_valid = 1;
+  SDArchiverPHNode *hole_node =
+    simple_archiver_chunked_array_at(&priority_heap->node_array, hole);
 
-  ++priority_heap->size;
+  hole_node->priority = priority;
+  hole_node->data = data;
+  hole_node->data_cleanup_fn = data_cleanup_fn;
+  hole_node->is_valid = 1;
 }
 
 void *simple_archiver_priority_heap_top(SDArchiverPHeap *priority_heap) {
-  if (priority_heap && priority_heap->size != 0) {
-    return priority_heap->nodes[1].data;
+  if (!priority_heap) {
+    return NULL;
+  }
+
+  uint64_t count =
+    simple_archiver_chunked_array_size(&priority_heap->node_array);
+
+  if (priority_heap && count > 1) {
+    SDArchiverPHNode *node =
+      simple_archiver_chunked_array_at(&priority_heap->node_array, 1);
+    if (node->is_valid) {
+      return node->data;
+    }
   }
 
   return NULL;
 }
 
 void *simple_archiver_priority_heap_pop(SDArchiverPHeap *priority_heap) {
-  if (!priority_heap || priority_heap->size == 0) {
+  if (!priority_heap
+      || simple_archiver_chunked_array_size(&priority_heap->node_array) <= 1) {
     return NULL;
   }
 
-  void *data = priority_heap->nodes[1].data;
-  priority_heap->nodes[1].is_valid = 0;
+  // Get first (top) node's data and mark first node as invalid.
+  SDArchiverPHNode *node =
+    simple_archiver_chunked_array_at(&priority_heap->node_array, 1);
+  void *data = node->data;
+  node->is_valid = 0;
 
-  SDArchiverPHNode end = priority_heap->nodes[priority_heap->size];
-  priority_heap->nodes[priority_heap->size].is_valid = 0;
+  // Get last node.
+  SDArchiverPHNode *end = simple_archiver_chunked_array_at(
+    &priority_heap->node_array,
+    simple_archiver_chunked_array_size(&priority_heap->node_array) - 1);
 
-  size_t hole = 1;
-  while (hole * 2 + 1 <= priority_heap->size) {
-    if (priority_heap->nodes[hole * 2].is_valid != 0 &&
-        priority_heap->nodes[hole * 2 + 1].is_valid != 0) {
-      if (priority_heap->less_fn(
-              end.priority, priority_heap->nodes[hole * 2].priority) != 0 &&
-          priority_heap->less_fn(
-              end.priority, priority_heap->nodes[hole * 2 + 1].priority) != 0) {
+  // "trickle" down left/right nodes until "end" finds matching spot while
+  // pushing nodes up.
+  uint64_t hole = 1;
+  SDArchiverPHNode *hole_node;
+  const uint64_t size =
+    simple_archiver_chunked_array_size(&priority_heap->node_array);
+  while (hole * 2 + 1 <= size) {
+    SDArchiverPHNode *left =
+      simple_archiver_chunked_array_at(&priority_heap->node_array, hole * 2);
+    SDArchiverPHNode *right =
+      simple_archiver_chunked_array_at(
+        &priority_heap->node_array, hole * 2 + 1);
+
+    if (left && left->is_valid != 0 && right && right->is_valid != 0) {
+      if (priority_heap->less_fn(end->priority, left->priority) != 0 &&
+          priority_heap->less_fn(end->priority, right->priority) != 0) {
         break;
       }
-      if (priority_heap->less_fn(priority_heap->nodes[hole * 2].priority,
-                                 priority_heap->nodes[hole * 2 + 1].priority) !=
-          0) {
-        priority_heap->nodes[hole] = priority_heap->nodes[hole * 2];
+      if (priority_heap->less_fn(left->priority, right->priority) != 0) {
+        hole_node =
+          simple_archiver_chunked_array_at(&priority_heap->node_array, hole);
+        memcpy(hole_node, left, sizeof(SDArchiverPHNode));
         hole = hole * 2;
       } else {
-        priority_heap->nodes[hole] = priority_heap->nodes[hole * 2 + 1];
+        hole_node =
+          simple_archiver_chunked_array_at(&priority_heap->node_array, hole);
+        memcpy(hole_node, right, sizeof(SDArchiverPHNode));
         hole = hole * 2 + 1;
       }
-    } else if (priority_heap->nodes[hole * 2].is_valid != 0) {
-      if (priority_heap->less_fn(
-              end.priority, priority_heap->nodes[hole * 2].priority) != 0) {
+    } else if (left && left->is_valid != 0) {
+      if (priority_heap->less_fn(end->priority, left->priority) != 0) {
         break;
       }
-      priority_heap->nodes[hole] = priority_heap->nodes[hole * 2];
+      hole_node =
+        simple_archiver_chunked_array_at(&priority_heap->node_array, hole);
+      memcpy(hole_node, left, sizeof(SDArchiverPHNode));
       hole = hole * 2;
       break;
     } else {
@@ -183,9 +223,15 @@ void *simple_archiver_priority_heap_pop(SDArchiverPHeap *priority_heap) {
     }
   }
 
-  priority_heap->nodes[hole] = end;
+  // Fill in "hole" with "end".
+  hole_node =
+    simple_archiver_chunked_array_at(&priority_heap->node_array, hole);
+  memcpy(hole_node, end, sizeof(SDArchiverPHNode));
 
-  --priority_heap->size;
+  // Zero out "end" to prevent erronous free's.
+  memset(end, 0, sizeof(SDArchiverPHNode));
+
+  simple_archiver_chunked_array_pop_no_ret(&priority_heap->node_array);
 
   return data;
 }
@@ -193,13 +239,35 @@ void *simple_archiver_priority_heap_pop(SDArchiverPHeap *priority_heap) {
 void simple_archiver_priority_heap_iter(SDArchiverPHeap *priority_heap,
                                         void(*iter_fn)(void*, void*),
                                         void *user_data) {
-  if (priority_heap->size == 0) {
+  if (!priority_heap) {
     return;
   }
-  for (uint64_t idx = 0; idx < priority_heap->capacity; ++idx) {
-    if (priority_heap->nodes[idx].is_valid) {
-      iter_fn(priority_heap->nodes[idx].data, user_data);
+
+  const uint64_t size =
+    simple_archiver_chunked_array_size(&priority_heap->node_array);
+  if (size <= 1) {
+    return;
+  }
+
+  for (uint64_t idx = 1; idx < size; ++idx) {
+    SDArchiverPHNode *node =
+      simple_archiver_chunked_array_at(&priority_heap->node_array, idx);
+    if (node && node->is_valid) {
+      iter_fn(node->data, user_data);
     }
   }
-  return;
+}
+
+uint64_t simple_archiver_priority_heap_size(SDArchiverPHeap *priority_heap) {
+  if (!priority_heap) {
+    return 0;
+  }
+
+  uint64_t size =
+    simple_archiver_chunked_array_size(&priority_heap->node_array);
+  if (size != 0) {
+    return size - 1;
+  } else {
+    return 0;
+  }
 }

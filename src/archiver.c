@@ -2493,7 +2493,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   free(ptr_array);
 
   if (files_pheap) {
-    while (files_pheap->size > 0) {
+    while (simple_archiver_priority_heap_size(files_pheap) > 0) {
       simple_archiver_list_add(files_list,
                                simple_archiver_priority_heap_pop(files_pheap),
                                free_internal_file_info);
@@ -3457,7 +3457,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   free(ptr_array);
 
   if (files_pheap) {
-    while (files_pheap->size > 0) {
+    while (simple_archiver_priority_heap_size(files_pheap) > 0) {
       simple_archiver_list_add(files_list,
                                simple_archiver_priority_heap_pop(files_pheap),
                                free_internal_file_info);
@@ -4459,7 +4459,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   free(ptr_array);
 
   if (files_pheap) {
-    while (files_pheap->size > 0) {
+    while (simple_archiver_priority_heap_size(files_pheap) > 0) {
       simple_archiver_list_add(files_list,
                                simple_archiver_priority_heap_pop(files_pheap),
                                free_internal_file_info);
@@ -5692,7 +5692,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
   free(ptr_array);
 
   if (files_pheap) {
-    while (files_pheap->size > 0) {
+    while (simple_archiver_priority_heap_size(files_pheap) > 0) {
       simple_archiver_list_add(files_list,
                                simple_archiver_priority_heap_pop(files_pheap),
                                free_internal_file_info);
