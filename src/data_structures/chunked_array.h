@@ -34,6 +34,9 @@ typedef struct SDArchiverChunkedArr {
     void **array;
 } SDArchiverChunkedArr;
 
+/// Use a no-op elem_cleanup_fn if the element is primitive data like an
+/// integer. If the element has pointers within it, use the cleanup fn to
+/// cleanup the pointers but not the element itself.
 SDArchiverChunkedArr simple_archiver_chunked_array_init(
   void (*elem_cleanup_fn)(void*), uint32_t elem_size);
 
