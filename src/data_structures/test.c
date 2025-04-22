@@ -390,6 +390,27 @@ int main(void) {
     CHECK_FALSE(simple_archiver_chunked_array_at(&chunked_array, 3));
     CHECK_FALSE(simple_archiver_chunked_array_at(&chunked_array, 3090));
 
+    // Check clearn, push, and pop with arbitrary data.
+    simple_archiver_chunked_array_clear(&chunked_array);
+    for (int idx = 0; idx < 100; ++idx) {
+      t = (TestStruct){.first=malloc(sizeof(int)), .second=malloc(sizeof(int))};
+      *t.first = idx;
+      *t.second = idx * 1000;
+      simple_archiver_chunked_array_push(&chunked_array, &t);
+    }
+
+    for (int idx = 100; idx-- > 0;) {
+      if (idx > 50) {
+        CHECK_TRUE(simple_archiver_chunked_array_pop_no_ret(&chunked_array) != 0);
+      } else {
+        t_ptr = simple_archiver_chunked_array_pop(&chunked_array);
+        CHECK_TRUE(t_ptr);
+        if (t_ptr) {
+          free(t_ptr);
+        }
+      }
+    }
+
     simple_archiver_chunked_array_cleanup(&chunked_array);
 
     // Test push more than 32 elements.

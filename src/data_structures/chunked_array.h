@@ -52,6 +52,9 @@ int simple_archiver_chunked_array_push(SDArchiverChunkedArr *, void *to_copy);
 /// Returned ptr is newly allocated and must be free'd.
 void *simple_archiver_chunked_array_pop(SDArchiverChunkedArr *);
 
+/// Returns non-zero if an element was removed.
+int simple_archiver_chunked_array_pop_no_ret(SDArchiverChunkedArr *);
+
 /// Clears the chunked array so that it is as if it was newly initialized.
 void simple_archiver_chunked_array_clear(SDArchiverChunkedArr *);
 
