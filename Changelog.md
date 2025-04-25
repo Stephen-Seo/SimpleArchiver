@@ -8,6 +8,10 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.22
+
+Fix parsing file format 5 where testing/extracting a zero-size chunk errors out.
+
 ## Version 1.21
 
 Add new data structure `chunked array`.
