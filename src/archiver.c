@@ -12238,6 +12238,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
       ssize_t has_hold = -1;
 
+      int_fast8_t is_empty = 1;
+
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -12251,6 +12253,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
                   file_idx,
                   file_count,
                   file_info->filename);
+        }
+
+        if (file_info->file_size != 0) {
+          is_empty = 0;
         }
 
         const size_t filename_length = strlen(file_info->filename);
@@ -12401,6 +12407,66 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
             return SDA_RET_STRUCT(ret);
           }
         }
+      }
+
+      // Read and decompress remaining bytes, ensuring there are only the 2 "SA"
+      // bytes to read if chunk is "zero size" when decompressed.
+      if (v5_to_skip && is_empty) {
+        has_hold = -1;
+        uint64_t remaining = chunk_size;
+        uint64_t read_remaining = 2;
+        while (remaining != 0) {
+          SDArchiverStateReturns write_decomp_ret =
+            try_write_to_decomp(&pipe_into_write,
+                                &remaining,
+                                in_f,
+                                (char*)buf,
+                                SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                hold_buf,
+                                &has_hold);
+          if (write_decomp_ret != SDAS_SUCCESS) {
+            return SDA_RET_STRUCT(write_decomp_ret);
+          }
+          ssize_t read_ret = read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
+          if (read_ret == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+              nanosleep(&nonblock_sleep, NULL);
+            } else {
+              return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
+            }
+          } else if (read_ret > 0) {
+            if ((uint64_t)read_ret > read_remaining) {
+              return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
+            } else if ((uint64_t)read_ret == read_remaining) {
+              read_remaining = 0;
+            } else {
+              read_remaining -= (uint64_t)read_ret;
+            }
+          } else if (read_ret == 0 && read_remaining != 0) {
+            return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
+          }
+        }
+        while(read_remaining != 0) {
+          ssize_t read_ret = read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
+          if (read_ret == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+              nanosleep(&nonblock_sleep, NULL);
+            } else {
+              return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
+            }
+          } else if (read_ret > 0) {
+            if ((uint64_t)read_ret > read_remaining) {
+              return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
+            } else if ((uint64_t)read_ret == read_remaining) {
+              read_remaining = 0;
+            } else {
+              read_remaining -= (uint64_t)read_ret;
+            }
+          } else if (read_ret == 0 && read_remaining != 0) {
+            return SDA_RET_STRUCT(SDAS_DECOMPRESSION_ERROR);
+          }
+        }
+        v5_to_skip = 0;
       }
 
       // Ensure EOF is left from pipe.
