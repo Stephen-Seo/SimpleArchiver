@@ -2,13 +2,20 @@
 
 ## Upcoming Changes
 
-TODO: Refactor the priority heap data structure.
-
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 1.21
+
+Add new data structure `chunked array`.
+
+Refactor `priority heap` to use `chunked array`.
+
+Add file format version 5 to be able to handle writing chunks with zero size.  
+(Fix for archiving files of zero size.)
 
 ## Version 1.20
 
