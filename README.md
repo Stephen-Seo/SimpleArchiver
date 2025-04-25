@@ -33,7 +33,7 @@ API calls.
     --no-safe-links : keep symlinks that link to outside archive contents
     --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to same directory as output file) (this is mutually exclusive with "--force-tmpfile")
     --force-tmpfile : Force the use of "tmpfile()" during compression (this is mutually exclusive with "--temp-files-dir")
-    --write-version <version> : Force write version file format (default 4)
+    --write-version <version> : Force write version file format (default 5)
     --chunk-min-size <bytes> : minimum chunk size (default 4194304 or 4MiB) when using chunks (file formats v. 1 and up)
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
     --no-preserve-empty-dirs : do NOT preserve empty dirs (only for file format 2 and onwards)
