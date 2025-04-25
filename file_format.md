@@ -628,3 +628,11 @@ directory and not specify "intermediate" directories. For example, if there is a
 directory structure such as "/a/b/c/", then it is possible for there to be only
 an entry "/a/b/c/" and the directories "/a/b/" and "/a/" may need to be created
 even though they are not specified.
+
+## Format Version 5
+
+This format is nearly identical to file format version 4. The only difference is
+that two bytes are prepended to every chunk (prior to compression) on creation,
+and that the starting two bytes (after decompression) in chunks are ignored.
+
+The two bytes are 'S' and 'A' (ascii), which is 0x53 and 0x41.
