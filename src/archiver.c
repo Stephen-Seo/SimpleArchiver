@@ -1071,7 +1071,15 @@ SDArchiverStateReturns read_buf_full_from_fd(FILE *fd,
                                              char *read_buf,
                                              const size_t read_buf_size,
                                              const uint64_t amount_total,
-                                             char *dst_buf) {
+                                             char *dst_buf,
+                                             int_fast8_t *v5_to_skip) {
+  if (v5_to_skip && *v5_to_skip) {
+    char buf[2];
+    if (fread(buf, 1, 2, fd) != 2) {
+      return SDAS_INVALID_FILE;
+    }
+    *v5_to_skip = 0;
+  }
   uint64_t amount = amount_total;
   while (amount != 0) {
     if (amount >= (uint64_t)read_buf_size) {
@@ -1102,7 +1110,15 @@ SDArchiverStateReturns read_fd_to_out_fd(FILE *in_fd,
                                          FILE *out_fd,
                                          char *read_buf,
                                          const size_t read_buf_size,
-                                         const uint64_t amount_total) {
+                                         const uint64_t amount_total,
+                                         int_fast8_t *v5_to_skip) {
+  if (v5_to_skip && *v5_to_skip) {
+    char buf[2];
+    if (fread(buf, 1, 2, in_fd) != 2) {
+      return SDAS_INVALID_FILE;
+    }
+    *v5_to_skip = 0;
+  }
   uint64_t amount = amount_total;
   while (amount != 0) {
     if (amount >= (uint64_t)read_buf_size) {
@@ -1261,7 +1277,8 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
                                                uint64_t *chunk_remaining,
                                                FILE *in_f,
                                                char *hold_buf,
-                                               ssize_t *has_hold) {
+                                               ssize_t *has_hold,
+                                               int_fast8_t *v5_to_skip) {
   __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *out_fd =
       NULL;
   if (out_filename) {
@@ -1295,6 +1312,21 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
       fprintf(stderr, "ERROR: SIGPIPE while decompressing!\n");
       return SDAS_DECOMPRESSION_ERROR;
     } else if (file_size - written_amt >= read_buf_size) {
+      while (v5_to_skip && *v5_to_skip) {
+        read_ret = read(in_pipe, read_buf, 2);
+        if (read_ret == -1) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            nanosleep(&nonblock_sleep, NULL);
+            continue;
+          } else {
+            return SDAS_DECOMPRESSION_ERROR;
+          }
+        } else if (read_ret != 2) {
+          return SDAS_DECOMPRESSION_ERROR;
+        } else {
+          *v5_to_skip = 0;
+        }
+      }
       read_ret = read(in_pipe, read_buf, read_buf_size);
       if (read_ret > 0) {
         if (out_fd) {
@@ -1335,6 +1367,21 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         }
       }
     } else {
+      while (v5_to_skip && *v5_to_skip) {
+        read_ret = read(in_pipe, read_buf, 2);
+        if (read_ret == -1) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            nanosleep(&nonblock_sleep, NULL);
+            continue;
+          } else {
+            return SDAS_DECOMPRESSION_ERROR;
+          }
+        } else if (read_ret != 2) {
+          return SDAS_DECOMPRESSION_ERROR;
+        } else {
+          *v5_to_skip = 0;
+        }
+      }
       // Handling for 32-bit systems.
       // size_t and uintptr_t is 4 bytes on 32-bit systems.
       // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
@@ -1861,7 +1908,7 @@ void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
   }
 }
 
-int internal_write_dir_entries_v2_v3_v4(void *data, void *ud) {
+int internal_write_dir_entries_v2_v3_v4_v5(void *data, void *ud) {
   const char *dir = data;
   void **ptrs = ud;
   FILE *out_f = ptrs[0];
@@ -2023,7 +2070,9 @@ int internal_write_dir_entries_v2_v3_v4(void *data, void *ud) {
     return 1;
   }
 
-  if (state->parsed->write_version == 3 || state->parsed->write_version == 4) {
+  if (state->parsed->write_version == 3
+      || state->parsed->write_version == 4
+      || state->parsed->write_version == 5) {
     u32 = stat_buf.st_uid;
     if (state->parsed->flags & 0x400) {
       u32 = state->parsed->uid;
@@ -2269,7 +2318,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     case 3:
       return simple_archiver_write_v3(out_f, state, filenames);
     case 4:
-      return simple_archiver_write_v4(out_f, state, filenames);
+      return simple_archiver_write_v4v5(out_f, state, filenames, 0);
+    case 5:
+      return simple_archiver_write_v4v5(out_f, state, filenames, 1);
     default:
       fprintf(stderr, "ERROR: Unsupported write version %" PRIu32 "!\n",
               state->parsed->write_version);
@@ -4400,7 +4451,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4,
+                               internal_write_dir_entries_v2_v3_v4_v5,
                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
@@ -5633,7 +5684,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4,
+                               internal_write_dir_entries_v2_v3_v4_v5,
                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
@@ -5643,11 +5694,16 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-SDArchiverStateRetStruct simple_archiver_write_v4(
+SDArchiverStateRetStruct simple_archiver_write_v4v5(
     FILE *out_f,
     SDArchiverState *state,
-    const SDArchiverLinkedList *filenames) {
-  fprintf(stderr, "Writing archive of file format 4\n");
+    const SDArchiverLinkedList *filenames,
+    int_fast8_t is_v5) {
+  if (is_v5) {
+    fprintf(stderr, "Writing archive of file format 5\n");
+  } else {
+    fprintf(stderr, "Writing archive of file format 4\n");
+  }
 
   // First create a "set" of absolute paths to given filenames.
   __attribute__((cleanup(simple_archiver_hash_map_free)))
@@ -5714,7 +5770,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
   }
 
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
-  uint16_t u16 = 4;
+  uint16_t u16 = is_v5 ? 5 : 4;
 
   simple_archiver_helper_16_bit_be(&u16);
 
@@ -6269,12 +6325,14 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
 
   SDArchiverLLNode *file_node = files_list->head;
   uint64_t chunk_count = 0;
+  int_fast8_t v5_to_write_header;
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail;
        chunk_c_node = chunk_c_node->next) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
+    v5_to_write_header = is_v5 ? 1 : 0;
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             ++chunk_count,
@@ -6545,6 +6603,24 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
           simple_archiver_internal_cleanup_int_fd))) int pipe_into_write =
           pipe_into_cmd[1];
 
+      while (v5_to_write_header) {
+        ssize_t write_ret = write(pipe_into_write, "SA", 2);
+        if (write_ret == -1) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            nanosleep(&nonblock_sleep, NULL);
+            continue;
+          } else {
+            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+          }
+        } else if (write_ret != 2) {
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        } else if (write_ret == 2) {
+          v5_to_write_header = 0;
+        } else {
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      }
+
       int_fast8_t to_temp_finished = 0;
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
@@ -6744,6 +6820,13 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
       if (!non_c_chunk_size) {
         return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
+      if (v5_to_write_header) {
+        size_t fwrite_ret = fwrite("SA", 1, 2, out_f);
+        if (fwrite_ret != 2) {
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+        v5_to_write_header = 0;
+      }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
@@ -6798,7 +6881,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4(
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4,
+                               internal_write_dir_entries_v2_v3_v4_v5,
                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
@@ -6843,7 +6926,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
     return simple_archiver_parse_archive_version_3(in_f, do_extract, state);
   } else if (u16 == 4) {
     fprintf(stderr, "File format version 4\n");
-    return simple_archiver_parse_archive_version_4(in_f, do_extract, state);
+    return simple_archiver_parse_archive_version_4_5(in_f, do_extract, state, 0);
+  } else if (u16 == 5) {
+    fprintf(stderr, "File format version 5\n");
+    return simple_archiver_parse_archive_version_4_5(in_f, do_extract, state, 1);
   } else {
     fprintf(stderr, "ERROR Unsupported archive version %" PRIu16 "!\n", u16);
     return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -8030,7 +8116,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     compressor_cmd = malloc(u16 + 1);
     SDArchiverStateReturns ret =
         read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-                              u16 + 1, compressor_cmd);
+                              u16 + 1, compressor_cmd, NULL);
     if (ret != SDAS_SUCCESS) {
       return SDA_RET_STRUCT(ret);
     }
@@ -8044,7 +8130,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     simple_archiver_helper_16_bit_be(&u16);
     decompressor_cmd = malloc(u16 + 1);
     ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                u16 + 1, decompressor_cmd);
+                                u16 + 1, decompressor_cmd, NULL);
     if (ret != SDAS_SUCCESS) {
       return SDA_RET_STRUCT(ret);
     }
@@ -8103,7 +8189,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                                     (char *)buf,
                                     SIMPLE_ARCHIVER_BUFFER_SIZE,
                                     link_name_length + 1,
-                                    link_name);
+                                    link_name, NULL);
     if (ret != SDAS_SUCCESS) {
       return SDA_RET_STRUCT(ret);
     }
@@ -8173,7 +8259,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   path_length + 1,
-                                  path);
+                                  path,
+                                  NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
@@ -8282,7 +8369,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   path_length + 1,
-                                  path);
+                                  path,
+                                  NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
@@ -8443,7 +8531,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       file_info->filename = malloc(u16 + 1);
       SDArchiverStateReturns ret =
           read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                u16 + 1, file_info->filename);
+                                u16 + 1, file_info->filename, NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
@@ -8795,7 +8883,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                   NULL, pipe_outof_read, (char *)buf,
                   SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
                   &pipe_into_write, &chunk_remaining, in_f, hold_buf,
-                  &has_hold);
+                  &has_hold, NULL);
               if (ret != SDAS_SUCCESS) {
                 return SDA_RET_STRUCT(ret);
               }
@@ -8825,7 +8913,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
               &chunk_remaining,
               in_f,
               hold_buf,
-              &has_hold);
+              &has_hold,
+              NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -8867,7 +8956,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold);
+              hold_buf, &has_hold, NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -8875,7 +8964,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold);
+              hold_buf, &has_hold, NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -8964,6 +9053,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                 (char *)buf,
                 SIMPLE_ARCHIVER_BUFFER_SIZE,
                 file_info->file_size,
+                NULL,
                 NULL);
               if (ret != SDAS_SUCCESS) {
                 return SDA_RET_STRUCT(ret);
@@ -8993,7 +9083,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                               out_fd,
                               (char *)buf,
                               SIMPLE_ARCHIVER_BUFFER_SIZE,
-                              file_info->file_size);
+                              file_info->file_size,
+                              NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -9040,6 +9131,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             (char *)buf,
             SIMPLE_ARCHIVER_BUFFER_SIZE,
             file_info->file_size,
+            NULL,
             NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
@@ -9050,6 +9142,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             (char *)buf,
             SIMPLE_ARCHIVER_BUFFER_SIZE,
             file_info->file_size,
+            NULL,
             NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
@@ -9371,7 +9464,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     compressor_cmd = malloc(u16 + 1);
     SDArchiverStateReturns ret =
         read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-                              u16 + 1, compressor_cmd);
+                              u16 + 1, compressor_cmd, NULL);
     if (ret != SDAS_SUCCESS) {
       return SDA_RET_STRUCT(ret);
     }
@@ -9385,7 +9478,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     simple_archiver_helper_16_bit_be(&u16);
     decompressor_cmd = malloc(u16 + 1);
     ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                u16 + 1, decompressor_cmd);
+                                u16 + 1, decompressor_cmd, NULL);
     if (ret != SDAS_SUCCESS) {
       return SDA_RET_STRUCT(ret);
     }
@@ -9445,7 +9538,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       (char *)buf,
       SIMPLE_ARCHIVER_BUFFER_SIZE,
       link_name_length + 1,
-      link_name);
+      link_name,
+      NULL);
     if (ret != SDAS_SUCCESS) {
       return SDA_RET_STRUCT(ret);
     }
@@ -9519,7 +9613,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   path_length + 1,
-                                  parsed_abs_path);
+                                  parsed_abs_path,
+                                  NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
@@ -9563,7 +9658,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   path_length + 1,
-                                  parsed_rel_path);
+                                  parsed_rel_path,
+                                  NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
@@ -10043,7 +10139,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       file_info->filename = malloc(u16 + 1);
       SDArchiverStateReturns ret =
           read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                u16 + 1, file_info->filename);
+                                u16 + 1, file_info->filename, NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
@@ -10458,7 +10554,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                   NULL, pipe_outof_read, (char *)buf,
                   SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
                   &pipe_into_write, &chunk_remaining, in_f, hold_buf,
-                  &has_hold);
+                  &has_hold, NULL);
               if (ret != SDAS_SUCCESS) {
                 return SDA_RET_STRUCT(ret);
               }
@@ -10488,7 +10584,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               &chunk_remaining,
               in_f,
               hold_buf,
-              &has_hold);
+              &has_hold,
+              NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -10540,7 +10637,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold);
+              hold_buf, &has_hold, NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -10548,7 +10645,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold);
+              hold_buf, &has_hold, NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -10640,6 +10737,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                                       (char *)buf,
                                       SIMPLE_ARCHIVER_BUFFER_SIZE,
                                       file_info->file_size,
+                                      NULL,
                                       NULL);
               if (ret != SDAS_SUCCESS) {
                 return SDA_RET_STRUCT(ret);
@@ -10669,7 +10767,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                               out_fd,
                               (char *)buf,
                               SIMPLE_ARCHIVER_BUFFER_SIZE,
-                              file_info->file_size);
+                              file_info->file_size,
+                              NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -10727,6 +10826,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   file_info->file_size,
+                                  NULL,
                                   NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
@@ -10737,6 +10837,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   file_info->file_size,
+                                  NULL,
                                   NULL);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
@@ -11046,10 +11147,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     FILE *in_f,
     int_fast8_t do_extract,
-    const SDArchiverState *state) {
+    const SDArchiverState *state,
+    int_fast8_t is_v5) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -11111,7 +11213,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
     compressor_cmd = malloc(u16 + 1);
     SDArchiverStateReturns ret =
         read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-                              u16 + 1, compressor_cmd);
+                              u16 + 1, compressor_cmd, NULL);
     if (ret != SDAS_SUCCESS) {
       return SDA_RET_STRUCT(ret);
     }
@@ -11125,7 +11227,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
     simple_archiver_helper_16_bit_be(&u16);
     decompressor_cmd = malloc(u16 + 1);
     ret = read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                u16 + 1, decompressor_cmd);
+                                u16 + 1, decompressor_cmd, NULL);
     if (ret != SDAS_SUCCESS) {
       return SDA_RET_STRUCT(ret);
     }
@@ -11185,7 +11287,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                             (char *)buf,
                             SIMPLE_ARCHIVER_BUFFER_SIZE,
                             link_name_length + 1,
-                            link_name);
+                            link_name,
+                            NULL);
     if (ret != SDAS_SUCCESS) {
       return SDA_RET_STRUCT(ret);
     }
@@ -11259,7 +11362,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   path_length + 1,
-                                  parsed_abs_path);
+                                  parsed_abs_path,
+                                  NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
@@ -11303,7 +11407,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   path_length + 1,
-                                  parsed_rel_path);
+                                  parsed_rel_path,
+                                  NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
@@ -11749,10 +11854,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
   simple_archiver_helper_64_bit_be(&u64);
 
   const uint64_t chunk_count = u64;
+  int_fast8_t v5_to_skip;
   for (uint64_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
+    v5_to_skip = is_v5 ? 1 : 0;
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             chunk_idx + 1,
@@ -11783,7 +11890,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
       file_info->filename = malloc(u16 + 1);
       SDArchiverStateReturns ret =
           read_buf_full_from_fd(in_f, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                u16 + 1, file_info->filename);
+                                u16 + 1, file_info->filename, NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
@@ -12198,7 +12305,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                   NULL, pipe_outof_read, (char *)buf,
                   SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
                   &pipe_into_write, &chunk_remaining, in_f, hold_buf,
-                  &has_hold);
+                  &has_hold, &v5_to_skip);
               if (ret != SDAS_SUCCESS) {
                 return SDA_RET_STRUCT(ret);
               }
@@ -12228,7 +12335,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
               &chunk_remaining,
               in_f,
               hold_buf,
-              &has_hold);
+              &has_hold,
+              &v5_to_skip);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -12280,7 +12388,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
           SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold);
+              hold_buf, &has_hold, &v5_to_skip);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -12288,7 +12396,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
           SDArchiverStateReturns ret = read_decomp_to_out_file(
               NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
               file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold);
+              hold_buf, &has_hold, &v5_to_skip);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -12380,7 +12488,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                                       (char *)buf,
                                       SIMPLE_ARCHIVER_BUFFER_SIZE,
                                       file_info->file_size,
-                                      NULL);
+                                      NULL,
+                                      &v5_to_skip);
               if (ret != SDAS_SUCCESS) {
                 return SDA_RET_STRUCT(ret);
               }
@@ -12409,7 +12518,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                               out_fd,
                               (char *)buf,
                               SIMPLE_ARCHIVER_BUFFER_SIZE,
-                              file_info->file_size);
+                              file_info->file_size,
+                              &v5_to_skip);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -12467,7 +12577,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   file_info->file_size,
-                                  NULL);
+                                  NULL,
+                                  &v5_to_skip);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -12477,7 +12588,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
                                   (char *)buf,
                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
                                   file_info->file_size,
-                                  NULL);
+                                  NULL,
+                                  &v5_to_skip);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }

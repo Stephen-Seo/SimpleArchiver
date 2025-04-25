@@ -105,10 +105,11 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   SDArchiverState *state,
   const SDArchiverLinkedList *filenames);
 
-SDArchiverStateRetStruct simple_archiver_write_v4(
+SDArchiverStateRetStruct simple_archiver_write_v4v5(
   FILE *out_f,
   SDArchiverState *state,
-  const SDArchiverLinkedList *filenames);
+  const SDArchiverLinkedList *filenames,
+  int_fast8_t is_v5);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_info(
@@ -141,10 +142,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   const SDArchiverState *state);
 
 /// Returns zero in "ret" field on success.
-SDArchiverStateRetStruct simple_archiver_parse_archive_version_4(
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
   FILE *in_f,
   int_fast8_t do_extract,
-  const SDArchiverState *state);
+  const SDArchiverState *state,
+  int_fast8_t is_v5);
 
 /// Returns zero on success.
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],

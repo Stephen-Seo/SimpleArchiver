@@ -194,7 +194,7 @@ void simple_archiver_print_usage(void) {
           "\n");
   fprintf(stderr,
           "--write-version <version> : Force write version file format "
-          "(default 4)\n");
+          "(default 5)\n");
   fprintf(stderr,
           "--chunk-min-size <bytes> : minimum chunk size (default 4194304 or "
           "4MiB) when using chunks (file formats v. 1 and up)\n");
@@ -309,7 +309,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.working_files = NULL;
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
-  parsed.write_version = 4;
+  parsed.write_version = 5;
   parsed.minimum_chunk_size = 4194304;
   parsed.uid = 0;
   parsed.gid = 0;
@@ -498,8 +498,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           fprintf(stderr, "ERROR: --write-version cannot be negative!\n");
           simple_archiver_print_usage();
           return 1;
-        } else if (version > 4) {
-          fprintf(stderr, "ERROR: --write-version must be 0, 1, 2, 3, or 4!\n");
+        } else if (version > 5) {
+          fprintf(stderr,
+                  "ERROR: --write-version must be 0, 1, 2, 3, 4, or 5!\n");
           simple_archiver_print_usage();
           return 1;
         }
