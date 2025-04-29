@@ -80,7 +80,9 @@ int main(int argc, const char **argv) {
 #endif
   }
 
-  if ((parsed.flags & 0x3) == 0 && (parsed.flags & 0x4) == 0) {
+  if ((parsed.flags & 0x3) == 0
+      && (parsed.flags & 0x4) == 0
+      && parsed.filename) {
     FILE *file = fopen(parsed.filename, "r");
     if (file != NULL) {
       fclose(file);

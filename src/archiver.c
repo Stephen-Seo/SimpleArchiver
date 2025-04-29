@@ -1317,6 +1317,17 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         if (read_ret == -1) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
             nanosleep(&nonblock_sleep, NULL);
+            SDArchiverStateReturns ret =
+              try_write_to_decomp(to_dec_pipe,
+                                  chunk_remaining,
+                                  in_f,
+                                  read_buf,
+                                  read_buf_size,
+                                  hold_buf,
+                                  has_hold);
+            if (ret != SDAS_SUCCESS) {
+              return ret;
+            }
             continue;
           } else {
             return SDAS_DECOMPRESSION_ERROR;
@@ -1372,6 +1383,17 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         if (read_ret == -1) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
             nanosleep(&nonblock_sleep, NULL);
+            SDArchiverStateReturns ret =
+              try_write_to_decomp(to_dec_pipe,
+                                  chunk_remaining,
+                                  in_f,
+                                  read_buf,
+                                  read_buf_size,
+                                  hold_buf,
+                                  has_hold);
+            if (ret != SDAS_SUCCESS) {
+              return ret;
+            }
             continue;
           } else {
             return SDAS_DECOMPRESSION_ERROR;
@@ -8497,6 +8519,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t chunk_count = u32;
+  int_fast8_t skip_chunk;
   for (uint32_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -8505,6 +8528,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             "CHUNK %3" PRIu32 " of %3" PRIu32 "\n",
             chunk_idx + 1,
             chunk_count);
+
+    skip_chunk = 1;
 
     if (fread(&u32, 4, 1, in_f) != 1) {
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -8542,6 +8567,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           state->parsed->flags & 0x20000 ? 1 : 0,
           state->parsed)) {
         file_info->other_flags |= 2;
+        skip_chunk = 0;
       }
 
       if (simple_archiver_validate_file_path(file_info->filename)) {
@@ -8719,7 +8745,19 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
 
-    if (is_compressed) {
+    if (skip_chunk) {
+      fprintf(stderr, "Skipping chunk...\n");
+      SDArchiverStateReturns ret = read_buf_full_from_fd(
+        in_f,
+        (char *)buf,
+        SIMPLE_ARCHIVER_BUFFER_SIZE,
+        chunk_remaining,
+        NULL,
+        NULL);
+      if (ret != SDAS_SUCCESS) {
+        return SDA_RET_STRUCT(ret);
+      }
+    } else if (is_compressed) {
       // Start the decompressing process and read into files.
 
       // Handle SIGPIPE.
@@ -10105,6 +10143,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t chunk_count = u32;
+  int_fast8_t skip_chunk;
   for (uint32_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -10113,6 +10152,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
             "CHUNK %3" PRIu32 " of %3" PRIu32 "\n",
             chunk_idx + 1,
             chunk_count);
+
+    skip_chunk = 1;
 
     if (fread(&u32, 4, 1, in_f) != 1) {
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -10155,6 +10196,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           state->parsed->flags & 0x20000 ? 1 : 0,
           state->parsed)) {
         file_info->other_flags |= 2;
+        skip_chunk = 0;
       }
 
       if (do_extract
@@ -10390,7 +10432,19 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
 
-    if (is_compressed) {
+    if (skip_chunk) {
+      fprintf(stderr, "Skipping chunk...\n");
+      SDArchiverStateReturns ret = read_buf_full_from_fd(
+        in_f,
+        (char *)buf,
+        SIMPLE_ARCHIVER_BUFFER_SIZE,
+        chunk_remaining,
+        NULL,
+        NULL);
+      if (ret != SDAS_SUCCESS) {
+        return SDA_RET_STRUCT(ret);
+      }
+    } else if (is_compressed) {
       // Start the decompressing process and read into files.
 
       // Handle SIGPIPE.
@@ -11854,6 +11908,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
   simple_archiver_helper_64_bit_be(&u64);
 
   const uint64_t chunk_count = u64;
+  int_fast8_t skip_chunk;
   int_fast8_t v5_to_skip;
   for (uint64_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
@@ -11864,6 +11919,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             chunk_idx + 1,
             chunk_count);
+
+    skip_chunk = 1;
 
     if (fread(&u64, 8, 1, in_f) != 1) {
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -11906,6 +11963,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           state->parsed->flags & 0x20000 ? 1 : 0,
           state->parsed)) {
         file_info->other_flags |= 2;
+        skip_chunk = 0;
       }
 
       if (do_extract
@@ -12141,7 +12199,19 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     SDArchiverLLNode *node = file_info_list->head;
     uint64_t file_idx = 0;
 
-    if (is_compressed) {
+    if (skip_chunk) {
+      fprintf(stderr, "Skipping chunk...\n");
+      SDArchiverStateReturns ret = read_buf_full_from_fd(
+        in_f,
+        (char *)buf,
+        SIMPLE_ARCHIVER_BUFFER_SIZE,
+        chunk_remaining,
+        NULL,
+        NULL);
+      if (ret != SDAS_SUCCESS) {
+        return SDA_RET_STRUCT(ret);
+      }
+    } else if (is_compressed) {
       // Start the decompressing process and read into files.
 
       // Handle SIGPIPE.

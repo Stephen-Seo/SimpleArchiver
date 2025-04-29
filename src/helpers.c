@@ -854,6 +854,8 @@ FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
                                       char **out_temp_filename) {
   if (parsed->flags & 0x40000) {
     return tmpfile();
+  } else if (!parsed->temp_dir && (parsed->flags & 0x10)) {
+    return tmpfile();
   }
 
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
