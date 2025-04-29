@@ -1317,6 +1317,17 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         if (read_ret == -1) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
             nanosleep(&nonblock_sleep, NULL);
+            SDArchiverStateReturns ret =
+              try_write_to_decomp(to_dec_pipe,
+                                  chunk_remaining,
+                                  in_f,
+                                  read_buf,
+                                  read_buf_size,
+                                  hold_buf,
+                                  has_hold);
+            if (ret != SDAS_SUCCESS) {
+              return ret;
+            }
             continue;
           } else {
             return SDAS_DECOMPRESSION_ERROR;
@@ -1372,6 +1383,17 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         if (read_ret == -1) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
             nanosleep(&nonblock_sleep, NULL);
+            SDArchiverStateReturns ret =
+              try_write_to_decomp(to_dec_pipe,
+                                  chunk_remaining,
+                                  in_f,
+                                  read_buf,
+                                  read_buf_size,
+                                  hold_buf,
+                                  has_hold);
+            if (ret != SDAS_SUCCESS) {
+              return ret;
+            }
             continue;
           } else {
             return SDAS_DECOMPRESSION_ERROR;
