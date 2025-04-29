@@ -8,6 +8,16 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.23
+
+Implement skipping chunks if they are completely ignored due to
+black/white-lists.
+
+Fix bug where file format v5 parsing hangs indefintely.
+
+Fix bug where creating archive to stdout while compressing fails to create an
+archive.
+
 ## Version 1.22
 
 Fix parsing file format 5 where testing/extracting a zero-size chunk errors out.
