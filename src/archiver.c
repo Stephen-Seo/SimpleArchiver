@@ -43,7 +43,8 @@
 
 #define FILE_COUNTS_OUTPUT_FORMAT_STR_0 \
   "\nFile %%%" PRIu64 PRIu32 " of %%%" PRIu64 PRIu32 ".\n"
-#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 "[%%%" PRIu64 "zu/%%%" PRIu64 PRIu64 "]\n"
+#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 \
+  "[%%%" PRIu64 "zu/%%%" PRIu64 PRIu64 "]\n"
 
 #define SIMPLE_ARCHIVER_BUFFER_SIZE (1024 * 32)
 
@@ -1131,7 +1132,11 @@ SDArchiverStateReturns read_fd_to_out_fd(FILE *in_fd,
     } else {
       if (fread(read_buf, 1, (size_t)amount, in_fd) != (size_t)amount) {
         return SDAS_INVALID_FILE;
-      } else if (fwrite(read_buf, 1, (size_t)amount, out_fd) != (size_t)amount) {
+      } else if (fwrite(read_buf,
+                        1,
+                        (size_t)amount,
+                        out_fd)
+                 != (size_t)amount) {
         return SDAS_FAILED_TO_WRITE;
       }
       amount = 0;
@@ -12501,7 +12506,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           if (write_decomp_ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(write_decomp_ret);
           }
-          ssize_t read_ret = read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
+          ssize_t read_ret = read(pipe_outof_read,
+                                  buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE);
           if (read_ret == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
               nanosleep(&nonblock_sleep, NULL);
@@ -12521,7 +12528,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           }
         }
         while(read_remaining != 0) {
-          ssize_t read_ret = read(pipe_outof_read, buf, SIMPLE_ARCHIVER_BUFFER_SIZE);
+          ssize_t read_ret = read(pipe_outof_read,
+                                  buf,
+                                  SIMPLE_ARCHIVER_BUFFER_SIZE);
           if (read_ret == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
               nanosleep(&nonblock_sleep, NULL);
