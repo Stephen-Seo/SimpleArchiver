@@ -2301,7 +2301,7 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   }
 }
 
-SDArchiverState *simple_archiver_init_state(const SDArchiverParsed *parsed) {
+SDArchiverState *simple_archiver_init_state(SDArchiverParsed *parsed) {
   if (!parsed) {
     return NULL;
   }
@@ -2340,9 +2340,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     case 3:
       return simple_archiver_write_v3(out_f, state, filenames);
     case 4:
-      return simple_archiver_write_v4v5(out_f, state, filenames, 0);
+      return simple_archiver_write_v4v5(out_f, state, filenames);
     case 5:
-      return simple_archiver_write_v4v5(out_f, state, filenames, 1);
+      return simple_archiver_write_v4v5(out_f, state, filenames);
     default:
       fprintf(stderr, "ERROR: Unsupported write version %" PRIu32 "!\n",
               state->parsed->write_version);
@@ -5719,9 +5719,8 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
 SDArchiverStateRetStruct simple_archiver_write_v4v5(
     FILE *out_f,
     SDArchiverState *state,
-    const SDArchiverLinkedList *filenames,
-    int_fast8_t is_v5) {
-  if (is_v5) {
+    const SDArchiverLinkedList *filenames) {
+  if (state->parsed->write_version == 5) {
     fprintf(stderr, "Writing archive of file format 5\n");
   } else {
     fprintf(stderr, "Writing archive of file format 4\n");
@@ -5792,7 +5791,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   }
 
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
-  uint16_t u16 = is_v5 ? 5 : 4;
+  uint16_t u16 = state->parsed->write_version == 5 ? 5 : 4;
 
   simple_archiver_helper_16_bit_be(&u16);
 
@@ -6354,7 +6353,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
-    v5_to_write_header = is_v5 ? 1 : 0;
+    v5_to_write_header = state->parsed->write_version == 5 ? 1 : 0;
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             ++chunk_count,
@@ -6916,7 +6915,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
 SDArchiverStateRetStruct simple_archiver_parse_archive_info(
     FILE *in_f,
     int_fast8_t do_extract,
-    const SDArchiverState *state) {
+    SDArchiverState *state) {
   signal(SIGINT, handle_sig_int);
 
   uint8_t buf[32];
@@ -6936,22 +6935,28 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
 
   if (u16 == 0) {
     fprintf(stderr, "File format version 0\n");
+    state->parsed->write_version = 0;
     return simple_archiver_parse_archive_version_0(in_f, do_extract, state);
   } else if (u16 == 1) {
     fprintf(stderr, "File format version 1\n");
+    state->parsed->write_version = 1;
     return simple_archiver_parse_archive_version_1(in_f, do_extract, state);
   } else if (u16 == 2) {
     fprintf(stderr, "File format version 2\n");
+    state->parsed->write_version = 2;
     return simple_archiver_parse_archive_version_2(in_f, do_extract, state);
   } else if (u16 == 3) {
     fprintf(stderr, "File format version 3\n");
+    state->parsed->write_version = 3;
     return simple_archiver_parse_archive_version_3(in_f, do_extract, state);
   } else if (u16 == 4) {
     fprintf(stderr, "File format version 4\n");
-    return simple_archiver_parse_archive_version_4_5(in_f, do_extract, state, 0);
+    state->parsed->write_version = 4;
+    return simple_archiver_parse_archive_version_4_5(in_f, do_extract, state);
   } else if (u16 == 5) {
     fprintf(stderr, "File format version 5\n");
-    return simple_archiver_parse_archive_version_4_5(in_f, do_extract, state, 1);
+    state->parsed->write_version = 5;
+    return simple_archiver_parse_archive_version_4_5(in_f, do_extract, state);
   } else {
     fprintf(stderr, "ERROR Unsupported archive version %" PRIu16 "!\n", u16);
     return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -11204,8 +11209,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     FILE *in_f,
     int_fast8_t do_extract,
-    const SDArchiverState *state,
-    int_fast8_t is_v5) {
+    const SDArchiverState *state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -11914,7 +11918,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
-    v5_to_skip = is_v5 ? 1 : 0;
+    v5_to_skip = state->parsed->write_version == 5 ? 1 : 0;
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             chunk_idx + 1,
