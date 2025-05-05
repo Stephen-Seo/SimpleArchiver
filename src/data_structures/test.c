@@ -125,6 +125,15 @@ void cleanup_test_struct_fn(void *ptr) {
   }
 }
 
+void *internal_pheap_clone_uint32_t(void *data) {
+  uint32_t *data_u32 = data;
+  uint32_t *u32 = malloc(4);
+
+  *u32 = *data_u32;
+
+  return u32;
+}
+
 int main(void) {
   puts("Begin data-structures unit test.");
   fflush(stdout);
@@ -711,6 +720,59 @@ int main(void) {
         CHECK_TRUE(elems[idx]);
       }
     }
+    simple_archiver_priority_heap_free(&priority_heap);
+
+    // Test "shallow clone".
+    priority_heap = simple_archiver_priority_heap_init();
+
+    for (uint32_t idx = 0; idx < 50; ++idx) {
+      uint32_t *data = malloc(4);
+      *data = idx;
+      simple_archiver_priority_heap_insert(priority_heap, idx, data, NULL);
+    }
+
+    {
+      // Create "shallow clone"
+      __attribute__((cleanup(simple_archiver_priority_heap_free)))
+      SDArchiverPHeap *shallow_clone =
+        simple_archiver_priority_heap_clone(priority_heap, NULL);
+    }
+
+    {
+      // Create "shallow clone" and pop its contents.
+      __attribute__((cleanup(simple_archiver_priority_heap_free)))
+      SDArchiverPHeap *shallow_clone =
+        simple_archiver_priority_heap_clone(priority_heap, NULL);
+
+      uint32_t idx = 0;
+      while (simple_archiver_priority_heap_size(shallow_clone) != 0) {
+        uint32_t *data = simple_archiver_priority_heap_pop(shallow_clone);
+        CHECK_TRUE(*data == idx++);
+      }
+    }
+
+    {
+      // Create proper clone of pheap.
+      __attribute__((cleanup(simple_archiver_priority_heap_free)))
+      SDArchiverPHeap *pheap_clone =
+        simple_archiver_priority_heap_clone(priority_heap,
+                                            internal_pheap_clone_uint32_t);
+    }
+
+    {
+      // Create proper clone of pheap and pop its contents.
+      __attribute__((cleanup(simple_archiver_priority_heap_free)))
+      SDArchiverPHeap *pheap_clone =
+        simple_archiver_priority_heap_clone(priority_heap,
+                                            internal_pheap_clone_uint32_t);
+      uint32_t idx = 0;
+      while (simple_archiver_priority_heap_size(pheap_clone) != 0) {
+        uint32_t *data = simple_archiver_priority_heap_pop(pheap_clone);
+        CHECK_TRUE(*data == idx++);
+        free(data);
+      }
+    }
+
     simple_archiver_priority_heap_free(&priority_heap);
   }
 

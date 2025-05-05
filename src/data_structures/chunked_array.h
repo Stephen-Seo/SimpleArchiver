@@ -44,6 +44,10 @@ void simple_archiver_chunked_array_cleanup(SDArchiverChunkedArr *);
 /// Returns non-void ptr to element on success.
 void *simple_archiver_chunked_array_at(SDArchiverChunkedArr *, uint64_t idx);
 
+/// Returns non-void ptr to element on success.
+const void *simple_archiver_chunked_array_at_const(const SDArchiverChunkedArr *,
+                                                   uint64_t idx);
+
 /// Returns 0 on success.
 int simple_archiver_chunked_array_push(SDArchiverChunkedArr *, void *to_copy);
 
@@ -61,6 +65,6 @@ void simple_archiver_chunked_array_clear(SDArchiverChunkedArr *);
 
 /// Returns the number of elements in the chunked array.
 /// This will return 0 if the chunked_array is invalid.
-uint64_t simple_archiver_chunked_array_size(SDArchiverChunkedArr *);
+uint64_t simple_archiver_chunked_array_size(const SDArchiverChunkedArr *);
 
 #endif
