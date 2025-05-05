@@ -4,6 +4,8 @@
 
 Some minor refactorings.
 
+Added a "clone" and "shallow clone" for data structure "priority heap".
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
