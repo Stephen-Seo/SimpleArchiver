@@ -89,6 +89,10 @@ uint64_t simple_archiver_priority_heap_size(SDArchiverPHeap *priority_heap);
 // simple_archiver_priority_heap_free(...) or
 // simple_archiver_priority_heap_free_single_ptr(...) even if it is a "shallow
 // clone".
+//
+// Also note that a "shallow clone" will refer to invalid memory if the original
+// priority heap was free'd. Thus, you MUST ensure that a "shallow clone" will
+// never be used after the original priority heap is free'd.
 SDArchiverPHeap *simple_archiver_priority_heap_clone(
   const SDArchiverPHeap *prev_heap,
   void*(*clone_fn)(void*));
