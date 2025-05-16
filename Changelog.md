@@ -6,6 +6,9 @@ Some minor refactorings.
 
 Added a "clone" and "shallow clone" for data structure "priority heap".
 
+Implemented a "list array" which is like a "chunked array", but stores the
+pointers to each sub-array in a linked-list instead of a contiguous array.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
