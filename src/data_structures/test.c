@@ -28,6 +28,7 @@
 #include "hash_map.h"
 #include "linked_list.h"
 #include "chunked_array.h"
+#include "list_array.h"
 #include "priority_heap.h"
 
 #define SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE 100
@@ -526,6 +527,128 @@ int main(void) {
 
     simple_archiver_chunked_array_clear(&chunked_array);
     simple_archiver_chunked_array_cleanup(&chunked_array);
+  }
+
+  // Test ListArray
+  {
+    SDArchiverListArr la =
+      simple_archiver_list_array_init(cleanup_test_struct_fn,
+                                      sizeof(TestStruct));
+    simple_archiver_list_array_cleanup(&la);
+
+    // Test cleanup after pushing some values.
+    la = simple_archiver_list_array_init(cleanup_test_struct_fn,
+                                         sizeof(TestStruct));
+
+    TestStruct test_struct;
+    TestStruct *test_struct_ptr;
+
+    for (int idx = 0; idx < 128; ++idx) {
+      test_struct.first = malloc(sizeof(int));
+      *test_struct.first = 1 + idx * 2;
+      test_struct.second = malloc(sizeof(int));
+      *test_struct.second = 2 + idx * 2;
+      CHECK_TRUE(simple_archiver_list_array_push(&la, &test_struct) == 0);
+      CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
+    }
+    for (int idx = 0; idx < 128; ++idx) {
+      test_struct_ptr = simple_archiver_list_array_at(&la, idx);
+      CHECK_TRUE(*test_struct_ptr->first == 1 + idx * 2);
+      CHECK_TRUE(*test_struct_ptr->second == 2 + idx * 2);
+    }
+    simple_archiver_list_array_cleanup(&la);
+
+    // Test cleanup after pushing integers.
+    la = simple_archiver_list_array_init(no_free_fn, sizeof(int));
+
+    for (int idx = 0; idx < 128; ++idx) {
+      CHECK_TRUE(simple_archiver_list_array_push(&la, &idx) == 0);
+      CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
+    }
+    for (int idx = 0; idx < 128; ++idx) {
+      const int *int_ptr = simple_archiver_list_array_at_const(&la, idx);
+      CHECK_TRUE(*int_ptr == idx);
+    }
+
+    simple_archiver_list_array_cleanup(&la);
+
+    // Test cleanup after pushing integers with NULL free fn.
+    la = simple_archiver_list_array_init(0, sizeof(int));
+
+    for (int idx = 0; idx < 128; ++idx) {
+      CHECK_TRUE(simple_archiver_list_array_push(&la, &idx) == 0);
+      CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
+    }
+    for (int idx = 0; idx < 128; ++idx) {
+      const int *int_ptr = simple_archiver_list_array_at_const(&la, idx);
+      CHECK_TRUE(*int_ptr == idx);
+    }
+
+    simple_archiver_list_array_cleanup(&la);
+
+    // Test pop.
+    la = simple_archiver_list_array_init(cleanup_test_struct_fn,
+                                         sizeof(TestStruct));
+
+    for (int idx = 0; idx < 128; ++idx) {
+      test_struct.first = malloc(sizeof(int));
+      *test_struct.first = 1 + idx * 2;
+      test_struct.second = malloc(sizeof(int));
+      *test_struct.second = 2 + idx * 2;
+      CHECK_TRUE(simple_archiver_list_array_push(&la, &test_struct) == 0);
+      CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
+    }
+
+    for (int idx = 128; idx-- > 0;) {
+      if (idx % 3 == 0) {
+        test_struct_ptr = simple_archiver_list_array_pop(&la, 1);
+        CHECK_TRUE(test_struct_ptr);
+        if (test_struct_ptr) {
+          CHECK_TRUE(*test_struct_ptr->first == 1 + idx * 2);
+          CHECK_TRUE(*test_struct_ptr->second == 2 + idx * 2);
+          cleanup_test_struct_fn(test_struct_ptr);
+          free(test_struct_ptr);
+        }
+      } else if (idx % 3 == 1) {
+        test_struct_ptr = simple_archiver_list_array_pop(&la, 0);
+        CHECK_TRUE(test_struct_ptr);
+        if (test_struct_ptr) {
+          free(test_struct_ptr);
+        }
+      } else {
+        CHECK_TRUE(simple_archiver_list_array_pop_no_ret(&la) != 0);
+      }
+      CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx);
+    }
+
+    simple_archiver_list_array_cleanup(&la);
+
+    // Test list array clear.
+    la = simple_archiver_list_array_init(cleanup_test_struct_fn,
+                                         sizeof(TestStruct));
+
+    for (int idx = 0; idx < 128; ++idx) {
+      test_struct.first = malloc(sizeof(int));
+      *test_struct.first = 1 + idx * 2;
+      test_struct.second = malloc(sizeof(int));
+      *test_struct.second = 2 + idx * 2;
+      CHECK_TRUE(simple_archiver_list_array_push(&la, &test_struct) == 0);
+      CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
+    }
+
+    simple_archiver_list_array_clear(&la);
+    CHECK_TRUE(simple_archiver_list_array_size(&la) == 0);
+
+    for (int idx = 0; idx < 128; ++idx) {
+      test_struct.first = malloc(sizeof(int));
+      *test_struct.first = 1 + idx * 2;
+      test_struct.second = malloc(sizeof(int));
+      *test_struct.second = 2 + idx * 2;
+      CHECK_TRUE(simple_archiver_list_array_push(&la, &test_struct) == 0);
+      CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
+    }
+
+    simple_archiver_list_array_cleanup(&la);
   }
 
   // Test PriorityHeap.

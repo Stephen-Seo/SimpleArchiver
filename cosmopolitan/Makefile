@@ -16,6 +16,7 @@ SOURCES = \
 		../src/data_structures/linked_list.c \
 		../src/data_structures/hash_map.c \
 		../src/data_structures/chunked_array.c \
+		../src/data_structures/list_array.c \
 		../src/data_structures/priority_heap.c \
 		../src/users.c
 
@@ -28,6 +29,7 @@ HEADERS = \
 		../src/data_structures/linked_list.h \
 		../src/data_structures/hash_map.h \
 		../src/data_structures/chunked_array.h \
+		../src/data_structures/list_array.h \
 		../src/data_structures/priority_heap.h \
 		../src/platforms.h \
 		../src/users.h \
