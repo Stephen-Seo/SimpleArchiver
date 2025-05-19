@@ -63,4 +63,8 @@ void simple_archiver_list_array_clear(SDArchiverListArr *);
 /// This will return 0 if the list_array is invalid.
 uint64_t simple_archiver_list_array_size(const SDArchiverListArr *);
 
+/// Returns non-null if not empty. Returned ptr is NOT newly allocated and is
+/// still owned by the list array.
+void *simple_archiver_list_array_top(SDArchiverListArr *);
+
 #endif

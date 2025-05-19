@@ -543,6 +543,9 @@ int main(void) {
     TestStruct test_struct;
     TestStruct *test_struct_ptr;
 
+    test_struct_ptr = simple_archiver_list_array_top(&la);
+    CHECK_FALSE(test_struct_ptr);
+
     for (int idx = 0; idx < 128; ++idx) {
       test_struct.first = malloc(sizeof(int));
       *test_struct.first = 1 + idx * 2;
@@ -550,6 +553,12 @@ int main(void) {
       *test_struct.second = 2 + idx * 2;
       CHECK_TRUE(simple_archiver_list_array_push(&la, &test_struct) == 0);
       CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
+      test_struct_ptr = simple_archiver_list_array_top(&la);
+      CHECK_TRUE(test_struct_ptr);
+      if (test_struct_ptr) {
+        CHECK_TRUE(*test_struct_ptr->first == 1 + idx * 2);
+        CHECK_TRUE(*test_struct_ptr->second == 2 + idx * 2);
+      }
     }
     for (int idx = 0; idx < 128; ++idx) {
       test_struct_ptr = simple_archiver_list_array_at(&la, idx);

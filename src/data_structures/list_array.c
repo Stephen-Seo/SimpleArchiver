@@ -221,3 +221,19 @@ uint64_t simple_archiver_list_array_size(const SDArchiverListArr *la) {
 
   return size;
 }
+
+void *simple_archiver_list_array_top(SDArchiverListArr *la) {
+  if (!la || !la->list || la->list->count == 0) {
+    return NULL;
+  }
+
+  SDArchiverListArrNode *node = la->list->tail->prev->data;
+  if (node->arr_count == 0) {
+    return NULL;
+  }
+
+  char *ptr = node->data;
+  ptr += (node->arr_count - 1) * node->elem_size;
+
+  return ptr;
+}
