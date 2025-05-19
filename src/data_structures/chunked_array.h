@@ -72,9 +72,15 @@ uint64_t simple_archiver_chunked_array_size(const SDArchiverChunkedArr *);
 /// that will be popped if "pop" is called. (index (size-1))
 void *simple_archiver_chunked_array_top(SDArchiverChunkedArr *);
 
+const void *simple_archiver_chunked_array_top_const(
+  const SDArchiverChunkedArr *);
+
 /// Returns non-null if not empty. Returned ptr is NOT newly allocated and is
 /// still owned by the list array. Value returned by "bottom" is the last
 /// value that will be popped if "pop" is repeatedly called. (index 0)
 void *simple_archiver_chunked_array_bottom(SDArchiverChunkedArr *);
+
+const void *simple_archiver_chunked_array_bottom_const(
+  const SDArchiverChunkedArr *);
 
 #endif

@@ -238,7 +238,38 @@ void *simple_archiver_list_array_top(SDArchiverListArr *la) {
   return ptr;
 }
 
+const void *simple_archiver_list_array_top_const(const SDArchiverListArr *la) {
+  if (!la || !la->list || la->list->count == 0) {
+    return NULL;
+  }
+
+  SDArchiverListArrNode *node = la->list->tail->prev->data;
+  if (node->arr_count == 0) {
+    return NULL;
+  }
+
+  char *ptr = node->data;
+  ptr += (node->arr_count - 1) * node->elem_size;
+
+  return ptr;
+}
+
 void *simple_archiver_list_array_bottom(SDArchiverListArr *la) {
+  if (!la || !la->list || la->list->count == 0) {
+    return NULL;
+  }
+
+  SDArchiverListArrNode *node = la->list->head->next->data;
+  if (node->arr_count == 0) {
+    return NULL;
+  }
+
+  // data ptr points to first (index 0) element.
+  return node->data;
+}
+
+const void *simple_archiver_list_array_bottom_const(
+    const SDArchiverListArr *la) {
   if (!la || !la->list || la->list->count == 0) {
     return NULL;
   }

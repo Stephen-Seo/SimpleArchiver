@@ -510,10 +510,27 @@ int main(void) {
       simple_archiver_chunked_array_init(no_free_fn,
                                          sizeof(int));
 
+    const int *const_int_ptr =
+      simple_archiver_chunked_array_top_const(&chunked_array);
+    CHECK_FALSE(const_int_ptr);
+    const_int_ptr = simple_archiver_chunked_array_bottom_const(&chunked_array);
+    CHECK_FALSE(const_int_ptr);
+
     for (int idx = 0; idx < 100; ++idx) {
       value = idx;
       CHECK_TRUE(
         simple_archiver_chunked_array_push(&chunked_array, &value) == 0);
+
+      const_int_ptr = simple_archiver_chunked_array_top_const(&chunked_array);
+      CHECK_TRUE(const_int_ptr);
+      if (const_int_ptr) {
+        CHECK_TRUE(*const_int_ptr == idx);
+      }
+      const_int_ptr = simple_archiver_chunked_array_bottom_const(&chunked_array);
+      CHECK_TRUE(const_int_ptr);
+      if (const_int_ptr) {
+        CHECK_TRUE(*const_int_ptr == 0);
+      }
     }
 
     for (int idx = 0; idx < 110; ++idx) {
@@ -527,6 +544,17 @@ int main(void) {
     }
 
     for (int idx = 100; idx-- > 0;) {
+      const_int_ptr = simple_archiver_chunked_array_top_const(&chunked_array);
+      CHECK_TRUE(const_int_ptr);
+      if (const_int_ptr) {
+        CHECK_TRUE(*const_int_ptr == idx);
+      }
+      const_int_ptr = simple_archiver_chunked_array_bottom_const(&chunked_array);
+      CHECK_TRUE(const_int_ptr);
+      if (const_int_ptr) {
+        CHECK_TRUE(*const_int_ptr == 0);
+      }
+
       int_ptr = simple_archiver_chunked_array_pop(&chunked_array, 0);
       CHECK_TRUE(int_ptr);
       CHECK_TRUE(*int_ptr == idx);
@@ -537,6 +565,12 @@ int main(void) {
       int_ptr = simple_archiver_chunked_array_pop(&chunked_array, 0);
       CHECK_FALSE(int_ptr);
     }
+
+    const_int_ptr =
+      simple_archiver_chunked_array_top_const(&chunked_array);
+    CHECK_FALSE(const_int_ptr);
+    const_int_ptr = simple_archiver_chunked_array_bottom_const(&chunked_array);
+    CHECK_FALSE(const_int_ptr);
 
     simple_archiver_chunked_array_cleanup(&chunked_array);
 
@@ -578,11 +612,17 @@ int main(void) {
 
     TestStruct test_struct;
     TestStruct *test_struct_ptr;
+    const TestStruct *ctest_struct_ptr;
 
     test_struct_ptr = simple_archiver_list_array_top(&la);
     CHECK_FALSE(test_struct_ptr);
     test_struct_ptr = simple_archiver_list_array_bottom(&la);
     CHECK_FALSE(test_struct_ptr);
+
+    ctest_struct_ptr = simple_archiver_list_array_top_const(&la);
+    CHECK_FALSE(ctest_struct_ptr);
+    ctest_struct_ptr = simple_archiver_list_array_bottom_const(&la);
+    CHECK_FALSE(ctest_struct_ptr);
 
     for (int idx = 0; idx < 128; ++idx) {
       test_struct.first = malloc(sizeof(int));
@@ -591,6 +631,7 @@ int main(void) {
       *test_struct.second = 2 + idx * 2;
       CHECK_TRUE(simple_archiver_list_array_push(&la, &test_struct) == 0);
       CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
+
       test_struct_ptr = simple_archiver_list_array_top(&la);
       CHECK_TRUE(test_struct_ptr);
       if (test_struct_ptr) {
@@ -602,6 +643,19 @@ int main(void) {
       if (test_struct_ptr) {
         CHECK_TRUE(*test_struct_ptr->first == 1);
         CHECK_TRUE(*test_struct_ptr->second == 2);
+      }
+
+      ctest_struct_ptr = simple_archiver_list_array_top_const(&la);
+      CHECK_TRUE(ctest_struct_ptr);
+      if (ctest_struct_ptr) {
+        CHECK_TRUE(*ctest_struct_ptr->first == 1 + idx * 2);
+        CHECK_TRUE(*ctest_struct_ptr->second == 2 + idx * 2);
+      }
+      ctest_struct_ptr = simple_archiver_list_array_bottom_const(&la);
+      CHECK_TRUE(ctest_struct_ptr);
+      if (ctest_struct_ptr) {
+        CHECK_TRUE(*ctest_struct_ptr->first == 1);
+        CHECK_TRUE(*ctest_struct_ptr->second == 2);
       }
     }
     for (int idx = 0; idx < 128; ++idx) {
@@ -653,6 +707,32 @@ int main(void) {
     }
 
     for (int idx = 128; idx-- > 0;) {
+      test_struct_ptr = simple_archiver_list_array_top(&la);
+      CHECK_TRUE(test_struct_ptr);
+      if (test_struct_ptr) {
+        CHECK_TRUE(*test_struct_ptr->first == 1 + idx * 2);
+        CHECK_TRUE(*test_struct_ptr->second == 2 + idx * 2);
+      }
+      test_struct_ptr = simple_archiver_list_array_bottom(&la);
+      CHECK_TRUE(test_struct_ptr);
+      if (test_struct_ptr) {
+        CHECK_TRUE(*test_struct_ptr->first == 1);
+        CHECK_TRUE(*test_struct_ptr->second == 2);
+      }
+
+      ctest_struct_ptr = simple_archiver_list_array_top_const(&la);
+      CHECK_TRUE(ctest_struct_ptr);
+      if (ctest_struct_ptr) {
+        CHECK_TRUE(*ctest_struct_ptr->first == 1 + idx * 2);
+        CHECK_TRUE(*ctest_struct_ptr->second == 2 + idx * 2);
+      }
+      ctest_struct_ptr = simple_archiver_list_array_bottom_const(&la);
+      CHECK_TRUE(ctest_struct_ptr);
+      if (ctest_struct_ptr) {
+        CHECK_TRUE(*ctest_struct_ptr->first == 1);
+        CHECK_TRUE(*ctest_struct_ptr->second == 2);
+      }
+
       if (idx % 3 == 0) {
         test_struct_ptr = simple_archiver_list_array_pop(&la, 1);
         CHECK_TRUE(test_struct_ptr);
@@ -673,6 +753,16 @@ int main(void) {
       }
       CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx);
     }
+
+    test_struct_ptr = simple_archiver_list_array_top(&la);
+    CHECK_FALSE(test_struct_ptr);
+    test_struct_ptr = simple_archiver_list_array_bottom(&la);
+    CHECK_FALSE(test_struct_ptr);
+
+    ctest_struct_ptr = simple_archiver_list_array_top_const(&la);
+    CHECK_FALSE(ctest_struct_ptr);
+    ctest_struct_ptr = simple_archiver_list_array_bottom_const(&la);
+    CHECK_FALSE(ctest_struct_ptr);
 
     simple_archiver_list_array_cleanup(&la);
 
