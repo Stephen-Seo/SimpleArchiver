@@ -64,7 +64,13 @@ void simple_archiver_list_array_clear(SDArchiverListArr *);
 uint64_t simple_archiver_list_array_size(const SDArchiverListArr *);
 
 /// Returns non-null if not empty. Returned ptr is NOT newly allocated and is
-/// still owned by the list array.
+/// still owned by the list array. Value returned by "top" is the next value
+/// that will be popped if "pop" is called. (index (size-1))
 void *simple_archiver_list_array_top(SDArchiverListArr *);
+
+/// Returns non-null if not empty. Returned ptr is NOT newly allocated and is
+/// still owned by the list array. Value returned by "bottom" is the last
+/// value that will be popped if "pop" is repeatedly called. (index 0)
+void *simple_archiver_list_array_bottom(SDArchiverListArr *);
 
 #endif
