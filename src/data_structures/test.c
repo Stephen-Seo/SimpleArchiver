@@ -434,17 +434,48 @@ int main(void) {
 
     // Check clearn, push, and pop with arbitrary data.
     simple_archiver_chunked_array_clear(&chunked_array);
+
+    t_ptr = simple_archiver_chunked_array_top(&chunked_array);
+    CHECK_FALSE(t_ptr);
+    t_ptr = simple_archiver_chunked_array_bottom(&chunked_array);
+    CHECK_FALSE(t_ptr);
+
     for (int idx = 0; idx < 100; ++idx) {
       t = (TestStruct){.first=malloc(sizeof(int)), .second=malloc(sizeof(int))};
       *t.first = idx;
       *t.second = idx * 1000;
       simple_archiver_chunked_array_push(&chunked_array, &t);
+      t_ptr = simple_archiver_chunked_array_top(&chunked_array);
+      CHECK_TRUE(t_ptr);
+      if (t_ptr) {
+        CHECK_TRUE(*t_ptr->first == idx);
+        CHECK_TRUE(*t_ptr->second == idx * 1000);
+      }
+      t_ptr = simple_archiver_chunked_array_bottom(&chunked_array);
+      CHECK_TRUE(t_ptr);
+      if (t_ptr) {
+        CHECK_TRUE(*t_ptr->first == 0);
+        CHECK_TRUE(*t_ptr->second == 0);
+      }
     }
 
     // Check size.
     CHECK_TRUE(simple_archiver_chunked_array_size(&chunked_array) == 100);
 
     for (int idx = 100; idx-- > 0;) {
+      t_ptr = simple_archiver_chunked_array_top(&chunked_array);
+      CHECK_TRUE(t_ptr);
+      if (t_ptr) {
+        CHECK_TRUE(*t_ptr->first == idx);
+        CHECK_TRUE(*t_ptr->second == idx * 1000);
+      }
+      t_ptr = simple_archiver_chunked_array_bottom(&chunked_array);
+      CHECK_TRUE(t_ptr);
+      if (t_ptr) {
+        CHECK_TRUE(*t_ptr->first == 0);
+        CHECK_TRUE(*t_ptr->second == 0);
+      }
+
       if (idx > 50) {
         CHECK_TRUE(
           simple_archiver_chunked_array_pop_no_ret(&chunked_array) != 0);
@@ -463,6 +494,11 @@ int main(void) {
         }
       }
     }
+
+    t_ptr = simple_archiver_chunked_array_top(&chunked_array);
+    CHECK_FALSE(t_ptr);
+    t_ptr = simple_archiver_chunked_array_bottom(&chunked_array);
+    CHECK_FALSE(t_ptr);
 
     // Check size.
     CHECK_TRUE(simple_archiver_chunked_array_size(&chunked_array) == 0);

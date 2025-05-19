@@ -264,3 +264,43 @@ uint64_t simple_archiver_chunked_array_size(
            * SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE
          + chunked_array->last_size;
 }
+
+void *simple_archiver_chunked_array_top(SDArchiverChunkedArr *ca) {
+  if (!ca
+      || ca->chunk_count == 0
+      || !ca->array
+      || (ca->chunk_count == 1 && ca->last_size == 0)) {
+    return NULL;
+  }
+
+  if (ca->last_size == 0) {
+    if (ca->chunk_count < 2) {
+      return NULL;
+    }
+    char *ptr = ca->array[ca->chunk_count - 2];
+    ptr += (SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE - 1) * ca->elem_size;
+    return ptr;
+  } else {
+    char *ptr = ca->array[ca->chunk_count - 1];
+    ptr += (ca->last_size - 1) * ca->elem_size;
+    return ptr;
+  }
+}
+
+void *simple_archiver_chunked_array_bottom(SDArchiverChunkedArr *ca) {
+  if (!ca
+      || ca->chunk_count == 0
+      || !ca->array
+      || (ca->chunk_count == 1 && ca->last_size == 0)) {
+    return NULL;
+  }
+
+  if (ca->last_size == 0) {
+    if (ca->chunk_count < 2) {
+      return NULL;
+    }
+    return ca->array[0];
+  } else {
+    return ca->array[0];
+  }
+}
