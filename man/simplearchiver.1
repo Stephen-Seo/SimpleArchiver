@@ -138,9 +138,10 @@ current effective user ID is 0 (root).
 .TP
 .BR --force-user " " \fIusername\fR
 Force the ownership of all archived items to the given user when creating an
-archive. If the user does not exist on the machine extracting an archive, then
-\fBsimplearchiver\fR will stop with an error. Note that this option will only
-take effect on extraction if the current effective user ID is 0 (root).
+archive. If the user does not exist on the machine creating/extracting an
+archive, then \fBsimplearchiver\fR will stop with an error. Note that this
+option will only take effect on extraction if the current effective user ID is
+0 (root).
 .TP
 .BR --force-gid " " \fIGID\fR
 Force the group of all archived items to the given GID when creating or
@@ -149,9 +150,10 @@ extraction if the current effective user ID is 0 (root).
 .TP
 .BR --force-group " " \fIgroupname\fR
 Force the group of all archived items to the given group when creating an
-archive. If the group does not exist on the machine extracting an archive, then
-\fBsimplearchiver\fR will stop with an error. Note that this option will only
-take effect on extraction if the current effective user ID is 0 (root).
+archive. If the group does not exist on the machine creating/extracting an
+archive, then \fBsimplearchiver\fR will stop with an error. Note that this
+option will only take effect on extraction if the current effective user ID is
+0 (root).
 .TP
 .BR --extract-prefer-uid
 Prefer the archive's stored UID over username. By default, the username stored
