@@ -2,7 +2,7 @@
 
 ## Upcoming Changes
 
-Some minor refactorings.
+A bunch of refactorings.
 
 Added a "clone" and "shallow clone" for data structure "priority heap".
 
@@ -13,6 +13,8 @@ Implemented "top" and "bottom" (with "const" variants) for "chunked array" and
 "list array".
 
 Created a man page for simplearchiver.
+
+Fixed simplearchiver ignoring positional arguments when extracting.
 
 ## Alternate Changes
 
