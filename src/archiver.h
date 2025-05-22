@@ -82,33 +82,27 @@ void simple_archiver_free_state(SDArchiverState **state);
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_write_all(
   FILE *out_f,
-  SDArchiverState *state,
-  const SDArchiverLinkedList *filenames);
+  SDArchiverState *state);
 
 SDArchiverStateRetStruct simple_archiver_write_v0(
   FILE *out_f,
-  SDArchiverState *state,
-  const SDArchiverLinkedList *filenames);
+  SDArchiverState *state);
 
 SDArchiverStateRetStruct simple_archiver_write_v1(
   FILE *out_f,
-  SDArchiverState *state,
-  const SDArchiverLinkedList *filenames);
+  SDArchiverState *state);
 
 SDArchiverStateRetStruct simple_archiver_write_v2(
   FILE *out_f,
-  SDArchiverState *state,
-  const SDArchiverLinkedList *filenames);
+  SDArchiverState *state);
 
 SDArchiverStateRetStruct simple_archiver_write_v3(
   FILE *out_f,
-  SDArchiverState *state,
-  const SDArchiverLinkedList *filenames);
+  SDArchiverState *state);
 
 SDArchiverStateRetStruct simple_archiver_write_v4v5(
   FILE *out_f,
-  SDArchiverState *state,
-  const SDArchiverLinkedList *filenames);
+  SDArchiverState *state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_info(

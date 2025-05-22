@@ -306,7 +306,8 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.filename_full_abs_path = NULL;
   parsed.compressor = NULL;
   parsed.decompressor = NULL;
-  parsed.working_files = NULL;
+  parsed.working_files = simple_archiver_hash_map_init();
+  parsed.just_w_files = simple_archiver_hash_map_init();
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
   parsed.write_version = 5;
@@ -362,6 +363,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
   ++argv;
 
   int_fast8_t is_remaining_args = 0;
+
+  __attribute((cleanup(simple_archiver_list_free)))
+  SDArchiverLinkedList *working_files_list = simple_archiver_list_init();
 
   while (argc > 0) {
     if (!is_remaining_args) {
@@ -905,41 +909,399 @@ int simple_archiver_parse_args(int argc, const char **argv,
         return 1;
       }
     } else {
-      if (out->working_files == NULL) {
-        out->working_files = malloc(sizeof(char *) * 2);
-        size_t arg_idx =
-            simple_archiver_parser_internal_get_first_non_current_idx(argv[0]);
-        size_t arg_length = strlen(argv[0] + arg_idx) + 1;
-        out->working_files[0] = malloc(arg_length);
-        strncpy(out->working_files[0], argv[0] + arg_idx, arg_length);
-        simple_archiver_parser_internal_remove_end_slash(out->working_files[0]);
-        out->working_files[1] = NULL;
-      } else {
-        size_t working_size = 1;
-        char **ptr = out->working_files;
-        while (ptr && *ptr) {
-          ++working_size;
-          ++ptr;
-        }
-
-        out->working_files =
-          realloc(out->working_files, sizeof(char *) * (working_size + 1));
-
-        // Set new actual last element to NULL.
-        out->working_files[working_size] = NULL;
-        size_t arg_idx =
-            simple_archiver_parser_internal_get_first_non_current_idx(argv[0]);
-        size_t size = strlen(argv[0] + arg_idx) + 1;
-        // Set last element to the arg.
-        out->working_files[working_size - 1] = malloc(size);
-        strncpy(out->working_files[working_size - 1], argv[0] + arg_idx, size);
-        simple_archiver_parser_internal_remove_end_slash(
-            out->working_files[working_size - 1]);
-      }
+      size_t arg_idx =
+          simple_archiver_parser_internal_get_first_non_current_idx(argv[0]);
+      size_t arg_length = strlen(argv[0] + arg_idx) + 1;
+      const char *arg_ptr = argv[0] + arg_idx;
+      simple_archiver_hash_map_insert(
+        out->just_w_files,
+        (void*)arg_ptr,
+        (void*)arg_ptr,
+        arg_length,
+        simple_archiver_helper_datastructure_cleanup_nop,
+        simple_archiver_helper_datastructure_cleanup_nop);
+      simple_archiver_list_add(
+        working_files_list,
+        (void*)arg_ptr,
+        simple_archiver_helper_datastructure_cleanup_nop);
     }
 
     --argc;
     ++argv;
+  }
+
+  if ((out->flags & 0x3) == 0) {
+    // Process working_files_list to get mapping of arg -> SDArchiverFileInfo.
+    // First change cwd.
+    __attribute__((cleanup(
+        simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
+    if (out->user_cwd) {
+      original_cwd = realpath(".", NULL);
+      if (chdir(out->user_cwd)) {
+        fprintf(stderr,
+                "ERROR: Failed to change cwd via \"-C %s\"!\n",
+                out->user_cwd);
+        return 1;
+      }
+    }
+    // Setup data structures.
+    __attribute__((cleanup(simple_archiver_hash_map_free)))
+    SDArchiverHashMap *hash_map = simple_archiver_hash_map_init();
+    int hash_map_sentinel = 1;
+    // Work with each file.
+    for (SDArchiverLLNode *node = working_files_list->head->next;
+         node != working_files_list->tail;
+         node = node->next) {
+      struct stat st;
+      memset(&st, 0, sizeof(struct stat));
+      char *file_path = node->data;
+      fstatat(AT_FDCWD, file_path, &st, AT_SYMLINK_NOFOLLOW);
+      if ((st.st_mode & S_IFMT) == S_IFREG
+          || (st.st_mode & S_IFMT) == S_IFLNK) {
+        // Is a regular file or a symbolic link.
+        size_t len = strlen(file_path) + 1;
+        char *filename = malloc(len);
+        strncpy(filename, file_path, len);
+        if (simple_archiver_hash_map_get(hash_map, filename, len - 1) == NULL) {
+          SDArchiverFileInfo *file_info = malloc(sizeof(SDArchiverFileInfo));
+          file_info->filename = filename;
+          file_info->link_dest = NULL;
+          file_info->flags = 0;
+          if ((st.st_mode & S_IFMT) == S_IFLNK) {
+            // Is a symlink.
+            file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
+            ssize_t count = readlinkat(AT_FDCWD, filename, file_info->link_dest,
+                                       MAX_SYMBOLIC_LINK_SIZE - 1);
+            if (count >= (ssize_t)MAX_SYMBOLIC_LINK_SIZE - 1) {
+              file_info->link_dest[MAX_SYMBOLIC_LINK_SIZE - 1] = 0;
+            } else if (count > 0) {
+              file_info->link_dest[count] = 0;
+            } else {
+              // Failure.
+              fprintf(stderr,
+                      "WARNING: Could not get link info for file \"%s\"!\n",
+                      file_info->filename);
+              free(file_info->link_dest);
+              free(file_info);
+              free(filename);
+              continue;
+            }
+          } else {
+            // Is a regular file.
+            file_info->link_dest = NULL;
+            // Check that the file is readable by opening it. Easier than to
+            // check permissions because that would also require checking if the
+            // current USER can open the file.
+            FILE *readable_file = fopen(file_info->filename, "rb");
+            if (!readable_file) {
+              // Cannot open file, so it must be unreadable (at least by the
+              // current USER).
+              fprintf(stderr, "WARNING: \"%s\" is not readable, skipping!\n",
+                      file_info->filename);
+              free(file_info->link_dest);
+              free(file_info);
+              free(filename);
+              continue;
+            } else {
+              fclose(readable_file);
+              // fprintf(stderr, "DEBUG: \"%s\" is readable.\n",
+              // file_info->filename);
+            }
+          }
+          // Store unprocessed filename in map to avoid duplicates.
+          simple_archiver_hash_map_insert(
+              hash_map, &hash_map_sentinel, strdup(filename), len - 1,
+              simple_archiver_helper_datastructure_cleanup_nop,
+              NULL);
+          // Remove leading "./" entries from files_list.
+          size_t idx =
+            simple_archiver_parser_internal_get_first_non_current_idx(
+              file_info->filename);
+          if (idx > 0) {
+            size_t len = strlen(file_info->filename) + 1 - idx;
+            char *substr = malloc(len);
+            strncpy(substr, file_info->filename + idx, len);
+            free(file_info->filename);
+            file_info->filename = substr;
+          }
+          // Remove "./" entries inside the file path.
+          int_fast8_t slash_found = 0;
+          int_fast8_t dot_found = 0;
+          for (idx = strlen(file_info->filename); idx-- > 0;) {
+            if (file_info->filename[idx] == '/') {
+              if (dot_found) {
+                char *temp = simple_archiver_helper_cut_substr(
+                  file_info->filename, idx + 1, idx + 3);
+                free(file_info->filename);
+                file_info->filename = temp;
+              } else {
+                slash_found = 1;
+                continue;
+              }
+            } else if (file_info->filename[idx] == '.' && slash_found) {
+              dot_found = 1;
+              continue;
+            }
+            slash_found = 0;
+            dot_found = 0;
+          }
+          // Store the processed file_info against the arg.
+          if(simple_archiver_hash_map_insert(
+              out->working_files,
+              file_info,
+              node->data,
+              strlen(node->data) + 1,
+              simple_archiver_internal_free_file_info_fn,
+              simple_archiver_helper_datastructure_cleanup_nop)) {
+            fprintf(
+              stderr,
+              "ERROR: Internal error (%d): duplicate working files \"%s\"!\n",
+              __LINE__,
+              (char*)node->data);
+            return 1;
+          }
+        } else {
+          free(filename);
+        }
+      } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
+        // Is a directory.
+        __attribute__((cleanup(simple_archiver_list_free)))
+        SDArchiverLinkedList *dir_list = simple_archiver_list_init();
+        simple_archiver_list_add(
+            dir_list, file_path,
+            simple_archiver_helper_datastructure_cleanup_nop);
+        char *next;
+        while (dir_list->count != 0) {
+          simple_archiver_list_get(dir_list, list_get_last_fn, &next);
+          if (!next) {
+            break;
+          }
+          DIR *dir = opendir(next);
+          struct dirent *dir_entry;
+          uint_fast8_t is_dir_empty = 1;
+          do {
+            dir_entry = readdir(dir);
+            if (dir_entry) {
+              if (strcmp(dir_entry->d_name, ".") == 0 ||
+                  strcmp(dir_entry->d_name, "..") == 0) {
+                continue;
+              }
+              is_dir_empty = 0;
+              // fprintf(stderr, "dir entry in %s is %s\n", next,
+              // dir_entry->d_name);
+              size_t combined_size =
+                strlen(next) + strlen(dir_entry->d_name) + 2;
+              char *combined_path = malloc(combined_size);
+              snprintf(combined_path, combined_size, "%s/%s", next,
+                       dir_entry->d_name);
+              size_t valid_idx =
+                simple_archiver_parser_internal_get_first_non_current_idx(
+                  combined_path);
+              if (valid_idx > 0) {
+                char *new_path = malloc(combined_size - valid_idx);
+                strncpy(new_path, combined_path + valid_idx,
+                        combined_size - valid_idx);
+                free(combined_path);
+                combined_path = new_path;
+                combined_size -= valid_idx;
+              }
+              memset(&st, 0, sizeof(struct stat));
+              fstatat(AT_FDCWD, combined_path, &st, AT_SYMLINK_NOFOLLOW);
+              if ((st.st_mode & S_IFMT) == S_IFREG ||
+                  (st.st_mode & S_IFMT) == S_IFLNK) {
+                // Is a file or a symbolic link.
+                if (simple_archiver_hash_map_get(hash_map, combined_path,
+                                                 combined_size - 1) == NULL) {
+                  SDArchiverFileInfo *file_info =
+                      malloc(sizeof(SDArchiverFileInfo));
+                  file_info->filename = combined_path;
+                  file_info->link_dest = NULL;
+                  file_info->flags = 0;
+                  if ((st.st_mode & S_IFMT) == S_IFLNK) {
+                    // Is a symlink.
+                    file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
+                    ssize_t count =
+                        readlinkat(AT_FDCWD,
+                                   combined_path,
+                                   file_info->link_dest,
+                                   MAX_SYMBOLIC_LINK_SIZE - 1);
+                    if (count >= (ssize_t)MAX_SYMBOLIC_LINK_SIZE - 1) {
+                      file_info->link_dest[MAX_SYMBOLIC_LINK_SIZE - 1] = 0;
+                    } else if (count > 0) {
+                      file_info->link_dest[count] = 0;
+                    } else {
+                      // Failure.
+                      free(file_info->link_dest);
+                      free(file_info);
+                      free(combined_path);
+                      continue;
+                    }
+                  } else {
+                    // Is a regular file.
+                    file_info->link_dest = NULL;
+                    // Check that the file is readable by opening it. Easier
+                    // than to check permissions because that would also require
+                    // checking if the current USER can open the file.
+                    FILE *readable_file = fopen(file_info->filename, "rb");
+                    if (!readable_file) {
+                      // Cannot open file, so it must be unreadable (at least by
+                      // the current USER).
+                      fprintf(stderr,
+                              "WARNING: \"%s\" is not readable, skipping!\n",
+                              file_info->filename);
+                      free(file_info->link_dest);
+                      free(file_info);
+                      free(combined_path);
+                      continue;
+                    } else {
+                      fclose(readable_file);
+                      // fprintf(stderr, "DEBUG: \"%s\" is readable.\n",
+                      // file_info->filename);
+                    }
+                  }
+
+                  // Store unprocessed filename in map to avoid duplicates.
+                  simple_archiver_hash_map_insert(
+                      hash_map, &hash_map_sentinel, strdup(combined_path),
+                      combined_size - 1,
+                      simple_archiver_helper_datastructure_cleanup_nop,
+                      NULL);
+                  // Remove leading "./" entries from files_list.
+                  size_t idx =
+                    simple_archiver_parser_internal_get_first_non_current_idx(
+                      file_info->filename);
+                  if (idx > 0) {
+                    size_t len = strlen(file_info->filename) + 1 - idx;
+                    char *substr = malloc(len);
+                    strncpy(substr, file_info->filename + idx, len);
+                    free(file_info->filename);
+                    file_info->filename = substr;
+                  }
+                  // Remove "./" entries inside the file path.
+                  int_fast8_t slash_found = 0;
+                  int_fast8_t dot_found = 0;
+                  for (idx = strlen(file_info->filename); idx-- > 0;) {
+                    if (file_info->filename[idx] == '/') {
+                      if (dot_found) {
+                        char *temp =
+                          simple_archiver_helper_cut_substr(
+                            file_info->filename, idx + 1, idx + 3);
+                        free(file_info->filename);
+                        file_info->filename = temp;
+                      } else {
+                        slash_found = 1;
+                        continue;
+                      }
+                    } else if (file_info->filename[idx] == '.' && slash_found) {
+                      dot_found = 1;
+                      continue;
+                    }
+                    slash_found = 0;
+                    dot_found = 0;
+                  }
+                  // Store the processed file_info against the arg.
+                  if(simple_archiver_hash_map_insert(
+                      out->working_files,
+                      file_info,
+                      node->data,
+                      strlen(node->data) + 1,
+                      simple_archiver_internal_free_file_info_fn,
+                      simple_archiver_helper_datastructure_cleanup_nop)) {
+                    fprintf(
+                      stderr,
+                      "ERROR: Internal error (%d): duplicate working files "
+                         "\"%s\"!\n",
+                      __LINE__,
+                      (char*)node->data);
+                    return 1;
+                  }
+                } else {
+                  free(combined_path);
+                }
+              } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
+                // Is a directory.
+                simple_archiver_list_add_front(dir_list, combined_path, NULL);
+              } else {
+                fprintf(stderr,
+                        "NOTICE: Not a file, symlink, or directory: \"%s\"."
+                          " Skipping...\n",
+                        combined_path);
+                free(combined_path);
+              }
+            }
+          } while (dir_entry != NULL);
+          closedir(dir);
+
+          if (is_dir_empty
+              && (out->flags & 0x200) == 0
+              && out->write_version >= 2) {
+            SDArchiverFileInfo *f_info = malloc(sizeof(SDArchiverFileInfo));
+            f_info->filename = strdup(next);
+            f_info->link_dest = NULL;
+            f_info->flags = 1;
+
+            // Remove leading "./" entries from files_list.
+            size_t idx =
+              simple_archiver_parser_internal_get_first_non_current_idx(
+                f_info->filename);
+            if (idx > 0) {
+              size_t len = strlen(f_info->filename) + 1 - idx;
+              char *substr = malloc(len);
+              strncpy(substr, f_info->filename + idx, len);
+              free(f_info->filename);
+              f_info->filename = substr;
+            }
+            // Remove "./" entries inside the file path.
+            int_fast8_t slash_found = 0;
+            int_fast8_t dot_found = 0;
+            for (idx = strlen(f_info->filename); idx-- > 0;) {
+              if (f_info->filename[idx] == '/') {
+                if (dot_found) {
+                  char *temp =
+                    simple_archiver_helper_cut_substr(
+                      f_info->filename, idx + 1, idx + 3);
+                  free(f_info->filename);
+                  f_info->filename = temp;
+                } else {
+                  slash_found = 1;
+                  continue;
+                }
+              } else if (f_info->filename[idx] == '.' && slash_found) {
+                dot_found = 1;
+                continue;
+              }
+              slash_found = 0;
+              dot_found = 0;
+            }
+            // Store the processed file_info against the arg.
+            if(simple_archiver_hash_map_insert(
+                out->working_files,
+                f_info,
+                node->data,
+                strlen(node->data) + 1,
+                simple_archiver_internal_free_file_info_fn,
+                simple_archiver_helper_datastructure_cleanup_nop)) {
+              fprintf(
+                stderr,
+                "ERROR: Internal error (%d): duplicate working files \"%s\"!\n",
+                __LINE__,
+                (char*)node->data);
+              return 1;
+            }
+          }
+
+          if (simple_archiver_list_remove(dir_list, list_remove_same_str_fn,
+                                          next) == 0) {
+            break;
+          }
+        }
+      } else {
+        fprintf(stderr,
+                "NOTICE: Not a file, symlink, or directory: \"%s\"."
+                  " Skipping...\n",
+                file_path);
+      }
+    }
   }
 
   return 0;
@@ -964,14 +1326,10 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     parsed->decompressor = NULL;
   }
   if (parsed->working_files) {
-    char **ptr = parsed->working_files;
-    uint32_t idx = 0;
-    while (ptr[idx]) {
-      free(ptr[idx]);
-      ++idx;
-    }
-    free(parsed->working_files);
-    parsed->working_files = NULL;
+    simple_archiver_hash_map_free(&parsed->working_files);
+  }
+  if (parsed->just_w_files) {
+    simple_archiver_hash_map_free(&parsed->just_w_files);
   }
 
   if (parsed->temp_dir) {
@@ -1034,282 +1392,6 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   if (parsed->blacklist_ends) {
     simple_archiver_list_free(&parsed->blacklist_ends);
   }
-}
-
-SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
-    const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out) {
-  SDArchiverLinkedList *files_list = simple_archiver_list_init();
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *hash_map = simple_archiver_hash_map_init();
-  int hash_map_sentinel = 1;
-#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN || \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
-    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
-  __attribute__((cleanup(
-      simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
-  if (parsed->user_cwd) {
-    original_cwd = realpath(".", NULL);
-    if (chdir(parsed->user_cwd)) {
-      simple_archiver_list_free(&files_list);
-      if (status_out) {
-        *status_out = SDAPS_NO_USER_CWD;
-      }
-      return NULL;
-    }
-  }
-
-  for (char **iter = parsed->working_files; iter && *iter; ++iter) {
-    struct stat st;
-    memset(&st, 0, sizeof(struct stat));
-    char *file_path = *iter;
-    fstatat(AT_FDCWD, file_path, &st, AT_SYMLINK_NOFOLLOW);
-    if ((st.st_mode & S_IFMT) == S_IFREG || (st.st_mode & S_IFMT) == S_IFLNK) {
-      // Is a regular file or a symbolic link.
-      size_t len = strlen(file_path) + 1;
-      char *filename = malloc(len);
-      strncpy(filename, file_path, len);
-      if (simple_archiver_hash_map_get(hash_map, filename, len - 1) == NULL) {
-        SDArchiverFileInfo *file_info = malloc(sizeof(SDArchiverFileInfo));
-        file_info->filename = filename;
-        file_info->link_dest = NULL;
-        file_info->flags = 0;
-        if ((st.st_mode & S_IFMT) == S_IFLNK) {
-          // Is a symlink.
-          file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
-          ssize_t count = readlinkat(AT_FDCWD, filename, file_info->link_dest,
-                                     MAX_SYMBOLIC_LINK_SIZE - 1);
-          if (count >= (ssize_t)MAX_SYMBOLIC_LINK_SIZE - 1) {
-            file_info->link_dest[MAX_SYMBOLIC_LINK_SIZE - 1] = 0;
-          } else if (count > 0) {
-            file_info->link_dest[count] = 0;
-          } else {
-            // Failure.
-            fprintf(stderr,
-                    "WARNING: Could not get link info for file \"%s\"!\n",
-                    file_info->filename);
-            free(file_info->link_dest);
-            free(file_info);
-            free(filename);
-            continue;
-          }
-        } else {
-          // Is a regular file.
-          file_info->link_dest = NULL;
-          // Check that the file is readable by opening it. Easier than to
-          // check permissions because that would also require checking if the
-          // current USER can open the file.
-          FILE *readable_file = fopen(file_info->filename, "rb");
-          if (!readable_file) {
-            // Cannot open file, so it must be unreadable (at least by the
-            // current USER).
-            fprintf(stderr, "WARNING: \"%s\" is not readable, skipping!\n",
-                    file_info->filename);
-            free(file_info->link_dest);
-            free(file_info);
-            free(filename);
-            continue;
-          } else {
-            fclose(readable_file);
-            // fprintf(stderr, "DEBUG: \"%s\" is readable.\n",
-            // file_info->filename);
-          }
-        }
-        simple_archiver_list_add(files_list, file_info,
-                                 simple_archiver_internal_free_file_info_fn);
-        simple_archiver_hash_map_insert(
-            hash_map, &hash_map_sentinel, filename, len - 1,
-            simple_archiver_helper_datastructure_cleanup_nop,
-            simple_archiver_helper_datastructure_cleanup_nop);
-      } else {
-        free(filename);
-      }
-    } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
-      // Is a directory.
-      __attribute__((cleanup(simple_archiver_list_free)))
-      SDArchiverLinkedList *dir_list = simple_archiver_list_init();
-      simple_archiver_list_add(
-          dir_list, file_path,
-          simple_archiver_helper_datastructure_cleanup_nop);
-      char *next;
-      while (dir_list->count != 0) {
-        simple_archiver_list_get(dir_list, list_get_last_fn, &next);
-        if (!next) {
-          break;
-        }
-        DIR *dir = opendir(next);
-        struct dirent *dir_entry;
-        uint_fast8_t is_dir_empty = 1;
-        do {
-          dir_entry = readdir(dir);
-          if (dir_entry) {
-            if (strcmp(dir_entry->d_name, ".") == 0 ||
-                strcmp(dir_entry->d_name, "..") == 0) {
-              continue;
-            }
-            is_dir_empty = 0;
-            // fprintf(stderr, "dir entry in %s is %s\n", next,
-            // dir_entry->d_name);
-            size_t combined_size = strlen(next) + strlen(dir_entry->d_name) + 2;
-            char *combined_path = malloc(combined_size);
-            snprintf(combined_path, combined_size, "%s/%s", next,
-                     dir_entry->d_name);
-            size_t valid_idx =
-                simple_archiver_parser_internal_get_first_non_current_idx(
-                    combined_path);
-            if (valid_idx > 0) {
-              char *new_path = malloc(combined_size - valid_idx);
-              strncpy(new_path, combined_path + valid_idx,
-                      combined_size - valid_idx);
-              free(combined_path);
-              combined_path = new_path;
-              combined_size -= valid_idx;
-            }
-            memset(&st, 0, sizeof(struct stat));
-            fstatat(AT_FDCWD, combined_path, &st, AT_SYMLINK_NOFOLLOW);
-            if ((st.st_mode & S_IFMT) == S_IFREG ||
-                (st.st_mode & S_IFMT) == S_IFLNK) {
-              // Is a file or a symbolic link.
-              if (simple_archiver_hash_map_get(hash_map, combined_path,
-                                               combined_size - 1) == NULL) {
-                SDArchiverFileInfo *file_info =
-                    malloc(sizeof(SDArchiverFileInfo));
-                file_info->filename = combined_path;
-                file_info->link_dest = NULL;
-                file_info->flags = 0;
-                if ((st.st_mode & S_IFMT) == S_IFLNK) {
-                  // Is a symlink.
-                  file_info->link_dest = malloc(MAX_SYMBOLIC_LINK_SIZE);
-                  ssize_t count =
-                      readlinkat(AT_FDCWD, combined_path, file_info->link_dest,
-                                 MAX_SYMBOLIC_LINK_SIZE - 1);
-                  if (count >= (ssize_t)MAX_SYMBOLIC_LINK_SIZE - 1) {
-                    file_info->link_dest[MAX_SYMBOLIC_LINK_SIZE - 1] = 0;
-                  } else if (count > 0) {
-                    file_info->link_dest[count] = 0;
-                  } else {
-                    // Failure.
-                    free(file_info->link_dest);
-                    free(file_info);
-                    free(combined_path);
-                    continue;
-                  }
-                } else {
-                  // Is a regular file.
-                  file_info->link_dest = NULL;
-                  // Check that the file is readable by opening it. Easier than
-                  // to check permissions because that would also require
-                  // checking if the current USER can open the file.
-                  FILE *readable_file = fopen(file_info->filename, "rb");
-                  if (!readable_file) {
-                    // Cannot open file, so it must be unreadable (at least by
-                    // the current USER).
-                    fprintf(stderr,
-                            "WARNING: \"%s\" is not readable, skipping!\n",
-                            file_info->filename);
-                    free(file_info->link_dest);
-                    free(file_info);
-                    free(combined_path);
-                    continue;
-                  } else {
-                    fclose(readable_file);
-                    // fprintf(stderr, "DEBUG: \"%s\" is readable.\n",
-                    // file_info->filename);
-                  }
-                }
-                simple_archiver_list_add(
-                    files_list, file_info,
-                    simple_archiver_internal_free_file_info_fn);
-                simple_archiver_hash_map_insert(
-                    hash_map, &hash_map_sentinel, combined_path,
-                    combined_size - 1,
-                    simple_archiver_helper_datastructure_cleanup_nop,
-                    simple_archiver_helper_datastructure_cleanup_nop);
-              } else {
-                free(combined_path);
-              }
-            } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
-              // Is a directory.
-              simple_archiver_list_add_front(dir_list, combined_path, NULL);
-            } else {
-              fprintf(stderr,
-                      "NOTICE: Not a file, symlink, or directory: \"%s\"."
-                        " Skipping...\n",
-                      combined_path);
-              free(combined_path);
-            }
-          }
-        } while (dir_entry != NULL);
-        closedir(dir);
-
-        if (is_dir_empty
-            && (parsed->flags & 0x200) == 0
-            && parsed->write_version >= 2) {
-          SDArchiverFileInfo *f_info = malloc(sizeof(SDArchiverFileInfo));
-          f_info->filename = strdup(next);
-          f_info->link_dest = NULL;
-          f_info->flags = 1;
-          simple_archiver_list_add(files_list,
-                                   f_info,
-                                   simple_archiver_internal_free_file_info_fn);
-          //fprintf(stderr, "DEBUG: parser added empty dir %s\n", next);
-        }
-
-        if (simple_archiver_list_remove(dir_list, list_remove_same_str_fn,
-                                        next) == 0) {
-          break;
-        }
-      }
-    } else {
-      fprintf(stderr,
-              "NOTICE: Not a file, symlink, or directory: \"%s\"."
-                " Skipping...\n",
-              file_path);
-    }
-  }
-#endif
-
-  for (SDArchiverLLNode *iter = files_list->head->next;
-       iter != files_list->tail; iter = iter->next) {
-    SDArchiverFileInfo *file_info = iter->data;
-
-    // Remove leading "./" entries from files_list.
-    size_t idx = simple_archiver_parser_internal_get_first_non_current_idx(
-        file_info->filename);
-    if (idx > 0) {
-      size_t len = strlen(file_info->filename) + 1 - idx;
-      char *substr = malloc(len);
-      strncpy(substr, file_info->filename + idx, len);
-      free(file_info->filename);
-      file_info->filename = substr;
-    }
-
-    // Remove "./" entries inside the file path.
-    int_fast8_t slash_found = 0;
-    int_fast8_t dot_found = 0;
-    for (idx = strlen(file_info->filename); idx-- > 0;) {
-      if (file_info->filename[idx] == '/') {
-        if (dot_found) {
-          char *temp = simple_archiver_helper_cut_substr(file_info->filename,
-                                                         idx + 1, idx + 3);
-          free(file_info->filename);
-          file_info->filename = temp;
-        } else {
-          slash_found = 1;
-          continue;
-        }
-      } else if (file_info->filename[idx] == '.' && slash_found) {
-        dot_found = 1;
-        continue;
-      }
-      slash_found = 0;
-      dot_found = 0;
-    }
-  }
-
-  if (status_out) {
-    *status_out = SDAPS_SUCCESS;
-  }
-  return files_list;
 }
 
 int simple_archiver_handle_map_user_or_group(

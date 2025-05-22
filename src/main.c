@@ -27,9 +27,14 @@
 
 #include "archiver.h"
 #include "parser.h"
+#include "helpers.h"
 
-int print_list_fn(void *data, __attribute__((unused)) void *ud) {
-  const SDArchiverFileInfo *file_info = data;
+int print_map_fn(
+    SDAR_ATTR_UNUSED const void *key,
+    SDAR_ATTR_UNUSED size_t size,
+    const void *value,
+    SDAR_ATTR_UNUSED void *ud) {
+  const SDArchiverFileInfo *file_info = value;
   if (file_info->link_dest == NULL) {
     if (file_info->flags & 1) {
       fprintf(stderr, "  DIRECTORY:     %s\n", file_info->filename);
@@ -94,19 +99,9 @@ int main(int argc, const char **argv) {
     }
   }
 
-  SDArchiverParsedStatus parsed_status;
-  __attribute__((cleanup(simple_archiver_list_free)))
-  SDArchiverLinkedList *filenames =
-      simple_archiver_parsed_to_filenames(&parsed, &parsed_status);
-  if (!filenames || parsed_status != SDAPS_SUCCESS) {
-    fprintf(stderr, "ERROR: %s!\n",
-            simple_archiver_parsed_status_to_str(parsed_status));
-    return 8;
-  }
-
-  if (filenames->count > 0) {
+  if (parsed.working_files->count > 0) {
     fprintf(stderr, "Filenames:\n");
-    simple_archiver_list_get(filenames, print_list_fn, NULL);
+    simple_archiver_hash_map_iter(parsed.working_files, print_map_fn, NULL);
   }
 
   if ((parsed.flags & 3) == 0) {
@@ -122,7 +117,7 @@ int main(int argc, const char **argv) {
       }
 
       SDArchiverStateRetStruct ret =
-        simple_archiver_write_all(file, state, filenames);
+        simple_archiver_write_all(file, state);
       if (ret.ret != SDAS_SUCCESS) {
         fprintf(stderr,
                 "Error during writing. (archiver.c Line %zu)\n",
@@ -142,7 +137,7 @@ int main(int argc, const char **argv) {
 #endif
     } else {
       SDArchiverStateRetStruct ret =
-        simple_archiver_write_all(stdout, state, filenames);
+        simple_archiver_write_all(stdout, state);
       if (ret.ret != SDAS_SUCCESS) {
         fprintf(stderr,
                 "Error during writing. (archiver.c Line %zu)\n",
