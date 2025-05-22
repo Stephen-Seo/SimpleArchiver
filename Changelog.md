@@ -12,6 +12,8 @@ pointers to each sub-array in a linked-list instead of a contiguous array.
 Implemented "top" and "bottom" (with "const" variants) for "chunked array" and
 "list array".
 
+Created a man page for simplearchiver.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
