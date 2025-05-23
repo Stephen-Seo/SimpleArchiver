@@ -2,6 +2,11 @@
 
 ## Upcoming Changes
 
+Fix recent refactorings such that using `-t` and positional arguments will
+now filter based on the positional arguments.
+
+Minor formatting fixes.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
