@@ -8,6 +8,22 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.24
+
+A bunch of refactorings.
+
+Added a "clone" and "shallow clone" for data structure "priority heap".
+
+Implemented a "list array" which is like a "chunked array", but stores the
+pointers to each sub-array in a linked-list instead of a contiguous array.
+
+Implemented "top" and "bottom" (with "const" variants) for "chunked array" and
+"list array".
+
+Created a man page for simplearchiver.
+
+Fixed simplearchiver ignoring positional arguments when extracting.
+
 ## Version 1.23
 
 Implement skipping chunks if they are completely ignored due to

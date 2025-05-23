@@ -44,6 +44,9 @@ void internal_simple_archiver_cleanup_priority_heap_node(void *p) {
   }
 }
 
+void internal_simple_archiver_cleanup_nop(__attribute__((unused)) void *unused)
+{}
+
 int simple_archiver_priority_heap_default_less(int64_t a, int64_t b) {
   return a < b ? 1 : 0;
 }
@@ -270,4 +273,40 @@ uint64_t simple_archiver_priority_heap_size(SDArchiverPHeap *priority_heap) {
   } else {
     return 0;
   }
+}
+
+SDArchiverPHeap *simple_archiver_priority_heap_clone(
+    const SDArchiverPHeap *prev_heap,
+    void*(*clone_fn)(void*)) {
+  if (!prev_heap) {
+    return NULL;
+  }
+
+  const uint64_t size =
+    simple_archiver_chunked_array_size(&prev_heap->node_array);
+  if (size <= 1) {
+    return NULL;
+  }
+
+  SDArchiverPHeap *cloned_heap =
+    simple_archiver_priority_heap_init_less_fn(prev_heap->less_fn);
+
+  for (uint64_t idx = 1; idx < size; ++idx) {
+    const SDArchiverPHNode *node =
+      simple_archiver_chunked_array_at_const(&prev_heap->node_array, idx);
+    if (clone_fn) {
+      simple_archiver_priority_heap_insert(cloned_heap,
+                                           node->priority,
+                                           clone_fn(node->data),
+                                           node->data_cleanup_fn);
+    } else {
+      simple_archiver_priority_heap_insert(
+        cloned_heap,
+        node->priority,
+        node->data,
+        internal_simple_archiver_cleanup_nop);
+    }
+  }
+
+  return cloned_heap;
 }

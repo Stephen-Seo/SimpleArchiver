@@ -29,6 +29,8 @@
 
 #define TEMP_FILENAME_CMP "%s%ssimple_archiver_compressed_%zu.tmp"
 
+#define SDAR_ATTR_UNUSED __attribute__((unused))
+
 static const uint32_t MAX_SYMBOLIC_LINK_SIZE = 512;
 
 /// Returns non-zero if this system is big-endian.

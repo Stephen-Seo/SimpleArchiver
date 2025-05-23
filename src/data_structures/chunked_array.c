@@ -102,6 +102,26 @@ void *simple_archiver_chunked_array_at(SDArchiverChunkedArr *chunked_array,
            + inner_idx * chunked_array->elem_size;
 }
 
+const void *simple_archiver_chunked_array_at_const(
+    const SDArchiverChunkedArr *chunked_array, uint64_t idx) {
+  if (chunked_array->chunk_count == 0 || !chunked_array->array) {
+    return 0;
+  }
+
+  const uint64_t chunk_idx = idx / SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE;
+  const uint64_t inner_idx = idx % SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE;
+
+  if (chunk_idx >= chunked_array->chunk_count) {
+    return 0;
+  } else if (chunk_idx + 1 == chunked_array->chunk_count
+             && inner_idx >= chunked_array->last_size) {
+    return 0;
+  }
+
+  return (char*)chunked_array->array[chunk_idx]
+           + inner_idx * chunked_array->elem_size;
+}
+
 int simple_archiver_chunked_array_push(SDArchiverChunkedArr *chunked_array,
                                        void *to_copy) {
   if (chunked_array->chunk_count == 0 || !chunked_array->array) {
@@ -235,7 +255,7 @@ void simple_archiver_chunked_array_clear(SDArchiverChunkedArr *chunked_array) {
 }
 
 uint64_t simple_archiver_chunked_array_size(
-    SDArchiverChunkedArr *chunked_array) {
+    const SDArchiverChunkedArr *chunked_array) {
   if (chunked_array->chunk_count == 0 || !chunked_array->array) {
     return 0;
   }
@@ -243,4 +263,86 @@ uint64_t simple_archiver_chunked_array_size(
   return (chunked_array->chunk_count - 1)
            * SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE
          + chunked_array->last_size;
+}
+
+void *simple_archiver_chunked_array_top(SDArchiverChunkedArr *ca) {
+  if (!ca
+      || ca->chunk_count == 0
+      || !ca->array
+      || (ca->chunk_count == 1 && ca->last_size == 0)) {
+    return NULL;
+  }
+
+  if (ca->last_size == 0) {
+    if (ca->chunk_count < 2) {
+      return NULL;
+    }
+    char *ptr = ca->array[ca->chunk_count - 2];
+    ptr += (SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE - 1) * ca->elem_size;
+    return ptr;
+  } else {
+    char *ptr = ca->array[ca->chunk_count - 1];
+    ptr += (ca->last_size - 1) * ca->elem_size;
+    return ptr;
+  }
+}
+
+const void *simple_archiver_chunked_array_top_const(
+    const SDArchiverChunkedArr *ca) {
+  if (!ca
+      || ca->chunk_count == 0
+      || !ca->array
+      || (ca->chunk_count == 1 && ca->last_size == 0)) {
+    return NULL;
+  }
+
+  if (ca->last_size == 0) {
+    if (ca->chunk_count < 2) {
+      return NULL;
+    }
+    char *ptr = ca->array[ca->chunk_count - 2];
+    ptr += (SD_SA_DS_CHUNKED_ARR_DEFAULT_CHUNK_SIZE - 1) * ca->elem_size;
+    return ptr;
+  } else {
+    char *ptr = ca->array[ca->chunk_count - 1];
+    ptr += (ca->last_size - 1) * ca->elem_size;
+    return ptr;
+  }
+}
+
+void *simple_archiver_chunked_array_bottom(SDArchiverChunkedArr *ca) {
+  if (!ca
+      || ca->chunk_count == 0
+      || !ca->array
+      || (ca->chunk_count == 1 && ca->last_size == 0)) {
+    return NULL;
+  }
+
+  if (ca->last_size == 0) {
+    if (ca->chunk_count < 2) {
+      return NULL;
+    }
+    return ca->array[0];
+  } else {
+    return ca->array[0];
+  }
+}
+
+const void *simple_archiver_chunked_array_bottom_const(
+    const SDArchiverChunkedArr *ca) {
+  if (!ca
+      || ca->chunk_count == 0
+      || !ca->array
+      || (ca->chunk_count == 1 && ca->last_size == 0)) {
+    return NULL;
+  }
+
+  if (ca->last_size == 0) {
+    if (ca->chunk_count < 2) {
+      return NULL;
+    }
+    return ca->array[0];
+  } else {
+    return ca->array[0];
+  }
 }

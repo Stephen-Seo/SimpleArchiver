@@ -71,17 +71,17 @@ typedef struct SDArchiverParsed {
   char *compressor;
   /// Null-terminated string.
   char *decompressor;
-  /// Null-terminated strings in array of strings.
-  /// Last entry should be NULL.
-  /// Determines a "white-list" of files to extract when extracting.
-  char **working_files;
+  /// The key is a positional argument, the value is a SDArchiverFileInfo.
+  SDArchiverHashMap *working_files;
+  /// The key and value are always the positional argument(s).
+  SDArchiverHashMap *just_w_files;
   /// Determines where to place temporary files. If NULL, temporary files are
   /// created in the target filename's directory.
   /// No longer refers to string in argv.
   char *temp_dir;
   /// Dir specified by "-C".
   const char *user_cwd;
-  /// Currently only 0, 1, 2, and 3 is supported.
+  /// Currently only 0, 1, 2, 3, 4, and 5 is supported.
   uint32_t write_version;
   /// The minimum size of a chunk in bytes (the last chunk may be less).
   uint64_t minimum_chunk_size;
@@ -141,10 +141,6 @@ int simple_archiver_parse_args(int argc, const char **argv,
                                SDArchiverParsed *out);
 
 void simple_archiver_free_parsed(SDArchiverParsed *parsed);
-
-/// Each entry in the linked list is an SDArchiverFileInfo object.
-SDArchiverLinkedList *simple_archiver_parsed_to_filenames(
-  const SDArchiverParsed *parsed, SDArchiverParsedStatus *status_out);
 
 int simple_archiver_handle_map_user_or_group(
   const char *arg,

@@ -1,0 +1,276 @@
+.TH simplearchiver 1
+.SH NAME
+simplearchiver \- An alternative to tar
+.SH SYNOPSIS
+.B simplearchiver
+[\fB\-h | \-\-help\fR]
+[ options ]
+(\fB\-c | \-t | \-x\fR)
+(\fB\-f\fR \fIfilename\fR)
+[\-\-]
+.IR paths...
+.SH DESCRIPTION
+.B simplearchiver
+archives files/directories into an archive file with support for any compressor
+that accepts file data in standard-input and outputs compressed file data to
+standard-output.
+
+Unlike tar, when \fBsimplearchiver\fR uses a compressor (e.g. with
+\fB\-\-compressor\fR \fIcompressor-command\fR), the data is compressed inside
+of \fBsimplearchiver\fR's file format, while tar expects the tar file itself to
+be compressed.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Prints the "help text" which lists all options with a brief usage hint.
+.TP
+.BR -c
+Tells \fBsimplearchiver\fR to be in "create archive file" mode. This mode
+causes \fBsimplearchiver\fR to create the archive (specified with \fB\-f\fR
+\fIfile\fR) given the positional arguments as paths to archive. Note that a
+positional argument of "." will cause \fBsimplearchiver\fR to archive
+everything in the current directory (or the directory specified with \fB-C\fR
+\fIpath\fR).
+.TP
+.BR -t
+Tells \fBsimplearchiver\fR to be in "test archive file" mode. Any archive file
+specified with \fB\-f\fR \fIfile\fR will be inspected and its contents and
+relative metadata will be printed to standard-error.
+.TP
+.BR -x
+Tells \fBsimplearchiver\fR to be in "extract archive file" mode. Any archive
+file specified with \fB\-f\fR \fIfile\fR will be extracted to the current
+working directory (or to the directory specified with \fB\-C\fR \fIpath\fR).
+.TP
+.BR -f " " \fIfilename\fR
+Sets the filename to be created in "create archive file" mode, checked with
+"test archive file" mode, or extracted from with "extract archive file" mode.
+Note that in "create archive file" mode, the file will not be overwritten if it
+already exists unless if \fB\-\-overwrite\-create\fR is specified. Note that
+this is not affected by \fB\-C\fR \fIdirectory\fR.
+.TP
+.BR -C " " \fIdirectory\fR
+Sets the current working directory for archiving or extracting. Note that this
+does not affect
+\fB\-f\fR \fIfilename\fR.
+.TP
+.BR --prefix " " \fIprefix\fR
+Sets a prefix-string to be prepended to every extracted file/directory. Note
+that if the prefix-string does not end with a "/", then "/" will be appended to
+it before it is used. This affects archive creation and extraction.
+.TP
+.BR --compressor " " \fIcompressor_command\fR
+Enables compression and sets the compressor when creating an archive with the
+given compressor command. For example, \fB\-\-compressor\fR \fI"gzip"\fR, or
+\fB\-\-compressor\fR \fI"xz"\fR can be used. Using this option requires the use
+of \fB\-\-decompressor\fR \fIdecompressor_command\fR.
+.TP
+.BR --decompressor " " \fIdecompressor_command\fR
+Sets the decompressor to be used when an archive is to be extracted later. This
+is done by storing the command verbatim in the archive's data when creating an
+archive. For example, \fB\-\-decompressor\fR \fI"gzip -d"\fR, or
+\fB\-\-decompressor\fR \fI"unxz"\fR can be used. This option can also be used
+when extracting to override the decompressor command stored in the archive.
+.TP
+.BR --overwrite-create
+Tells \fBsimplearchiver\fR to overwrite the archive file (specified with
+\fB\-f\fR \fIfilename\fR) when creating an archive.
+.TP
+.BR --overwrite-extract
+Tells \fBsimplearchiver\fR to overwrite files when extracting from an archive
+file.
+.TP
+.BR --no-abs-symlink
+Disables storing of absolute paths for symlinks when they are archived.
+.TP
+.BR --preserve-symlinks
+Preserves symlinks by not changing their paths when they are archived. By
+default, symlink paths are regenerated to produce valid relative and absolute
+paths that are both stored upon archive creation.
+.TP
+.BR --no-safe-links
+On archive creation, enables storing links that point to any path that does not
+exist in the created archive. On archive extraction, enables creating links
+that point to any path that does refer to any extracted file.
+.TP
+.BR --temp-files-dir " " \fIdirectory\fR
+Sets the directory to store temporary files. Note that temporary files are only
+created when creating and archive and when compression is being used such that
+the temporary file is a compressed file/chunk and is stored into the archive
+after the file/chunk has been fully compressed. Naturally, these temporary
+files should be automatically deleted by \fBsimplearchiver\fR after they are
+used. By default, the directory used is the directory holding the output
+archive. If the output is standard-output, then tmpfile(3) is used instead.
+.TP
+.BR --force-tmpfile
+Forces temporary files to use tmpfile(3) when they are created. Note that this
+option is mutually exclusive with \fB\-\-temp\-files\-dir\fR.
+.TP
+.BR --write-version " " \fIversion_number\fR
+Forces \fBsimplearchiver\fR to use the specified file format version. Currently
+there are versions 0 through 5, and the default is the latest file format. If
+you are not sure which to use, it is best to just use the latest version, which
+is the default.
+.TP
+.BR --chunk-min-size " " \fIbytes\fR
+Sets the minimum chunk size when creating archives. By default, this is 4MiB.
+Note that this value must be specified in bytes. The behavior is as follows:
+combine files into a chunk until the size of the chunk is at least the
+"chunk-min-size" value. When it reaches the value, then the chunk is
+created/compressed and a new chunk is designated for the remaining files until
+there are none left. If there are no more files to put in a chunk before this
+limit is reached, then the chunk will simply stop accumulating files and will
+be stored/compressed as the last chunk.
+.TP
+.BR --no-pre-sort-files
+Do not pre-sort files before they are stored into a new archive. By default,
+files are sorted by size such that the largest file is archived first. If this
+option is specified, then the files will be stored in an arbitrary order.
+.TP
+.BR --no-preserve-empty-dirs
+Do not store empty directories in the archive when created. Note that storing
+of empty directories is only done for file formats 2 and onwards by default.
+.TP
+.BR --force-uid " " \fIUID\fR
+Force the ownership of all archived items to the given UID when creating an
+archive. Note that this option will only take effect on extraction if the
+current effective user ID is 0 (root).
+.TP
+.BR --force-user " " \fIusername\fR
+Force the ownership of all archived items to the given user when creating an
+archive. If the user does not exist on the machine creating/extracting an
+archive, then \fBsimplearchiver\fR will stop with an error. Note that this
+option will only take effect on extraction if the current effective user ID is
+0 (root).
+.TP
+.BR --force-gid " " \fIGID\fR
+Force the group of all archived items to the given GID when creating or
+extracting an archive. Note that this option will only take effect on
+extraction if the current effective user ID is 0 (root).
+.TP
+.BR --force-group " " \fIgroupname\fR
+Force the group of all archived items to the given group when creating an
+archive. If the group does not exist on the machine creating/extracting an
+archive, then \fBsimplearchiver\fR will stop with an error. Note that this
+option will only take effect on extraction if the current effective user ID is
+0 (root).
+.TP
+.BR --extract-prefer-uid
+Prefer the archive's stored UID over username. By default, the username stored
+in the archive is preferred.
+.TP
+.BR --extract-prefer-gid
+Prefer the archive's stored GID over groupname. By default, the groupname
+stored in the archive is preferred.
+.TP
+.BR --map-user " " \fIUID/Username\fR:\fIUID/Username\fR
+Store a mapping from a UID/Username to another UID/Username. This will be used
+to convert UIDs when archiving. Note that this option will only take effect on
+extraction if the current effective user ID is 0 (root).
+.TP
+.BR --map-group " " \fIGID/Groupname\fR:\fIGID/Groupname\fR
+Store a mapping from a GID/Grouname to another GID/Groupname. This will be used
+to convert GIDs when archiving. Note that this option will only take effect on
+extraction if the current effective user ID is 0 (root).
+.TP
+.BR --force-file-permissions " " \fI3-OctalValues\fR
+Force set permissions for files on archive creation. Note that this option will
+only take effect on extraction if the current effective user ID is 0 (root).
+For example, a valid value can be 644 or 440.
+.TP
+.BR --force-dir-permissions " " \fI3-OctalValues\fR
+Force set permissions for directories on archive creation. Note that this
+option will only take effect on extraction if the current effective user ID is
+0 (root). For example, a valid value can be 755 or 750. Note that this does not
+have any effect on empty directories. See the following option to force
+permissions on empty directories.
+.TP
+.BR --force-empty-dir-permissions " " \fI3-OctalValues\fR
+Force set permissions for empty directories on archive creation. Note that this
+option will only take effect on extraction if the current effective user ID is
+0 (root). For example, a valid value can be 755 or 750. Note that this does not
+effect intermediate directories that hold files/directories. See the previous
+option to force permissions on such directories.
+.TP
+.BR --whitelist-contains-any " " \fItext\fR
+In any archival mode (create/test/extract), only allow files/directories that
+contain the specified text. Use this flag multiple times to add more text
+entries such that any file/directory path that has ANY of the specified texts
+will be allowed/whitelisted.
+.TP
+.BR --whitelist-contains-all " " \fItext\fR
+In any archival mode (create/test/extract), only allow files/directories that
+contain the specified text. Use this flag multiple times to add more text
+entries such that any file/directory path that has ALL of the specified texts
+will be allowed/whitelisted.
+.TP
+.BR --whitelist-begins-with " " \fItext\fR
+In any archival mode (create/test/extract), only allow file/directory paths
+that start with the specified text. Use this flag multiple times to add more
+text entries such that any path that STARTS with ANY of the specified texts
+will be allowed/whitelisted.
+.TP
+.BR --whitelist-ends-with " " \fItext\fR
+In any archival mode (create/test/extract), only allow file/directory paths
+that end with the specified text. Use this flag multiple times to add more text
+entries such that any path that ENDS with ANY of the specified texts will be
+allowed/whitelisted.
+.TP
+.BR --blacklist-contains-any " " \fItext\fR
+In any archival mode (create/test/extract), only block files/directories that
+contain the specified text. Use this flag multiple times to add more text
+entries such that any file/directory path that has ANY of the specified texts
+will be blocked/blacklisted.
+.TP
+.BR --blacklist-contains-all " " \fItext\fR
+In any archival mode (create/test/extract), only block files/directories that
+contain the specified text. Use this flag multiple times to add more text
+entries such that any file/directory path that has ALL of the specified texts
+will be blocked/blacklisted.
+.TP
+.BR --blacklist-begins-with " " \fItext\fR
+In any archival mode (create/test/extract), only block file/directory paths
+that start with the specified text. Use this flag multiple times to add more
+text entries such that any path that STARTS with ANY of the specified texts
+will be blocked/blacklisted.
+.TP
+.BR --blacklist-ends-with " " \fItext\fR
+In any archival mode (create/test/extract), only block file/directory paths
+that end with the specified text. Use this flag multiple times to add more text
+entries such that any path that ENDS with ANY of the specified texts will be
+blocked/blacklisted.
+.TP
+.BR --wb-case-insensitive
+Makes any whitelist/blacklist option case-insensitive (applies only to ASCII
+characters).
+.TP
+.BR --version
+Prints the current version of \fBsimplearchiver\fR.
+.TP
+.BR --
+Specifies that the following arguments are positional arguments that refer to
+items to be archived or items to be tested/extracted.
+.SH NOTES
+.TP
+.BR "Temporary Files"
+Whenever \fBsimplearchiver\fR creates an archive with a compressor, a temporary
+file is created to hold the compressed file/chunk. This is necessary because
+\fBsimplearchiver\fR is designed to be streamable, and the size of the
+compressed file/chunk is required before storing the compressed data;
+Otherwise, \fBsimplearchiver\fR cannot store the length of the data before the
+data itself in the archive without seeking. Note that by default, the temporary
+file is stored in the same directory as the created archive file. If the output
+is standard-output or cannot be accessed, then tmpfile(3) is used. Options that
+are related to this behavior are:
+
+\fB\-\-temp\-files\-dir\fR
+
+\fB\-\-force\-tmpfile\fR
+.TP
+.BR "Symbolic Link Handling"
+By default, \fBsimplearchiver\fR archives both relative and absolute paths for
+every symlink upon archive creation, and on extraction relative links are
+preferred. If the symlink points to a path not archived and
+\fB\-\-no\-safe\-links\fR is specified, then the absolute path is preferred on
+extraction. Also note that absolute paths can be prevented from being stored on
+archive creation with \fB\-\-no\-abs\-symlink\fR.

@@ -78,4 +78,23 @@ void simple_archiver_priority_heap_iter(SDArchiverPHeap *priority_heap,
 
 uint64_t simple_archiver_priority_heap_size(SDArchiverPHeap *priority_heap);
 
+// If clone_fn is NULL, then the clone will be a "shallow clone", and freeing
+// the "shallow clone" will not free any memory (except for memory used by the
+// priority heap itself). If clone_fn is non-NULL, then every contained
+// data (void*) will be passed to clone_fn and its output will be set as the
+// data in the cloned priority heap. The cleanup function in this case will be
+// identical to the clonee-priority-heap.
+//
+// Note that a cloned priority heap will need to be free'd with
+// simple_archiver_priority_heap_free(...) or
+// simple_archiver_priority_heap_free_single_ptr(...) even if it is a "shallow
+// clone".
+//
+// Also note that a "shallow clone" will refer to invalid memory if the original
+// priority heap was free'd. Thus, you MUST ensure that a "shallow clone" will
+// never be used after the original priority heap is free'd.
+SDArchiverPHeap *simple_archiver_priority_heap_clone(
+  const SDArchiverPHeap *prev_heap,
+  void*(*clone_fn)(void*));
+
 #endif

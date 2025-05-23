@@ -109,31 +109,31 @@ int main(void) {
     CHECK_TRUE(idx == 8);
 
     SDArchiverParsed parsed = simple_archiver_create_parsed();
+    const char **args = (const char *[]){"parser", "--", "././/././//./derp", "./doop", NULL};
     simple_archiver_parse_args(
         4,
-        (const char *[]){"parser", "--", "././/././//./derp", "./doop", NULL},
+        args,
         &parsed);
 
-    CHECK_TRUE(strcmp("derp", parsed.working_files[0]) == 0);
-    CHECK_TRUE(strcmp("doop", parsed.working_files[1]) == 0);
-    CHECK_TRUE(parsed.working_files[2] == NULL);
+    CHECK_TRUE(simple_archiver_hash_map_get(parsed.just_w_files, "derp", 5));
+    CHECK_TRUE(simple_archiver_hash_map_get(parsed.just_w_files, "doop", 5));
     CHECK_TRUE(parsed.filename == NULL);
     CHECK_TRUE(parsed.flags == 0x40);
 
     simple_archiver_free_parsed(&parsed);
 
     parsed = simple_archiver_create_parsed();
+    const char **args2 = (const char *[]){"parser", "-x", "-f", "the_filename",
+                         "././/././//./.derp", "././//./_doop",
+                         "./../../.prev_dir_file", NULL};
     simple_archiver_parse_args(
         7,
-        (const char *[]){"parser", "-x", "-f", "the_filename",
-                         "././/././//./.derp", "././//./_doop",
-                         "./../../.prev_dir_file", NULL},
+        args2,
         &parsed);
 
-    CHECK_TRUE(strcmp(".derp", parsed.working_files[0]) == 0);
-    CHECK_TRUE(strcmp("_doop", parsed.working_files[1]) == 0);
-    CHECK_TRUE(strcmp("../../.prev_dir_file", parsed.working_files[2]) == 0);
-    CHECK_TRUE(parsed.working_files[3] == NULL);
+    CHECK_TRUE(simple_archiver_hash_map_get(parsed.just_w_files, ".derp", 6));
+    CHECK_TRUE(simple_archiver_hash_map_get(parsed.just_w_files, "_doop", 6));
+    CHECK_TRUE(simple_archiver_hash_map_get(parsed.just_w_files, "../../.prev_dir_file", 21));
     CHECK_TRUE(strcmp("the_filename", parsed.filename) == 0);
     CHECK_TRUE(parsed.flags == 0x41);
 
