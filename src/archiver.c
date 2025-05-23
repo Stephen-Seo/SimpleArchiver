@@ -10096,7 +10096,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       link_create_retry = 1;
     }
 
-    if (do_extract && arg_allowed && lists_allowed && link_extracted && geteuid() == 0) {
+    if (do_extract
+        && arg_allowed
+        && lists_allowed
+        && link_extracted
+        && geteuid() == 0) {
       uint32_t picked_uid;
       if (uid_remapped || user_remapped_uid) {
         if (state->parsed->flags & 0x4000) {
@@ -10258,11 +10262,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                                           file_info->filename,
                                           strlen(file_info->filename) + 1)
           ? 1 : 0;
-        const int_fast8_t list_allowed = simple_archiver_helper_string_allowed_lists(
-          file_info->filename,
-          state->parsed->flags & 0x20000 ? 1 : 0,
-          state->parsed)
-          ? 1 : 0;
+        const int_fast8_t list_allowed =
+          simple_archiver_helper_string_allowed_lists(
+            file_info->filename,
+            state->parsed->flags & 0x20000 ? 1 : 0,
+            state->parsed)
+            ? 1 : 0;
         if (arg_allowed && list_allowed) {
           file_info->other_flags |= 6;
           skip_chunk = 0;
@@ -11882,7 +11887,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       link_create_retry = 1;
     }
 
-    if (do_extract && arg_allowed && lists_allowed && link_extracted && geteuid() == 0) {
+    if (do_extract
+        && arg_allowed
+        && lists_allowed
+        && link_extracted
+        && geteuid() == 0) {
       uint32_t picked_uid;
       if (uid_remapped || user_remapped_uid) {
         if (state->parsed->flags & 0x4000) {
@@ -12050,11 +12059,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
                 file_idx);
         file_info->other_flags |= 1;
       } else {
-        const int_fast8_t list_allowed = simple_archiver_helper_string_allowed_lists(
-          file_info->filename,
-          state->parsed->flags & 0x20000 ? 1 : 0,
-          state->parsed)
-            ? 1 : 0;
+        const int_fast8_t list_allowed =
+          simple_archiver_helper_string_allowed_lists(
+            file_info->filename,
+            state->parsed->flags & 0x20000 ? 1 : 0,
+            state->parsed)
+              ? 1 : 0;
         if (arg_allowed && list_allowed) {
           file_info->other_flags |= 6;
           skip_chunk = 0;

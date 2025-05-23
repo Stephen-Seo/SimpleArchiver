@@ -526,7 +526,8 @@ int main(void) {
       if (const_int_ptr) {
         CHECK_TRUE(*const_int_ptr == idx);
       }
-      const_int_ptr = simple_archiver_chunked_array_bottom_const(&chunked_array);
+      const_int_ptr =
+        simple_archiver_chunked_array_bottom_const(&chunked_array);
       CHECK_TRUE(const_int_ptr);
       if (const_int_ptr) {
         CHECK_TRUE(*const_int_ptr == 0);
@@ -549,7 +550,8 @@ int main(void) {
       if (const_int_ptr) {
         CHECK_TRUE(*const_int_ptr == idx);
       }
-      const_int_ptr = simple_archiver_chunked_array_bottom_const(&chunked_array);
+      const_int_ptr =
+        simple_archiver_chunked_array_bottom_const(&chunked_array);
       CHECK_TRUE(const_int_ptr);
       if (const_int_ptr) {
         CHECK_TRUE(*const_int_ptr == 0);
