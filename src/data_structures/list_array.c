@@ -85,7 +85,7 @@ void *simple_archiver_list_array_at(SDArchiverListArr *la, uint64_t idx) {
   return target + target_node->elem_size * idx;
 }
 
-const void *simple_archiver_list_array_at_const(const SDArchiverListArr *la
+const void *simple_archiver_list_array_at_const(const SDArchiverListArr *la,
                                                 uint64_t idx) {
   if (!la || !la->list || la->list->count == 0) {
     return NULL;
