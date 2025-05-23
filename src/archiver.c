@@ -9268,10 +9268,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
     buf[u16] = 0;
 
     const uint_fast8_t arg_allowed =
-      state->parsed->just_w_files->count != 0 &&
-      simple_archiver_hash_map_get(state->parsed->just_w_files,
-                                   buf,
-                                   u16 + 1) != NULL
+      state->parsed->just_w_files->count == 0
+      || simple_archiver_hash_map_get(state->parsed->just_w_files,
+                                      buf,
+                                      u16 + 1) != NULL
         ? 1
         : 0;
 
@@ -10958,10 +10958,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     archive_dir_name[u16] = 0;
 
     const uint_fast8_t arg_allowed =
-      state->parsed->just_w_files->count != 0 &&
-      simple_archiver_hash_map_get(state->parsed->just_w_files,
-                                   archive_dir_name,
-                                   u16 + 1) != NULL
+      state->parsed->just_w_files->count == 0
+      || simple_archiver_hash_map_get(state->parsed->just_w_files,
+                                      archive_dir_name,
+                                      u16 + 1) != NULL
         ? 1
         : 0;
 
@@ -12792,10 +12792,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     archive_dir_name[u16] = 0;
 
     const uint_fast8_t arg_allowed =
-      state->parsed->just_w_files->count != 0 &&
-      simple_archiver_hash_map_get(state->parsed->just_w_files,
-                                   archive_dir_name,
-                                   u16 + 1) != NULL
+      state->parsed->just_w_files->count == 0
+      || simple_archiver_hash_map_get(state->parsed->just_w_files,
+                                      archive_dir_name,
+                                      u16 + 1) != NULL
         ? 1
         : 0;
 
