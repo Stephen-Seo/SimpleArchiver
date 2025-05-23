@@ -2,6 +2,14 @@
 
 ## Upcoming Changes
 
+## Alternate Changes
+
+(Alternate Changes are changes that are not in `main` or `dev`.)
+
+Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 1.24
+
 A bunch of refactorings.
 
 Added a "clone" and "shallow clone" for data structure "priority heap".
@@ -15,12 +23,6 @@ Implemented "top" and "bottom" (with "const" variants) for "chunked array" and
 Created a man page for simplearchiver.
 
 Fixed simplearchiver ignoring positional arguments when extracting.
-
-## Alternate Changes
-
-(Alternate Changes are changes that are not in `main` or `dev`.)
-
-Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
 ## Version 1.23
 
