@@ -8,6 +8,13 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.25
+
+Fix recent refactorings such that using `-t` and positional arguments will
+now filter based on the positional arguments.
+
+Minor formatting fixes.
+
 ## Version 1.24
 
 A bunch of refactorings.

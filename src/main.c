@@ -161,6 +161,7 @@ int main(int argc, const char **argv) {
 
       SDArchiverStateRetStruct ret =
         simple_archiver_parse_archive_info(file, 0, state);
+      ret.ret &= 0x3FFFFFFF;
       if (ret.ret != SDAS_SUCCESS) {
         fprintf(stderr,
                 "Error during archive checking/examining. "
@@ -174,6 +175,7 @@ int main(int argc, const char **argv) {
     } else {
       SDArchiverStateRetStruct ret =
         simple_archiver_parse_archive_info(stdin, 0, state);
+      ret.ret &= 0x3FFFFFFF;
       if (ret.ret != SDAS_SUCCESS) {
         fprintf(stderr,
                 "Error during archive checking/examining. "
@@ -198,6 +200,7 @@ int main(int argc, const char **argv) {
 
       SDArchiverStateRetStruct ret =
         simple_archiver_parse_archive_info(file, 1, state);
+      ret.ret &= 0x3FFFFFFF;
       if (ret.ret != SDAS_SUCCESS) {
         fprintf(stderr,
                 "Error during archive extracting. (archiver.c Line %zu)\n",
@@ -210,6 +213,7 @@ int main(int argc, const char **argv) {
     } else {
       SDArchiverStateRetStruct ret =
         simple_archiver_parse_archive_info(stdin, 1, state);
+      ret.ret &= 0x3FFFFFFF;
       if (ret.ret != SDAS_SUCCESS) {
         fprintf(stderr,
                 "Error during archive extracting. (archiver.c Line %zu)\n",

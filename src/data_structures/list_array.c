@@ -85,7 +85,8 @@ void *simple_archiver_list_array_at(SDArchiverListArr *la, uint64_t idx) {
   return target + target_node->elem_size * idx;
 }
 
-const void *simple_archiver_list_array_at_const(const SDArchiverListArr *la, uint64_t idx) {
+const void *simple_archiver_list_array_at_const(const SDArchiverListArr *la,
+                                                uint64_t idx) {
   if (!la || !la->list || la->list->count == 0) {
     return NULL;
   }
@@ -141,7 +142,9 @@ int simple_archiver_list_array_push(SDArchiverListArr *la, void *to_copy) {
   }
 
   char *buf = last_node->data;
-  memcpy(buf + last_node->elem_size * last_node->arr_count, to_copy, last_node->elem_size);
+  memcpy(buf + last_node->elem_size * last_node->arr_count,
+         to_copy,
+         last_node->elem_size);
   ++last_node->arr_count;
   return 0;
 }
@@ -214,7 +217,9 @@ uint64_t simple_archiver_list_array_size(const SDArchiverListArr *la) {
   }
   uint64_t size = 0;
 
-  for (SDArchiverLLNode *node = la->list->head->next; node != la->list->tail; node = node->next) {
+  for (SDArchiverLLNode *node = la->list->head->next;
+       node != la->list->tail;
+       node = node->next) {
     SDArchiverListArrNode *la_node = node->data;
     size += la_node->arr_count;
   }
