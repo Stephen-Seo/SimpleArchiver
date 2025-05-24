@@ -64,6 +64,7 @@ typedef enum SDArchiverStateReturns {
   SDAS_PERMISSION_SET_FAIL,
   SDAS_UID_GID_SET_FAIL,
   SDAS_MAX_RETURN_VAL,
+  SDAS_STATUS_RET_MASK = 0x3FFFFFFF,
   // Used by parse v. 1/2 functions.
   SDAS_NOT_TESTED_ONCE = 0x40000000
 } SDArchiverStateReturns;
