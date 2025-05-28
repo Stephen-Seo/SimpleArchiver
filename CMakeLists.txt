@@ -64,6 +64,11 @@ if(NOT DEFINED DISABLE_FLAGS_FOR_COMPAT)
     )
 endif()
 
+if(BUILD_WITH_DEBUGGING_INFO)
+    target_compile_options(simplearchiver PUBLIC -g)
+    target_link_options(simplearchiver PUBLIC -g)
+endif()
+
 # Inhibit format-string-related warning in src/archiver.c .
 set_source_files_properties(src/archiver.c
     PROPERTIES
