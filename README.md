@@ -12,6 +12,8 @@ archiver will be written with support for Cosmopolitan in mind. This means
 sticking to the C programming language and possibly using Cosmopolitan-specfic
 API calls.
 
+[AUR package](https://aur.archlinux.org/packages/simplearchiver)
+
 ## Usage
 
     Usage flags:
