@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 1.25)
+set(SimpleArchiver_VERSION 1.26)
 
 set(SimpleArchiver_SOURCES
     src/main.c
@@ -62,6 +62,11 @@ if(NOT DEFINED DISABLE_FLAGS_FOR_COMPAT)
     target_link_options(simplearchiver PUBLIC
         -fstrict-flex-arrays=3
     )
+endif()
+
+if(BUILD_WITH_DEBUGGING_INFO)
+    target_compile_options(simplearchiver PUBLIC -g)
+    target_link_options(simplearchiver PUBLIC -g)
 endif()
 
 # Inhibit format-string-related warning in src/archiver.c .

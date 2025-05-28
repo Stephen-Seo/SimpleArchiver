@@ -8,6 +8,12 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.26
+
+Minor refactorings.
+
+Minor change to allow forcing build with "-g" (for debug packaging).
+
 ## Version 1.25
 
 Fix recent refactorings such that using `-t` and positional arguments will

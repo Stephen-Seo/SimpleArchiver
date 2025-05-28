@@ -9258,7 +9258,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
     if ((ret.ret & SDAS_NOT_TESTED_ONCE) == 0) {
       not_tested_once = 0;
     }
-    ret.ret &= 0x3FFFFFFF;
+    ret.ret &= SDAS_STATUS_RET_MASK;
     if (ret.ret != SDAS_SUCCESS) {
       return ret;
     }
