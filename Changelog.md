@@ -4,6 +4,8 @@
 
 Minor refactorings.
 
+Minor change to allow forcing build with "-g" (for debug packaging).
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
