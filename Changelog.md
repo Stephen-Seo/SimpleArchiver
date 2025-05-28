@@ -2,15 +2,17 @@
 
 ## Upcoming Changes
 
-Minor refactorings.
-
-Minor change to allow forcing build with "-g" (for debug packaging).
-
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 1.26
+
+Minor refactorings.
+
+Minor change to allow forcing build with "-g" (for debug packaging).
 
 ## Version 1.25
 
