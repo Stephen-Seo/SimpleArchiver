@@ -6986,37 +6986,55 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
   if (u16 == 0) {
     fprintf(stderr, "File format version 0\n");
     state->parsed->write_version = 0;
-    ret_struct = simple_archiver_parse_archive_version_0(in_f, do_extract, state, parse_state);
+    ret_struct = simple_archiver_parse_archive_version_0(in_f,
+                                                         do_extract,
+                                                         state,
+                                                         parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else if (u16 == 1) {
     fprintf(stderr, "File format version 1\n");
     state->parsed->write_version = 1;
-    ret_struct = simple_archiver_parse_archive_version_1(in_f, do_extract, state, parse_state);
+    ret_struct = simple_archiver_parse_archive_version_1(in_f,
+                                                         do_extract,
+                                                         state,
+                                                         parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else if (u16 == 2) {
     fprintf(stderr, "File format version 2\n");
     state->parsed->write_version = 2;
-    ret_struct = simple_archiver_parse_archive_version_2(in_f, do_extract, state, parse_state);
+    ret_struct = simple_archiver_parse_archive_version_2(in_f,
+                                                         do_extract,
+                                                         state,
+                                                         parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else if (u16 == 3) {
     fprintf(stderr, "File format version 3\n");
     state->parsed->write_version = 3;
-    ret_struct = simple_archiver_parse_archive_version_3(in_f, do_extract, state, parse_state);
+    ret_struct = simple_archiver_parse_archive_version_3(in_f,
+                                                         do_extract,
+                                                         state,
+                                                         parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else if (u16 == 4) {
     fprintf(stderr, "File format version 4\n");
     state->parsed->write_version = 4;
-    ret_struct = simple_archiver_parse_archive_version_4_5(in_f, do_extract, state, parse_state);
+    ret_struct = simple_archiver_parse_archive_version_4_5(in_f,
+                                                           do_extract,
+                                                           state,
+                                                           parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else if (u16 == 5) {
     fprintf(stderr, "File format version 5\n");
     state->parsed->write_version = 5;
-    ret_struct = simple_archiver_parse_archive_version_4_5(in_f, do_extract, state, parse_state);
+    ret_struct = simple_archiver_parse_archive_version_4_5(in_f,
+                                                           do_extract,
+                                                           state,
+                                                           parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else {
