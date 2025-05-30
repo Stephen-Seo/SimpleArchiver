@@ -8195,11 +8195,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
   if (actual_size != 0) {
-    uint64_t *act_sizee_ptr = malloc(sizeof(uint64_t));
-    memcpy(act_sizee_ptr, &actual_size, sizeof(uint64_t));
+    uint64_t *act_size_ptr = malloc(sizeof(uint64_t));
+    memcpy(act_size_ptr, &actual_size, sizeof(uint64_t));
     simple_archiver_hash_map_insert(
       parsed_state,
-      act_sizee_ptr,
+      act_size_ptr,
       SDA_PSTATE_ACT_SIZE_KEY,
       SDA_PSTATE_ACT_SIZE_KEY_SIZE,
       NULL,
