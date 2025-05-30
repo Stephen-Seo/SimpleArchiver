@@ -2,6 +2,12 @@
 
 ## Upcoming Changes
 
+Add actual/compressed file stats (when relevant) when using `-t` and `-x`.  
+These stats should show as the last few outputs to stderr.
+
+Minor fixes to file size outputs (listed as "compressed" size when they are
+actually "uncompressed" size.)
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
