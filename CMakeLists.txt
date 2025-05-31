@@ -75,11 +75,11 @@ set_source_files_properties(src/archiver.c
         COMPILE_FLAGS -Wno-format-nonliteral
 )
 
-if(DEFINED OVERRIDE_VERSION_STRING)
-    message("Setting version \"${OVERRIDE_VERSION_STRING}\"...")
+if(DEFINED SDSA_OVERRIDE_VERSION_STRING)
+    message("Setting version \"${SDSA_OVERRIDE_VERSION_STRING}\"...")
     if(EXISTS /usr/bin/sed)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/dummy_output_override_version.txt"
-            COMMAND /usr/bin/sed ARGS -i "/^#define SIMPLE_ARCHIVER_VERSION_STR /c #define SIMPLE_ARCHIVER_VERSION_STR \\\"${OVERRIDE_VERSION_STRING}\\\"" "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
+            COMMAND /usr/bin/sed ARGS -i "/^#define SIMPLE_ARCHIVER_VERSION_STR /c #define SIMPLE_ARCHIVER_VERSION_STR \\\"${SDSA_OVERRIDE_VERSION_STRING}\\\"" "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
         )
         add_custom_target(VersionStringCMD
             DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/dummy_output_override_version.txt")
@@ -87,7 +87,7 @@ if(DEFINED OVERRIDE_VERSION_STRING)
     else()
         set_source_files_properties(src/parser.c
             PROPERTIES
-                COMPILE_FLAGS "-DSIMPLE_ARCHIVER_VERSION_STR=\\\"${OVERRIDE_VERSION_STRING}\\\""
+                COMPILE_FLAGS "-DSIMPLE_ARCHIVER_VERSION_STR=\\\"${SDSA_OVERRIDE_VERSION_STRING}\\\""
         )
     endif()
 elseif(EXISTS /usr/bin/git AND EXISTS /usr/bin/sh AND EXISTS /usr/bin/cat AND EXISTS /usr/bin/xargs AND EXISTS /usr/bin/sed)
