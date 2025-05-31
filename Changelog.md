@@ -8,6 +8,8 @@ These stats should show as the last few outputs to stderr.
 Minor fixes to file size outputs (listed as "compressed" size when they are
 actually "uncompressed" size.)
 
+Minor changes to CMake file for easier version-setting when packaging.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
