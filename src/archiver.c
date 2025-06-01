@@ -2278,13 +2278,33 @@ void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
                                  SDA_PSTATE_CMP_SIZE_KEY,
                                  SDA_PSTATE_CMP_SIZE_KEY_SIZE);
   if (temp && *temp != 0) {
-    fprintf(stderr, "Compressed size is %" PRIu64 "\n", *temp);
+    fprintf(stderr, "Compressed size is %" PRIu64, *temp);
+    if (*temp > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", *temp / 1024);
+    }
+    if (*temp > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", *temp / (1024 * 1024));
+    }
+    if (*temp > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", *temp / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
   }
   temp = simple_archiver_hash_map_get(parse_state,
                                       SDA_PSTATE_ACT_SIZE_KEY,
                                       SDA_PSTATE_ACT_SIZE_KEY_SIZE);
   if (temp && *temp != 0) {
-    fprintf(stderr, "Actual size is %" PRIu64 "\n", *temp);
+    fprintf(stderr, "Actual size is %" PRIu64, *temp);
+    if (*temp > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", *temp / 1024);
+    }
+    if (*temp > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", *temp / (1024 * 1024));
+    }
+    if (*temp > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", *temp / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
   }
 }
 
