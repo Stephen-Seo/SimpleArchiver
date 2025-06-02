@@ -2,7 +2,7 @@
 
 ## Upcoming Changes
 
-Minor tweak to CMake for easier version string setting when packaging.
+Minor tweak to CMake config for easier version string setting when packaging.
 
 ## Alternate Changes
 
