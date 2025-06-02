@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Minor tweak to CMake for easier version string setting when packaging.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
