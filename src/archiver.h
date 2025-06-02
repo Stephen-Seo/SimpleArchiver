@@ -77,6 +77,11 @@ typedef struct SDArchiverStateRetStruct {
 #define SDA_RET_STRUCT(enum_val) \
   (SDArchiverStateRetStruct){.line=__LINE__, .ret=enum_val}
 
+#define SDA_PSTATE_CMP_SIZE_KEY "SDA_Compressed_Size_Key"
+#define SDA_PSTATE_CMP_SIZE_KEY_SIZE 24
+#define SDA_PSTATE_ACT_SIZE_KEY "SDA_Actual_Size_Key"
+#define SDA_PSTATE_ACT_SIZE_KEY_SIZE 20
+
 /// Returned pointer must not be freed.
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error);
 
@@ -118,31 +123,36 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
   FILE *in_f,
   int_fast8_t do_extract,
-  const SDArchiverState *state);
+  const SDArchiverState *state,
+  SDArchiverHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
   FILE *in_f,
   int_fast8_t do_extract,
-  const SDArchiverState *state);
+  const SDArchiverState *state,
+  SDArchiverHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
   FILE *in_f,
   int_fast8_t do_extract,
-  const SDArchiverState *state);
+  const SDArchiverState *state,
+  SDArchiverHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   FILE *in_f,
   int_fast8_t do_extract,
-  const SDArchiverState *state);
+  const SDArchiverState *state,
+  SDArchiverHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
   FILE *in_f,
   int_fast8_t do_extract,
-  const SDArchiverState *state);
+  const SDArchiverState *state,
+  SDArchiverHashMap *parse_state);
 
 /// Returns zero on success.
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],

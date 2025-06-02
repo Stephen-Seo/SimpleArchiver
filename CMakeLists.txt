@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 1.26)
+set(SimpleArchiver_VERSION 1.27)
 
 set(SimpleArchiver_SOURCES
     src/main.c
@@ -75,7 +75,22 @@ set_source_files_properties(src/archiver.c
         COMPILE_FLAGS -Wno-format-nonliteral
 )
 
-if(EXISTS /usr/bin/git AND EXISTS /usr/bin/sh AND EXISTS /usr/bin/cat AND EXISTS /usr/bin/xargs AND EXISTS /usr/bin/sed)
+if(DEFINED SDSA_OVERRIDE_VERSION_STRING)
+    message("Setting version \"${SDSA_OVERRIDE_VERSION_STRING}\"...")
+    if(EXISTS /usr/bin/sed)
+        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/dummy_output_override_version.txt"
+            COMMAND /usr/bin/sed ARGS -i "/^#define SIMPLE_ARCHIVER_VERSION_STR /c #define SIMPLE_ARCHIVER_VERSION_STR \\\"${SDSA_OVERRIDE_VERSION_STRING}\\\"" "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
+        )
+        add_custom_target(VersionStringCMD
+            DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/dummy_output_override_version.txt")
+        add_dependencies(simplearchiver VersionStringCMD)
+    else()
+        set_source_files_properties(src/parser.c
+            PROPERTIES
+                COMPILE_FLAGS "-DSIMPLE_ARCHIVER_VERSION_STR=\\\"${SDSA_OVERRIDE_VERSION_STRING}\\\""
+        )
+    endif()
+elseif(EXISTS /usr/bin/git AND EXISTS /usr/bin/sh AND EXISTS /usr/bin/cat AND EXISTS /usr/bin/xargs AND EXISTS /usr/bin/sed)
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
         COMMAND /usr/bin/sh ARGS -c "/usr/bin/git describe --long --tags >${CMAKE_CURRENT_BINARY_DIR}/version_string.txt || /usr/bin/echo ${SimpleArchiver_VERSION} >${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
         COMMAND /usr/bin/sh ARGS -c "/usr/bin/cat ${CMAKE_CURRENT_BINARY_DIR}/version_string.txt | /usr/bin/xargs -Iderp sed -i \"/^#define SIMPLE_ARCHIVER_VERSION_STR /c #define SIMPLE_ARCHIVER_VERSION_STR \\\"derp\\\"\" ${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"

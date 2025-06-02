@@ -2272,6 +2272,42 @@ int simple_archiver_internal_prune_filenames_v0(
   return 0;
 }
 
+void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
+  uint64_t *temp =
+    simple_archiver_hash_map_get(parse_state,
+                                 SDA_PSTATE_CMP_SIZE_KEY,
+                                 SDA_PSTATE_CMP_SIZE_KEY_SIZE);
+  if (temp && *temp != 0) {
+    fprintf(stderr, "Compressed size is %" PRIu64, *temp);
+    if (*temp > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", *temp / 1024);
+    }
+    if (*temp > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", *temp / (1024 * 1024));
+    }
+    if (*temp > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", *temp / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
+  }
+  temp = simple_archiver_hash_map_get(parse_state,
+                                      SDA_PSTATE_ACT_SIZE_KEY,
+                                      SDA_PSTATE_ACT_SIZE_KEY_SIZE);
+  if (temp && *temp != 0) {
+    fprintf(stderr, "Actual size is %" PRIu64, *temp);
+    if (*temp > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", *temp / 1024);
+    }
+    if (*temp > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", *temp / (1024 * 1024));
+    }
+    if (*temp > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", *temp / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
+  }
+}
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -6959,33 +6995,68 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
     return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
+  __attribute__((cleanup(simple_archiver_hash_map_free)))
+  SDArchiverHashMap *parse_state = simple_archiver_hash_map_init();
+
+  SDArchiverStateRetStruct ret_struct;
+
   memcpy(&u16, buf, 2);
   simple_archiver_helper_16_bit_be(&u16);
 
   if (u16 == 0) {
     fprintf(stderr, "File format version 0\n");
     state->parsed->write_version = 0;
-    return simple_archiver_parse_archive_version_0(in_f, do_extract, state);
+    ret_struct = simple_archiver_parse_archive_version_0(in_f,
+                                                         do_extract,
+                                                         state,
+                                                         parse_state);
+    internal_simple_archiver_parse_stats(parse_state);
+    return ret_struct;
   } else if (u16 == 1) {
     fprintf(stderr, "File format version 1\n");
     state->parsed->write_version = 1;
-    return simple_archiver_parse_archive_version_1(in_f, do_extract, state);
+    ret_struct = simple_archiver_parse_archive_version_1(in_f,
+                                                         do_extract,
+                                                         state,
+                                                         parse_state);
+    internal_simple_archiver_parse_stats(parse_state);
+    return ret_struct;
   } else if (u16 == 2) {
     fprintf(stderr, "File format version 2\n");
     state->parsed->write_version = 2;
-    return simple_archiver_parse_archive_version_2(in_f, do_extract, state);
+    ret_struct = simple_archiver_parse_archive_version_2(in_f,
+                                                         do_extract,
+                                                         state,
+                                                         parse_state);
+    internal_simple_archiver_parse_stats(parse_state);
+    return ret_struct;
   } else if (u16 == 3) {
     fprintf(stderr, "File format version 3\n");
     state->parsed->write_version = 3;
-    return simple_archiver_parse_archive_version_3(in_f, do_extract, state);
+    ret_struct = simple_archiver_parse_archive_version_3(in_f,
+                                                         do_extract,
+                                                         state,
+                                                         parse_state);
+    internal_simple_archiver_parse_stats(parse_state);
+    return ret_struct;
   } else if (u16 == 4) {
     fprintf(stderr, "File format version 4\n");
     state->parsed->write_version = 4;
-    return simple_archiver_parse_archive_version_4_5(in_f, do_extract, state);
+    ret_struct = simple_archiver_parse_archive_version_4_5(in_f,
+                                                           do_extract,
+                                                           state,
+                                                           parse_state);
+    internal_simple_archiver_parse_stats(parse_state);
+    return ret_struct;
   } else if (u16 == 5) {
     fprintf(stderr, "File format version 5\n");
     state->parsed->write_version = 5;
-    return simple_archiver_parse_archive_version_4_5(in_f, do_extract, state);
+    ret_struct = simple_archiver_parse_archive_version_4_5(in_f,
+                                                           do_extract,
+                                                           state,
+                                                           parse_state);
+    internal_simple_archiver_parse_stats(parse_state);
+    return ret_struct;
   } else {
     fprintf(stderr, "ERROR Unsupported archive version %" PRIu16 "!\n", u16);
     return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -6995,12 +7066,16 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     FILE *in_f,
     int_fast8_t do_extract,
-    const SDArchiverState *state) {
+    const SDArchiverState *state,
+    SDArchiverHashMap *parsed_state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
   uint64_t u64;
   int_fast8_t is_compressed = 0;
+
+  uint64_t compressed_size = 0;
+  uint64_t actual_size = 0;
 
   if (fread(buf, 1, 4, in_f) != 4) {
     return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -7429,6 +7504,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         }
       }
 
+      if (is_compressed) {
+        compressed_size += u64;
+      }
+
       if (do_extract && !arg_allowed) {
         fprintf(stderr, "Skipping not specified in args...\n");
       } else if (do_extract && !lists_allowed) {
@@ -7648,6 +7727,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                     fwrite(recv_buf, 1, (size_t)read_ret, out_f);
                 if (fwrite_ret == (size_t)read_ret) {
                   // Success.
+                  actual_size += fwrite_ret;
                 } else if (ferror(out_f)) {
                   // Error.
                   fprintf(stderr,
@@ -8123,17 +8203,44 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       "try a different positional argument?\n");
   }
 
+  if (compressed_size != 0) {
+    uint64_t *cmp_size_ptr = malloc(sizeof(uint64_t));
+    memcpy(cmp_size_ptr, &compressed_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      cmp_size_ptr,
+      SDA_PSTATE_CMP_SIZE_KEY,
+      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+  }
+  if (actual_size != 0) {
+    uint64_t *act_size_ptr = malloc(sizeof(uint64_t));
+    memcpy(act_size_ptr, &actual_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      act_size_ptr,
+      SDA_PSTATE_ACT_SIZE_KEY,
+      SDA_PSTATE_ACT_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+  }
+
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     FILE *in_f,
     int_fast8_t do_extract,
-    const SDArchiverState *state) {
+    const SDArchiverState *state,
+    SDArchiverHashMap *parsed_state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
   uint64_t u64;
+
+  uint64_t compressed_size = 0;
+  uint64_t actual_size = 0;
 
   if (fread(buf, 1, 4, in_f) != 4) {
     return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -8773,6 +8880,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       }
       simple_archiver_helper_64_bit_be(&u64);
       file_info->file_size = u64;
+      actual_size += u64;
 
       if (files_map && (file_info->other_flags & 2)) {
         simple_archiver_internal_paths_to_files_map(files_map,
@@ -8792,6 +8900,22 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     const uint64_t chunk_size = u64;
     uint64_t chunk_remaining = chunk_size;
     uint64_t chunk_idx = 0;
+    if (is_compressed) {
+      compressed_size += u64;
+      fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
+    } else {
+      fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
+    }
+    if (chunk_size > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+    }
+    if (chunk_size > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+    }
+    if (chunk_size > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
 
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
@@ -9201,7 +9325,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                   file_info->gid);
           if (is_compressed) {
             fprintf(stderr,
-                    "    File size (compressed): %" PRIu64 "\n",
+                    "    File size (uncompressed): %" PRIu64 "\n",
                     file_info->file_size);
           } else {
             fprintf(stderr,
@@ -9243,6 +9367,29 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       "try a different positional argument?\n");
   }
 
+  if (compressed_size != 0) {
+    uint64_t *temp = malloc(sizeof(uint64_t));
+    memcpy(temp, &compressed_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      temp,
+      SDA_PSTATE_CMP_SIZE_KEY,
+      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+  }
+  if (actual_size != 0) {
+    uint64_t *temp = malloc(sizeof(uint64_t));
+    memcpy(temp, &actual_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      temp,
+      SDA_PSTATE_ACT_SIZE_KEY,
+      SDA_PSTATE_ACT_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+  }
+
   return SDA_RET_STRUCT(SDAS_SUCCESS
                         | (not_tested_once ? SDAS_NOT_TESTED_ONCE : 0));
 }
@@ -9250,11 +9397,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
     FILE *in_f,
     int_fast8_t do_extract,
-    const SDArchiverState *state) {
+    const SDArchiverState *state,
+    SDArchiverHashMap *parsed_state) {
   int_fast8_t not_tested_once = (state->parsed->flags & 0x3) == 2 ? 1 : 0;
   {
     SDArchiverStateRetStruct ret =
-      simple_archiver_parse_archive_version_1(in_f, do_extract, state);
+      simple_archiver_parse_archive_version_1(in_f,
+                                              do_extract,
+                                              state,
+                                              parsed_state);
     if ((ret.ret & SDAS_NOT_TESTED_ONCE) == 0) {
       not_tested_once = 0;
     }
@@ -9514,11 +9665,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     FILE *in_f,
     int_fast8_t do_extract,
-    const SDArchiverState *state) {
+    const SDArchiverState *state,
+    SDArchiverHashMap *parsed_state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
   uint64_t u64;
+
+  uint64_t compressed_size = 0;
+  uint64_t actual_size = 0;
 
   if (fread(buf, 1, 4, in_f) != 4) {
     return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -10490,6 +10645,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       }
       simple_archiver_helper_64_bit_be(&u64);
       file_info->file_size = u64;
+      actual_size += u64;
 
       if (files_map && file_info->other_flags & 2) {
         simple_archiver_internal_paths_to_files_map(files_map,
@@ -10509,6 +10665,22 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     const uint64_t chunk_size = u64;
     uint64_t chunk_remaining = chunk_size;
     uint64_t chunk_idx = 0;
+    if (is_compressed) {
+      compressed_size += u64;
+      fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
+    } else {
+      fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
+    }
+    if (chunk_size > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+    }
+    if (chunk_size > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+    }
+    if (chunk_size > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
 
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
@@ -10941,7 +11113,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           }
           if (is_compressed) {
             fprintf(stderr,
-                    "    File size (compressed): %" PRIu64 "\n",
+                    "    File size (uncompressed): %" PRIu64 "\n",
                     file_info->file_size);
           } else {
             fprintf(stderr,
@@ -11290,17 +11462,44 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       "try a different positional argument?\n");
   }
 
+  if (compressed_size != 0) {
+    uint64_t *temp = malloc(sizeof(uint64_t));
+    memcpy(temp, &compressed_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      temp,
+      SDA_PSTATE_CMP_SIZE_KEY,
+      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+  }
+  if (actual_size != 0) {
+    uint64_t *temp = malloc(sizeof(uint64_t));
+    memcpy(temp, &actual_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      temp,
+      SDA_PSTATE_ACT_SIZE_KEY,
+      SDA_PSTATE_ACT_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+  }
+
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     FILE *in_f,
     int_fast8_t do_extract,
-    const SDArchiverState *state) {
+    const SDArchiverState *state,
+    SDArchiverHashMap *parsed_state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
   uint64_t u64;
+
+  uint64_t compressed_size = 0;
+  uint64_t actual_size = 0;
 
   if (fread(buf, 1, 4, in_f) != 4) {
     return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -12287,6 +12486,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       }
       simple_archiver_helper_64_bit_be(&u64);
       file_info->file_size = u64;
+      actual_size += u64;
 
       if (files_map && file_info->other_flags & 2) {
         simple_archiver_internal_paths_to_files_map(files_map,
@@ -12306,6 +12506,22 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     const uint64_t chunk_size = u64;
     uint64_t chunk_remaining = chunk_size;
     uint64_t chunk_idx = 0;
+    if (is_compressed) {
+      compressed_size += u64;
+      fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
+    } else {
+      fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
+    }
+    if (chunk_size > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+    }
+    if (chunk_size > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+    }
+    if (chunk_size > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
 
     SDArchiverLLNode *node = file_info_list->head;
     uint64_t file_idx = 0;
@@ -12810,7 +13026,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           }
           if (is_compressed) {
             fprintf(stderr,
-                    "    File size (compressed): %" PRIu64 "\n",
+                    "    File size (uncompressed): %" PRIu64 "\n",
                     file_info->file_size);
           } else {
             fprintf(stderr,
@@ -13157,6 +13373,29 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
   if (not_tested_once) {
     fprintf(stderr, "WARNING: test/check mode but nothing was selected; "
       "try a different positional argument?\n");
+  }
+
+  if (compressed_size != 0) {
+    uint64_t *temp = malloc(sizeof(uint64_t));
+    memcpy(temp, &compressed_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      temp,
+      SDA_PSTATE_CMP_SIZE_KEY,
+      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+  }
+  if (actual_size != 0) {
+    uint64_t *temp = malloc(sizeof(uint64_t));
+    memcpy(temp, &actual_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      temp,
+      SDA_PSTATE_ACT_SIZE_KEY,
+      SDA_PSTATE_ACT_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
   }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);

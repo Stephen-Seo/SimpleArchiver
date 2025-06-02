@@ -8,6 +8,19 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.27
+
+Add actual/compressed file stats (when relevant) when using `-t` and `-x`.  
+These stats should show as the last few outputs to stderr.
+
+Also show chunk sizes when using `-t` and `-x` (applicable to file formats that
+uses chunks).
+
+Minor fixes to file size outputs (listed as "compressed" size when they are
+actually "uncompressed" size.)
+
+Minor changes to CMake file for easier version-setting when packaging.
+
 ## Version 1.26
 
 Minor refactorings.
