@@ -8902,7 +8902,20 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     uint64_t chunk_idx = 0;
     if (is_compressed) {
       compressed_size += u64;
+      fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
+    } else {
+      fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
+    if (chunk_size > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+    }
+    if (chunk_size > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+    }
+    if (chunk_size > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
 
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
@@ -10654,7 +10667,20 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     uint64_t chunk_idx = 0;
     if (is_compressed) {
       compressed_size += u64;
+      fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
+    } else {
+      fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
+    if (chunk_size > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+    }
+    if (chunk_size > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+    }
+    if (chunk_size > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
 
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
@@ -12482,7 +12508,20 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     uint64_t chunk_idx = 0;
     if (is_compressed) {
       compressed_size += u64;
+      fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
+    } else {
+      fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
+    if (chunk_size > 1024) {
+      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+    }
+    if (chunk_size > 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+    }
+    if (chunk_size > 1024 * 1024 * 1024) {
+      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+    }
+    fprintf(stderr, "\n");
 
     SDArchiverLLNode *node = file_info_list->head;
     uint64_t file_idx = 0;
