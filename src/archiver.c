@@ -7179,6 +7179,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
           ? NULL
           : simple_archiver_hash_map_init();
 
+  int_fast8_t did_print_skipped_a = 0;
+  int_fast8_t did_print_skipped_wb = 0;
+
   for (uint32_t idx = 0; idx < size; ++idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -7221,7 +7224,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         not_tested_once = 0;
       }
 
-      if (do_extract || (arg_allowed && lists_allowed)) {
+      if (arg_allowed && lists_allowed) {
         fprintf(stderr, format_str, idx + 1, size);
         fprintf(stderr, "  Filename: %s\n", buf);
       }
@@ -7305,7 +7308,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed);
 
-      if (do_extract || (arg_allowed && lists_allowed)) {
+      if (arg_allowed && lists_allowed) {
         fprintf(stderr, format_str, idx + 1, size);
         fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
       }
@@ -7509,9 +7512,22 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       }
 
       if (do_extract && !arg_allowed) {
-        fprintf(stderr, "Skipping not specified in args...\n");
+        if (!did_print_skipped_a) {
+          fprintf(stderr, "\nSkipping not specified in args...\n\n");
+          did_print_skipped_a = 1;
+        }
       } else if (do_extract && !lists_allowed) {
-        fprintf(stderr, "Skipping not allowed by white/black lists...\n");
+        if (!did_print_skipped_wb) {
+          fprintf(stderr, "\nSkipping not allowed by white/black lists...\n\n");
+          did_print_skipped_wb = 1;
+        }
+      }
+
+      if (arg_allowed) {
+        did_print_skipped_a = 0;
+      }
+      if (lists_allowed) {
+        did_print_skipped_wb = 0;
       }
 
       if (do_extract && !skip && arg_allowed && lists_allowed) {
@@ -8185,7 +8201,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               "  WARNING: Symlink entry in archive has no paths to link to!\n");
         }
       } else if (do_extract && (skip || !arg_allowed || !lists_allowed)) {
-        fprintf(stderr, "  Skipping not specified in args...\n");
+        if (!arg_allowed) {
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\nSkipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
+        }
+        if (!lists_allowed) {
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\nSkipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
+        }
+      }
+
+      if (arg_allowed) {
+        did_print_skipped_a = 0;
+      }
+      if (lists_allowed) {
+        did_print_skipped_wb = 0;
       }
     }
   }
@@ -8325,6 +8359,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
   }
   simple_archiver_helper_32_bit_be(&u32);
 
+  int_fast8_t did_print_skipped_link = 0;
+
   for (uint32_t idx = 0; idx < u32; ++idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -8375,7 +8411,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed);
 
-    if (do_extract || (arg_allowed && lists_allowed)) {
+    if (arg_allowed && lists_allowed) {
       not_tested_once = 0;
       fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, u32);
       if (is_invalid) {
@@ -8390,6 +8426,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       fprintf(stderr, "  Link Permissions: ");
       print_permissions(permissions);
       fprintf(stderr, "\n");
+      did_print_skipped_link = 0;
+    } else if (!did_print_skipped_link) {
+      fprintf(stderr, "\nSkipping not allowed link...\n\n");
+      did_print_skipped_link = 1;
     }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -8917,6 +8957,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     }
     fprintf(stderr, "\n");
 
+    int_fast8_t did_print_skipped_a = 0;
+    int_fast8_t did_print_skipped_wb = 0;
+
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
 
@@ -9035,7 +9078,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   ++file_idx,
@@ -9057,11 +9100,24 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         }
 
         if (do_extract && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
         } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
+        }
+
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -9193,7 +9249,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   ++file_idx,
@@ -9220,11 +9276,24 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         }
 
         if (do_extract && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "    Skipping not specified in args...\n");
+            did_print_skipped_a = 1;
+          }
         } else if (file_info->other_flags & 1) {
           fprintf(stderr, "    Skipping invalid filename...\n");
         } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+            did_print_skipped_wb = 1;
+          }
+        }
+
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -9758,6 +9827,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   }
   simple_archiver_helper_32_bit_be(&u32);
 
+  int_fast8_t did_print_skipped_link = 0;
+
   const uint32_t count = u32;
   for (uint32_t idx = 0; idx < count; ++idx) {
     if (is_sig_int_occurred) {
@@ -9810,7 +9881,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed);
 
-    if (do_extract || (arg_allowed && lists_allowed)) {
+    if (arg_allowed && lists_allowed) {
       not_tested_once = 0;
       fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, count);
       if (is_invalid) {
@@ -9825,6 +9896,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       fprintf(stderr, "  Link Permissions: ");
       print_permissions(permissions);
       fprintf(stderr, "\n");
+      did_print_skipped_link = 0;
+    } else if (!did_print_skipped_link) {
+      fprintf(stderr, "\nSkipping not allowed link...\n\n");
+      did_print_skipped_link = 1;
     }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -10682,6 +10757,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     }
     fprintf(stderr, "\n");
 
+    int_fast8_t did_print_skipped_a = 0;
+    int_fast8_t did_print_skipped_wb = 0;
+
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
 
@@ -10801,7 +10879,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   file_idx,
@@ -10823,11 +10901,24 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         }
 
         if (do_extract && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
         } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
+        }
+
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -10997,11 +11088,24 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         }
 
         if (do_extract && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
         } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
+        }
+
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -11584,6 +11688,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
   }
   simple_archiver_helper_64_bit_be(&u64);
 
+  int_fast8_t did_print_skipped_link = 0;
+
   const uint64_t count = u64;
   for (uint64_t idx = 0; idx < count; ++idx) {
     if (is_sig_int_occurred) {
@@ -11638,7 +11744,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
         state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed);
 
-    if (do_extract || (arg_allowed && lists_allowed)) {
+    if (arg_allowed && lists_allowed) {
       not_tested_once = 0;
       fprintf(stderr, "SYMLINK %3" PRIu64 " of %3" PRIu64 "\n", idx + 1, count);
       if (is_invalid) {
@@ -11653,6 +11759,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       fprintf(stderr, "  Link Permissions: ");
       print_permissions(permissions);
       fprintf(stderr, "\n");
+      did_print_skipped_link = 0;
+    } else if (!did_print_skipped_link) {
+      fprintf(stderr, "\nSkipping not allowed link...\n\n");
+      did_print_skipped_link = 1;
     }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -12523,6 +12633,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     }
     fprintf(stderr, "\n");
 
+    int_fast8_t did_print_skipped_a = 0;
+    int_fast8_t did_print_skipped_wb = 0;
+
     SDArchiverLLNode *node = file_info_list->head;
     uint64_t file_idx = 0;
 
@@ -12644,7 +12757,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
                   file_idx,
@@ -12669,13 +12782,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           filename_prefixed[prefix_length + filename_length] = 0;
         }
 
-        if (do_extract
-            && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
+        if (do_extract && (file_info->other_flags & 4) == 0) {
+          if(!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
         } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
+        }
+
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -12882,7 +13007,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
                   file_idx,
@@ -12908,13 +13033,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           filename_prefixed[prefix_length + filename_length] = 0;
         }
 
-        if (do_extract
-            && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
+        if (do_extract && (file_info->other_flags & 4) == 0) {
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
         } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
+        }
+
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
