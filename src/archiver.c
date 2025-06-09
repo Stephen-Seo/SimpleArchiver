@@ -11731,7 +11731,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     link_name[link_name_length] = 0;
 
     const int_fast8_t arg_allowed =
-      state->parsed->just_w_files == 0
+      state->parsed->just_w_files->count == 0
       || simple_archiver_hash_map_get(state->parsed->just_w_files,
                                       link_name,
                                       strlen(link_name) + 1) != NULL
