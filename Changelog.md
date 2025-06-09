@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Minor refactorings.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
