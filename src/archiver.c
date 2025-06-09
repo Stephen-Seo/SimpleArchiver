@@ -72,6 +72,7 @@ typedef struct SDArchiverInternalToWrite {
 
 typedef struct SDArchiverInternalFileInfo {
   char *filename;
+  char *prefixed_filename;
   uint8_t bit_flags[4];
   uint32_t uid;
   uint32_t gid;
@@ -1478,6 +1479,9 @@ void free_internal_file_info(void *data) {
     if (file_info->filename) {
       free(file_info->filename);
     }
+    if (file_info->prefixed_filename) {
+      free(file_info->prefixed_filename);
+    }
     if (file_info->username) {
       free(file_info->username);
     }
@@ -1794,6 +1798,7 @@ int symlinks_and_files_from_files(
       SDArchiverInternalFileInfo *file_info_struct =
           malloc(sizeof(SDArchiverInternalFileInfo));
       file_info_struct->filename = strdup(file_info->filename);
+      file_info_struct->prefixed_filename = NULL;
       file_info_struct->bit_flags[0] = 0xFF;
       file_info_struct->bit_flags[1] = 1;
       file_info_struct->bit_flags[2] = 0;
@@ -7179,6 +7184,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
           ? NULL
           : simple_archiver_hash_map_init();
 
+  int_fast8_t did_print_skipped_a = 0;
+  int_fast8_t did_print_skipped_wb = 0;
+
   for (uint32_t idx = 0; idx < size; ++idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -7221,7 +7229,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         not_tested_once = 0;
       }
 
-      if (do_extract || (arg_allowed && lists_allowed)) {
+      if (arg_allowed && lists_allowed) {
         fprintf(stderr, format_str, idx + 1, size);
         fprintf(stderr, "  Filename: %s\n", buf);
       }
@@ -7305,7 +7313,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed);
 
-      if (do_extract || (arg_allowed && lists_allowed)) {
+      if (arg_allowed && lists_allowed) {
         fprintf(stderr, format_str, idx + 1, size);
         fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
       }
@@ -7509,9 +7517,22 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       }
 
       if (do_extract && !arg_allowed) {
-        fprintf(stderr, "Skipping not specified in args...\n");
+        if (!did_print_skipped_a) {
+          fprintf(stderr, "\nSkipping not specified in args...\n\n");
+          did_print_skipped_a = 1;
+        }
       } else if (do_extract && !lists_allowed) {
-        fprintf(stderr, "Skipping not allowed by white/black lists...\n");
+        if (!did_print_skipped_wb) {
+          fprintf(stderr, "\nSkipping not allowed by white/black lists...\n\n");
+          did_print_skipped_wb = 1;
+        }
+      }
+
+      if (arg_allowed) {
+        did_print_skipped_a = 0;
+      }
+      if (lists_allowed) {
+        did_print_skipped_wb = 0;
       }
 
       if (do_extract && !skip && arg_allowed && lists_allowed) {
@@ -8185,7 +8206,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               "  WARNING: Symlink entry in archive has no paths to link to!\n");
         }
       } else if (do_extract && (skip || !arg_allowed || !lists_allowed)) {
-        fprintf(stderr, "  Skipping not specified in args...\n");
+        if (!arg_allowed) {
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\nSkipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
+        }
+        if (!lists_allowed) {
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\nSkipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
+        }
+      }
+
+      if (arg_allowed) {
+        did_print_skipped_a = 0;
+      }
+      if (lists_allowed) {
+        did_print_skipped_wb = 0;
       }
     }
   }
@@ -8325,6 +8364,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
   }
   simple_archiver_helper_32_bit_be(&u32);
 
+  int_fast8_t did_print_skipped_link = 0;
+
   for (uint32_t idx = 0; idx < u32; ++idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -8375,7 +8416,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed);
 
-    if (do_extract || (arg_allowed && lists_allowed)) {
+    if (arg_allowed && lists_allowed) {
       not_tested_once = 0;
       fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, u32);
       if (is_invalid) {
@@ -8390,6 +8431,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       fprintf(stderr, "  Link Permissions: ");
       print_permissions(permissions);
       fprintf(stderr, "\n");
+      did_print_skipped_link = 0;
+    } else if (!did_print_skipped_link) {
+      fprintf(stderr, "\nSkipping not allowed link...\n\n");
+      did_print_skipped_link = 1;
     }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -8656,7 +8701,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                && arg_allowed
                && lists_allowed
                && links_list) {
-      simple_archiver_list_add(links_list, strdup(link_name), NULL);
+      if (state && state->parsed->prefix) {
+        const size_t prefix_len = strlen(state->parsed->prefix);
+        const size_t link_len = strlen(link_name);
+        const size_t len = prefix_len + link_len + 1;
+        char *prefixed_name = malloc(len);
+        memcpy(prefixed_name, state->parsed->prefix, prefix_len);
+        memcpy(prefixed_name + prefix_len, link_name, link_len);
+        prefixed_name[len - 1] = 0;
+        simple_archiver_list_add(links_list, prefixed_name, NULL);
+      } else {
+        simple_archiver_list_add(links_list, strdup(link_name), NULL);
+      }
     }
   }
 
@@ -8708,6 +8764,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      if (state && state->parsed->prefix) {
+        file_info->prefixed_filename =
+          simple_archiver_helper_combine_strs(state->parsed->prefix,
+                                              file_info->filename);
+      }
 
       if (state->parsed->just_w_files->count == 0
           || simple_archiver_hash_map_get(state->parsed->just_w_files,
@@ -8882,9 +8944,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       file_info->file_size = u64;
       actual_size += u64;
 
-      if (files_map && (file_info->other_flags & 2)) {
-        simple_archiver_internal_paths_to_files_map(files_map,
-                                                    file_info->filename);
+      if (files_map && (file_info->other_flags & 6) == 6) {
+        simple_archiver_internal_paths_to_files_map(
+          files_map,
+          file_info->prefixed_filename
+          ? file_info->prefixed_filename
+          : file_info->filename);
       }
 
       simple_archiver_list_add(file_info_list, file_info,
@@ -8916,6 +8981,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
     }
     fprintf(stderr, "\n");
+
+    int_fast8_t did_print_skipped_a = 0;
+    int_fast8_t did_print_skipped_wb = 0;
 
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
@@ -9035,7 +9103,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   ++file_idx,
@@ -9043,25 +9111,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                   file_info->filename);
         }
 
-        const size_t filename_length = strlen(file_info->filename);
-
-        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-        char *filename_prefixed = NULL;
-        if (do_extract && state && state->parsed->prefix) {
-          filename_prefixed = malloc(prefix_length + filename_length + 1);
-          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
-          memcpy(filename_prefixed + prefix_length,
-                 file_info->filename,
-                 filename_length + 1);
-          filename_prefixed[prefix_length + filename_length] = 0;
+        if (do_extract && (file_info->other_flags & 4) == 0) {
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
+        } else if ((file_info->other_flags & 1) != 0) {
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
+        } else if ((file_info->other_flags & 2) == 0) {
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
         }
 
-        if (do_extract && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
-        } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
-        } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -9082,7 +9150,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
             FILE *temp_fd = fopen(
-              filename_prefixed ? filename_prefixed : file_info->filename,
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename,
               "r");
             if (temp_fd) {
               fprintf(stderr,
@@ -9101,7 +9171,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           }
 
           simple_archiver_helper_make_dirs_perms(
-            filename_prefixed ? filename_prefixed : file_info->filename,
+            file_info->prefixed_filename
+            ? file_info->prefixed_filename
+            : file_info->filename,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
@@ -9113,7 +9185,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
               ? state->parsed->gid
               : file_info->gid);
           SDArchiverStateReturns ret = read_decomp_to_out_file(
-              filename_prefixed ? filename_prefixed : file_info->filename,
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename,
               pipe_outof_read,
               (char *)buf,
               SIMPLE_ARCHIVER_BUFFER_SIZE,
@@ -9127,21 +9201,23 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
-          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+          if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
                     permissions)
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
-                     chown(filename_prefixed
-                             ? filename_prefixed
-                             : file_info->filename,
+                     chown(file_info->prefixed_filename
+                           ? file_info->prefixed_filename
+                           : file_info->filename,
                            file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
-                    filename_prefixed
-                      ? filename_prefixed
-                      : file_info->filename);
+                    file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
@@ -9193,7 +9269,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   ++file_idx,
@@ -9220,11 +9296,24 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         }
 
         if (do_extract && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "    Skipping not specified in args...\n");
+            did_print_skipped_a = 1;
+          }
         } else if (file_info->other_flags & 1) {
           fprintf(stderr, "    Skipping invalid filename...\n");
         } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+            did_print_skipped_wb = 1;
+          }
+        }
+
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -9758,6 +9847,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   }
   simple_archiver_helper_32_bit_be(&u32);
 
+  int_fast8_t did_print_skipped_link = 0;
+
   const uint32_t count = u32;
   for (uint32_t idx = 0; idx < count; ++idx) {
     if (is_sig_int_occurred) {
@@ -9810,7 +9901,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed);
 
-    if (do_extract || (arg_allowed && lists_allowed)) {
+    if (arg_allowed && lists_allowed) {
       not_tested_once = 0;
       fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, count);
       if (is_invalid) {
@@ -9825,6 +9916,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       fprintf(stderr, "  Link Permissions: ");
       print_permissions(permissions);
       fprintf(stderr, "\n");
+      did_print_skipped_link = 0;
+    } else if (!did_print_skipped_link) {
+      fprintf(stderr, "\nSkipping not allowed link...\n\n");
+      did_print_skipped_link = 1;
     }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -10352,7 +10447,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         && arg_allowed
         && lists_allowed
         && links_list) {
-      simple_archiver_list_add(links_list, strdup(link_name), NULL);
+      if (state && state->parsed->prefix) {
+        const size_t prefix_len = strlen(state->parsed->prefix);
+        const size_t link_len = strlen(link_name);
+        const size_t len = prefix_len + link_len + 1;
+        char *prefixed_name = malloc(len);
+        memcpy(prefixed_name, state->parsed->prefix, prefix_len);
+        memcpy(prefixed_name + prefix_len, link_name, link_len);
+        prefixed_name[len - 1] = 0;
+        simple_archiver_list_add(links_list, prefixed_name, NULL);
+      } else {
+        simple_archiver_list_add(links_list, strdup(link_name), NULL);
+      }
     }
   }
 
@@ -10404,6 +10510,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      if (state && state->parsed->prefix) {
+        file_info->prefixed_filename =
+          simple_archiver_helper_combine_strs(state->parsed->prefix,
+                                              file_info->filename);
+      }
 
       if (simple_archiver_validate_file_path(file_info->filename)) {
         fprintf(stderr,
@@ -10647,9 +10759,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       file_info->file_size = u64;
       actual_size += u64;
 
-      if (files_map && file_info->other_flags & 2) {
-        simple_archiver_internal_paths_to_files_map(files_map,
-                                                    file_info->filename);
+      if (files_map && (file_info->other_flags & 6) == 6) {
+        simple_archiver_internal_paths_to_files_map(
+          files_map,
+          file_info->prefixed_filename
+          ? file_info->prefixed_filename
+          : file_info->filename);
       }
 
       simple_archiver_list_add(file_info_list, file_info,
@@ -10681,6 +10796,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
     }
     fprintf(stderr, "\n");
+
+    int_fast8_t did_print_skipped_a = 0;
+    int_fast8_t did_print_skipped_wb = 0;
 
     SDArchiverLLNode *node = file_info_list->head;
     uint32_t file_idx = 0;
@@ -10801,7 +10919,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   file_idx,
@@ -10809,25 +10927,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                   file_info->filename);
         }
 
-        const size_t filename_length = strlen(file_info->filename);
-
-        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-        char *filename_prefixed = NULL;
-        if (do_extract && state && state->parsed->prefix) {
-          filename_prefixed = malloc(prefix_length + filename_length + 1);
-          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
-          memcpy(filename_prefixed + prefix_length,
-                 file_info->filename,
-                 filename_length + 1);
-          filename_prefixed[prefix_length + filename_length] = 0;
+        if (do_extract && (file_info->other_flags & 4) == 0) {
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
+        } else if ((file_info->other_flags & 1) != 0) {
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
+        } else if ((file_info->other_flags & 2) == 0) {
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
         }
 
-        if (do_extract && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
-        } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
-        } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -10848,7 +10966,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
             FILE *temp_fd = fopen(
-              filename_prefixed ? filename_prefixed : file_info->filename,
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename,
               "r");
             if (temp_fd) {
               fprintf(stderr,
@@ -10867,7 +10987,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           }
 
           simple_archiver_helper_make_dirs_perms(
-            filename_prefixed ? filename_prefixed : file_info->filename,
+            file_info->prefixed_filename
+            ? file_info->prefixed_filename
+            : file_info->filename,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
@@ -10879,7 +11001,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               ? state->parsed->gid
               : file_info->gid);
           SDArchiverStateReturns ret = read_decomp_to_out_file(
-              filename_prefixed ? filename_prefixed : file_info->filename,
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename,
               pipe_outof_read,
               (char *)buf,
               SIMPLE_ARCHIVER_BUFFER_SIZE,
@@ -10893,21 +11017,23 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
-          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+          if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
                     permissions)
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
-                     chown(filename_prefixed
-                             ? filename_prefixed
-                             : file_info->filename,
+                     chown(file_info->prefixed_filename
+                           ? file_info->prefixed_filename
+                           : file_info->filename,
                            file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
-                    filename_prefixed
-                      ? filename_prefixed
-                      : file_info->filename);
+                    file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
@@ -10983,25 +11109,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
 
-        const size_t filename_length = strlen(file_info->filename);
-
-        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-        char *filename_prefixed = NULL;
-        if (do_extract && state && state->parsed->prefix) {
-          filename_prefixed = malloc(prefix_length + filename_length + 1);
-          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
-          memcpy(filename_prefixed + prefix_length,
-                 file_info->filename,
-                 filename_length + 1);
-          filename_prefixed[prefix_length + filename_length] = 0;
+        if (do_extract && (file_info->other_flags & 4) == 0) {
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
+        } else if ((file_info->other_flags & 1) != 0) {
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
+        } else if ((file_info->other_flags & 2) == 0) {
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
         }
 
-        if (do_extract && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
-        } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
-        } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -11023,9 +11149,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-            FILE *temp_fd = fopen(filename_prefixed
-                                    ? filename_prefixed
-                                    : file_info->filename,
+            FILE *temp_fd = fopen(file_info->prefixed_filename
+                                  ? file_info->prefixed_filename
+                                  : file_info->filename,
                                   "r");
             if (temp_fd) {
               fprintf(stderr,
@@ -11045,7 +11171,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
             }
           }
           simple_archiver_helper_make_dirs_perms(
-            filename_prefixed ? filename_prefixed : file_info->filename,
+            file_info->prefixed_filename
+            ? file_info->prefixed_filename
+            : file_info->filename,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
@@ -11057,9 +11185,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               ? state->parsed->gid
               : file_info->gid);
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-          FILE *out_fd = fopen(filename_prefixed
-                                 ? filename_prefixed
-                                 : file_info->filename,
+          FILE *out_fd = fopen(file_info->prefixed_filename
+                               ? file_info->prefixed_filename
+                               : file_info->filename,
                                "wb");
           SDArchiverStateReturns ret =
             read_fd_to_out_fd(in_f,
@@ -11072,24 +11200,30 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
             return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
-          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+          if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
                     permissions)
                 == -1) {
             fprintf(
               stderr,
               "ERROR Failed to set permissions of file \"%s\"!\n",
-              filename_prefixed ? filename_prefixed : file_info->filename);
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
-                     chown(filename_prefixed
-                             ? filename_prefixed
-                             : file_info->filename,
+                     chown(file_info->prefixed_filename
+                           ? file_info->prefixed_filename
+                           : file_info->filename,
                            file_info->uid,
                            file_info->gid) != 0) {
             fprintf(
               stderr,
               "    ERROR Failed to set UID/GID of file \"%s\"!\n",
-              filename_prefixed ? filename_prefixed : file_info->filename);
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
@@ -11584,6 +11718,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
   }
   simple_archiver_helper_64_bit_be(&u64);
 
+  int_fast8_t did_print_skipped_link = 0;
+
   const uint64_t count = u64;
   for (uint64_t idx = 0; idx < count; ++idx) {
     if (is_sig_int_occurred) {
@@ -11625,7 +11761,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     link_name[link_name_length] = 0;
 
     const int_fast8_t arg_allowed =
-      state->parsed->just_w_files == 0
+      state->parsed->just_w_files->count == 0
       || simple_archiver_hash_map_get(state->parsed->just_w_files,
                                       link_name,
                                       strlen(link_name) + 1) != NULL
@@ -11638,7 +11774,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
         state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed);
 
-    if (do_extract || (arg_allowed && lists_allowed)) {
+    if (arg_allowed && lists_allowed) {
       not_tested_once = 0;
       fprintf(stderr, "SYMLINK %3" PRIu64 " of %3" PRIu64 "\n", idx + 1, count);
       if (is_invalid) {
@@ -11653,6 +11789,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       fprintf(stderr, "  Link Permissions: ");
       print_permissions(permissions);
       fprintf(stderr, "\n");
+      did_print_skipped_link = 0;
+    } else if (!did_print_skipped_link) {
+      fprintf(stderr, "\nSkipping not allowed link...\n\n");
+      did_print_skipped_link = 1;
     }
 
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -12189,7 +12329,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
         && arg_allowed
         && lists_allowed
         && links_list) {
-      simple_archiver_list_add(links_list, strdup(link_name), NULL);
+      if (state && state->parsed->prefix) {
+        const size_t prefix_len = strlen(state->parsed->prefix);
+        const size_t link_len = strlen(link_name);
+        const size_t len = prefix_len + link_len + 1;
+        char *prefixed_name = malloc(len);
+        memcpy(prefixed_name, state->parsed->prefix, prefix_len);
+        memcpy(prefixed_name + prefix_len, link_name, link_len);
+        prefixed_name[len - 1] = 0;
+        simple_archiver_list_add(links_list, prefixed_name, NULL);
+      } else {
+        simple_archiver_list_add(links_list, strdup(link_name), NULL);
+      }
     }
   }
 
@@ -12243,6 +12394,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      if (state && state->parsed->prefix) {
+        file_info->prefixed_filename =
+          simple_archiver_helper_combine_strs(state->parsed->prefix,
+                                              file_info->filename);
+      }
 
       const int_fast8_t arg_allowed =
         state->parsed->just_w_files->count == 0
@@ -12489,8 +12646,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       actual_size += u64;
 
       if (files_map && file_info->other_flags & 2) {
-        simple_archiver_internal_paths_to_files_map(files_map,
-                                                    file_info->filename);
+        simple_archiver_internal_paths_to_files_map(
+          files_map,
+            file_info->prefixed_filename
+            ? file_info->prefixed_filename
+            : file_info->filename);
       }
 
       simple_archiver_list_add(file_info_list, file_info,
@@ -12522,6 +12682,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
     }
     fprintf(stderr, "\n");
+
+    int_fast8_t did_print_skipped_a = 0;
+    int_fast8_t did_print_skipped_wb = 0;
 
     SDArchiverLLNode *node = file_info_list->head;
     uint64_t file_idx = 0;
@@ -12644,7 +12807,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
                   file_idx,
@@ -12656,26 +12819,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           is_empty = 0;
         }
 
-        const size_t filename_length = strlen(file_info->filename);
-
-        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-        char *filename_prefixed = NULL;
-        if (do_extract && state && state->parsed->prefix) {
-          filename_prefixed = malloc(prefix_length + filename_length + 1);
-          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
-          memcpy(filename_prefixed + prefix_length,
-                 file_info->filename,
-                 filename_length + 1);
-          filename_prefixed[prefix_length + filename_length] = 0;
+        if (do_extract && (file_info->other_flags & 4) == 0) {
+          if(!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
+        } else if ((file_info->other_flags & 1) != 0) {
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
+        } else if ((file_info->other_flags & 2) == 0) {
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
         }
 
-        if (do_extract
-            && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
-        } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
-        } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -12696,7 +12858,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
             FILE *temp_fd = fopen(
-              filename_prefixed ? filename_prefixed : file_info->filename,
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename,
               "r");
             if (temp_fd) {
               fprintf(stderr,
@@ -12715,7 +12879,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           }
 
           simple_archiver_helper_make_dirs_perms(
-            filename_prefixed ? filename_prefixed : file_info->filename,
+            file_info->prefixed_filename
+            ? file_info->prefixed_filename
+            : file_info->filename,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
@@ -12727,7 +12893,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
               ? state->parsed->gid
               : file_info->gid);
           SDArchiverStateReturns ret = read_decomp_to_out_file(
-              filename_prefixed ? filename_prefixed : file_info->filename,
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename,
               pipe_outof_read,
               (char *)buf,
               SIMPLE_ARCHIVER_BUFFER_SIZE,
@@ -12741,21 +12909,23 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
-          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+          if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
                     permissions)
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
-                     chown(filename_prefixed
-                             ? filename_prefixed
-                             : file_info->filename,
+                     chown(file_info->prefixed_filename
+                           ? file_info->prefixed_filename
+                           : file_info->filename,
                            file_info->uid,
                            file_info->gid) != 0) {
             fprintf(stderr,
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
-                    filename_prefixed
-                      ? filename_prefixed
-                      : file_info->filename);
+                    file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
@@ -12882,7 +13052,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
                   file_idx,
@@ -12895,26 +13065,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
 
-        const size_t filename_length = strlen(file_info->filename);
-
-        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-        char *filename_prefixed = NULL;
-        if (do_extract && state && state->parsed->prefix) {
-          filename_prefixed = malloc(prefix_length + filename_length + 1);
-          memcpy(filename_prefixed, state->parsed->prefix, prefix_length);
-          memcpy(filename_prefixed + prefix_length,
-                 file_info->filename,
-                 filename_length + 1);
-          filename_prefixed[prefix_length + filename_length] = 0;
+        if (do_extract && (file_info->other_flags & 4) == 0) {
+          if (!did_print_skipped_a) {
+            fprintf(stderr, "\n    Skipping not specified in args...\n\n");
+            did_print_skipped_a = 1;
+          }
+        } else if ((file_info->other_flags & 1) != 0) {
+          fprintf(stderr, "\n    Skipping invalid filename...\n\n");
+        } else if ((file_info->other_flags & 2) == 0) {
+          if (!did_print_skipped_wb) {
+            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            did_print_skipped_wb = 1;
+          }
         }
 
-        if (do_extract
-            && (file_info->other_flags & 4) == 0) {
-          fprintf(stderr, "    Skipping not specified in args...\n");
-        } else if ((file_info->other_flags & 1) != 0) {
-          fprintf(stderr, "    Skipping invalid filename...\n");
-        } else if ((file_info->other_flags & 2) == 0) {
-          fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+        if ((file_info->other_flags & 4) != 0) {
+          did_print_skipped_a = 0;
+        }
+        if ((file_info->other_flags & 2) != 0) {
+          did_print_skipped_wb = 0;
         }
 
         if (do_extract
@@ -12936,9 +13105,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           if ((state->parsed->flags & 8) == 0) {
             // Check if file already exists.
             __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-            FILE *temp_fd = fopen(filename_prefixed
-                                    ? filename_prefixed
-                                    : file_info->filename,
+            FILE *temp_fd = fopen(file_info->prefixed_filename
+                                  ? file_info->prefixed_filename
+                                  : file_info->filename,
                                   "r");
             if (temp_fd) {
               fprintf(stderr,
@@ -12958,7 +13127,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
             }
           }
           simple_archiver_helper_make_dirs_perms(
-            filename_prefixed ? filename_prefixed : file_info->filename,
+            file_info->prefixed_filename
+            ? file_info->prefixed_filename
+            : file_info->filename,
             (state->parsed->flags & 0x2000)
               ? simple_archiver_internal_permissions_to_mode_t(
                   state->parsed->dir_permissions)
@@ -12970,9 +13141,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
               ? state->parsed->gid
               : file_info->gid);
           __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-          FILE *out_fd = fopen(filename_prefixed
-                                 ? filename_prefixed
-                                 : file_info->filename,
+          FILE *out_fd = fopen(file_info->prefixed_filename
+                               ? file_info->prefixed_filename
+                               : file_info->filename,
                                "wb");
           SDArchiverStateReturns ret =
             read_fd_to_out_fd(in_f,
@@ -12985,24 +13156,30 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
             return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
-          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
+          if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
                     permissions)
                 == -1) {
             fprintf(
               stderr,
               "ERROR Failed to set permissions of file \"%s\"!\n",
-              filename_prefixed ? filename_prefixed : file_info->filename);
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           } else if (geteuid() == 0 &&
-                     chown(filename_prefixed
-                             ? filename_prefixed
-                             : file_info->filename,
+                     chown(file_info->prefixed_filename
+                           ? file_info->prefixed_filename
+                           : file_info->filename,
                            file_info->uid,
                            file_info->gid) != 0) {
             fprintf(
               stderr,
               "    ERROR Failed to set UID/GID of file \"%s\"!\n",
-              filename_prefixed ? filename_prefixed : file_info->filename);
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0

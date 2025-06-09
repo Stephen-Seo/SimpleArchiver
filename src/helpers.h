@@ -154,4 +154,8 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
 FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
                                       char **out_temp_filename);
 
+// Must be free'd if non-NULL.
+char *simple_archiver_helper_combine_strs(const char *prefix,
+                                          const char *suffix);
+
 #endif

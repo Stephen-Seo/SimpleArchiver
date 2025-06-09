@@ -8,6 +8,18 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.28
+
+Minor tweak to CMake config for easier version string setting when packaging.
+
+Less verbose output when using `-t` and `-x`.
+
+Fix file format 4/5 not extracting symlinks.
+
+Fix checking/extracting links when extracting with `--prefix <dir>`.
+
+Allow suffixes for `--chunk-min-size` like "32MiB".
+
 ## Version 1.27
 
 Add actual/compressed file stats (when relevant) when using `-t` and `-x`.  

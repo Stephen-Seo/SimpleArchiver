@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 1.27)
+set(SimpleArchiver_VERSION 1.28)
 
 set(SimpleArchiver_SOURCES
     src/main.c
@@ -80,6 +80,7 @@ if(DEFINED SDSA_OVERRIDE_VERSION_STRING)
     if(EXISTS /usr/bin/sed)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/dummy_output_override_version.txt"
             COMMAND /usr/bin/sed ARGS -i "/^#define SIMPLE_ARCHIVER_VERSION_STR /c #define SIMPLE_ARCHIVER_VERSION_STR \\\"${SDSA_OVERRIDE_VERSION_STRING}\\\"" "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
+            VERBATIM
         )
         add_custom_target(VersionStringCMD
             DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/dummy_output_override_version.txt")
