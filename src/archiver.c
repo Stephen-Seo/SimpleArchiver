@@ -8702,14 +8702,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                && lists_allowed
                && links_list) {
       if (state && state->parsed->prefix) {
-        const size_t prefix_len = strlen(state->parsed->prefix);
-        const size_t link_len = strlen(link_name);
-        const size_t len = prefix_len + link_len + 1;
-        char *prefixed_name = malloc(len);
-        memcpy(prefixed_name, state->parsed->prefix, prefix_len);
-        memcpy(prefixed_name + prefix_len, link_name, link_len);
-        prefixed_name[len - 1] = 0;
-        simple_archiver_list_add(links_list, prefixed_name, NULL);
+        simple_archiver_list_add(
+          links_list,
+          simple_archiver_helper_combine_strs(state->parsed->prefix, link_name),
+          NULL);
       } else {
         simple_archiver_list_add(links_list, strdup(link_name), NULL);
       }
@@ -10448,14 +10444,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         && lists_allowed
         && links_list) {
       if (state && state->parsed->prefix) {
-        const size_t prefix_len = strlen(state->parsed->prefix);
-        const size_t link_len = strlen(link_name);
-        const size_t len = prefix_len + link_len + 1;
-        char *prefixed_name = malloc(len);
-        memcpy(prefixed_name, state->parsed->prefix, prefix_len);
-        memcpy(prefixed_name + prefix_len, link_name, link_len);
-        prefixed_name[len - 1] = 0;
-        simple_archiver_list_add(links_list, prefixed_name, NULL);
+        simple_archiver_list_add(
+          links_list,
+          simple_archiver_helper_combine_strs(state->parsed->prefix, link_name),
+          NULL);
       } else {
         simple_archiver_list_add(links_list, strdup(link_name), NULL);
       }
@@ -12330,14 +12322,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
         && lists_allowed
         && links_list) {
       if (state && state->parsed->prefix) {
-        const size_t prefix_len = strlen(state->parsed->prefix);
-        const size_t link_len = strlen(link_name);
-        const size_t len = prefix_len + link_len + 1;
-        char *prefixed_name = malloc(len);
-        memcpy(prefixed_name, state->parsed->prefix, prefix_len);
-        memcpy(prefixed_name + prefix_len, link_name, link_len);
-        prefixed_name[len - 1] = 0;
-        simple_archiver_list_add(links_list, prefixed_name, NULL);
+        simple_archiver_list_add(
+          links_list,
+          simple_archiver_helper_combine_strs(state->parsed->prefix, link_name),
+          NULL);
       } else {
         simple_archiver_list_add(links_list, strdup(link_name), NULL);
       }
