@@ -4,6 +4,12 @@
 
 Minor tweak to CMake config for easier version string setting when packaging.
 
+Less verbose output when using `-t` and `-x`.
+
+Fix file format 4/5 not extracting symlinks.
+
+Fix checking/extracting links when extracting with `--prefix <dir>`.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
