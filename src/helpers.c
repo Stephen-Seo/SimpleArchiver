@@ -927,3 +927,20 @@ FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
     return tmpfile();
   }
 }
+
+char *simple_archiver_helper_combine_strs(const char *prefix,
+                                          const char *suffix) {
+  if (!prefix || !suffix) {
+    return NULL;
+  }
+  const size_t prefix_len = strlen(prefix);
+  const size_t suffix_len = strlen(suffix);
+  const size_t len = prefix_len + suffix_len + 1;
+
+  char *res = malloc(len);
+  memcpy(res, prefix, prefix_len);
+  memcpy(res + prefix_len, suffix, suffix_len);
+  res[len - 1] = 0;
+
+  return res;
+}
