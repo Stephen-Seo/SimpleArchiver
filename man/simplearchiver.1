@@ -114,13 +114,14 @@ is the default.
 .TP
 .BR --chunk-min-size " " \fIbytes\fR
 Sets the minimum chunk size when creating archives. By default, this is 4MiB.
-Note that this value must be specified in bytes. The behavior is as follows:
-combine files into a chunk until the size of the chunk is at least the
-"chunk-min-size" value. When it reaches the value, then the chunk is
-created/compressed and a new chunk is designated for the remaining files until
-there are none left. If there are no more files to put in a chunk before this
-limit is reached, then the chunk will simply stop accumulating files and will
-be stored/compressed as the last chunk.
+Note that this value must be specified in bytes or with one of the following
+suffixes (without spaces): KB, KiB, MB, MiB, GB, or GiB. "32MiB" is valid but
+"32 MiB" is not. The behavior is as follows: combine files into a chunk until
+the size of the chunk is at least the "chunk-min-size" value. When it reaches
+the value, then the chunk is created/compressed and a new chunk is designated
+for the remaining files until there are none left. If there are no more files
+to put in a chunk before this limit is reached, then the chunk will simply stop
+accumulating files and will be stored/compressed as the last chunk.
 .TP
 .BR --no-pre-sort-files
 Do not pre-sort files before they are stored into a new archive. By default,
@@ -273,12 +274,14 @@ Starting in file format version 1 (and up to the latest format),
 \fBsimplearchiver\fR stores files in "chunks". The size of each chunk is
 controlled by the \fB\-\-chunk\-min\-size\fR option and is by default 4MiB. It
 may be better to use a larger chunk size if using a compressor with a higher
-compression level. The behavior of chunks is as follows: combine files into a
-chunk until the size of the chunk is at least the "chunk-min-size" value. When
-it reaches the value, then the chunk is created/compressed and a new chunk is
-designated for the remaining files until there are none left. If there are no
-more files to put in a chunk before this limit is reached, then the chunk will
-simply stop accumulating files and will be stored/compressed as the last chunk.
+compression level. Suffixes are supported (without spaces): "KB, KiB, MB, MiB,
+GB, and GiB". For example, "32MiB" is valid but "32 MiB" is not. The behavior
+of chunks is as follows: combine files into a chunk until the size of the chunk
+is at least the "chunk-min-size" value. When it reaches the value, then the
+chunk is created/compressed and a new chunk is designated for the remaining
+files until there are none left. If there are no more files to put in a chunk
+before this limit is reached, then the chunk will simply stop accumulating
+files and will be stored/compressed as the last chunk.
 
 .TP
 .BR "Symbolic Link Handling"
