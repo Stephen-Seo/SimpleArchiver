@@ -197,7 +197,9 @@ void simple_archiver_print_usage(void) {
           "(default 5)\n");
   fprintf(stderr,
           "--chunk-min-size <bytes> : minimum chunk size (default 4194304 or "
-          "4MiB) when using chunks (file formats v. 1 and up)\n");
+          "4MiB) when using chunks (file formats v. 1 and up)\n"
+          "  Note suffixes \"KB, KiB, MB, MiB, GB, and GiB\" are supported\n"
+          "  Use like \"32MiB\" without spaces.\n");
   fprintf(stderr,
           "--no-pre-sort-files : do NOT pre-sort files by size (by default "
           "enabled so that the first file is the largest)\n");
@@ -518,12 +520,64 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_print_usage();
           return 1;
         }
-        out->minimum_chunk_size = strtoull(argv[1], NULL, 10);
-        if (out->minimum_chunk_size == 0) {
+
+        out->minimum_chunk_size = 0;
+        char suffix_buf[4];
+        size_t sb_idx = 0;
+        int_fast8_t digits_passed = 0;
+
+        for (const char *c = argv[1]; *c != 0; ++c) {
+          if (!digits_passed && *c >= '0' && *c <= '9') {
+            out->minimum_chunk_size =
+              out->minimum_chunk_size * 10 + (uint64_t)(*c - '0');
+          } else {
+            digits_passed = 1;
+            suffix_buf[sb_idx++] = *c;
+            if (sb_idx > 3) {
+              fprintf(stderr, "ERROR: Invalid arg to --chunk-min-size!\n");
+              return 1;
+            }
+          }
+        }
+        suffix_buf[sb_idx] = 0;
+
+        if (sb_idx > 0) {
+          uint64_t temp = out->minimum_chunk_size;
+          if (strcmp(suffix_buf, "KB") == 0) {
+            out->minimum_chunk_size *= 1000;
+          } else if (strcmp(suffix_buf, "KiB") == 0) {
+            out->minimum_chunk_size *= 1024;
+          } else if (strcmp(suffix_buf, "MB") == 0) {
+            out->minimum_chunk_size *= 1000 * 1000;
+          } else if (strcmp(suffix_buf, "MiB") == 0) {
+            out->minimum_chunk_size *= 1024 * 1024;
+          } else if (strcmp(suffix_buf, "GB") == 0) {
+            out->minimum_chunk_size *= 1000 * 1000 * 1000;
+          } else if (strcmp(suffix_buf, "GiB") == 0) {
+            out->minimum_chunk_size *= 1024 * 1024 * 1024;
+          } else {
+            fprintf(stderr,
+                    "ERROR: Invalid suffix \"%s\"! Expected KB, KiB, MB, MiB, "
+                    "GB, or GiB!\n",
+                    suffix_buf);
+            return 1;
+          }
+
+          fprintf(stderr,
+                  "Using chunk size %" PRIu64 "%s (%" PRIu64 " Bytes)...\n",
+                  temp,
+                  suffix_buf,
+                  out->minimum_chunk_size);
+        } else if (out->minimum_chunk_size != 0) {
+          fprintf(stderr,
+                  "Using chunk size %" PRIu64 "...\n",
+                  out->minimum_chunk_size);
+        } else {
           fprintf(stderr, "ERROR: --chunk-min-size cannot be zero!\n");
           simple_archiver_print_usage();
           return 1;
         }
+
         --argc;
         ++argv;
       } else if (strcmp(argv[0], "--no-pre-sort-files") == 0) {
