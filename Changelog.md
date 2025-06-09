@@ -10,6 +10,8 @@ Fix file format 4/5 not extracting symlinks.
 
 Fix checking/extracting links when extracting with `--prefix <dir>`.
 
+Allow suffixes for `--chunk-min-size` like "32MiB".
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
