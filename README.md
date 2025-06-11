@@ -24,50 +24,50 @@ API calls.
       Use "-f -" to work on stdout when creating archive or stdin when reading archive
       NOTICE: "-f" is not affected by "-C"!
     -C <dir> : Change current working directory before archiving/extracting
-    --prefix <prefix> : set prefix for archived/extracted paths ("/" will be appended to the end if missing)
-    --compressor <full_compress_cmd> : requires --decompressor and cmd must use stdin/stdout
-    --decompressor <full_decompress_cmd> : requires --compressor and cmd must use stdin/stdout
+    --prefix <prefix> | --prefix=<prefix> : set prefix for archived/extracted paths ("/" will be appended to the end if missing)
+    --compressor <full_compress_cmd> | --compressor=<cmd> : requires --decompressor and cmd must use stdin/stdout
+    --decompressor <full_decompress_cmd> | --decompressor=<cmd> : requires --compressor and cmd must use stdin/stdout
       Specifying "--decompressor" when extracting overrides archive file's stored decompressor cmd
     --overwrite-create : allows overwriting an archive file
     --overwrite-extract : allows overwriting when extracting
     --no-abs-symlink : do not store absolute paths for symlinks
     --preserve-symlinks : preserve the symlink's path on archive creation instead of deriving abs/relative paths, ignores "--no-abs-symlink" (It is not recommended to use this option, as absolute-path-symlinks may be clobbered on extraction)
     --no-safe-links : keep symlinks that link to outside archive contents
-    --temp-files-dir <dir> : where to store temporary files created when compressing (defaults to same directory as output file) (this is mutually exclusive with "--force-tmpfile")
+    --temp-files-dir <dir> | --temp-files-dir=<dir> : where to store temporary files created when compressing (defaults to same directory as output file) (this is mutually exclusive with "--force-tmpfile")
     --force-tmpfile : Force the use of "tmpfile()" during compression (this is mutually exclusive with "--temp-files-dir")
-    --write-version <version> : Force write version file format (default 5)
-    --chunk-min-size <bytes> : minimum chunk size (default 4194304 or 4MiB) when using chunks (file formats v. 1 and up)
+    --write-version <version> | --write-version=<version> : Force write version file format (default 5)
+    --chunk-min-size <bytes> | --chunk-min-size=<bytes> : minimum chunk size (default 4194304 or 4MiB) when using chunks (file formats v. 1 and up)
       Note suffixes "KB, KiB, MB, MiB, GB, and GiB" are supported
       Use like "32MiB" without spaces.
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
     --no-preserve-empty-dirs : do NOT preserve empty dirs (only for file format 2 and onwards)
-    --force-uid <uid> : Force set UID on archive creation/extraction
+    --force-uid <uid> | --force-uid=<uid> : Force set UID on archive creation/extraction
       On archive creation, sets UID for all files/dirs in the archive.
       On archive extraction, sets UID for all files/dirs only if EUID is 0.
-    --force-user <username> : Force set UID (same as --force-uid but fetched from username)
-    --force-gid <gid> : Force set GID on archive creation/extraction
-    --force-group <groupname> : Force set GID (same as --force-gid but fetched from groupname)
+    --force-user <username> | --force-user=<username> : Force set UID (same as --force-uid but fetched from username)
+    --force-gid <gid> | --force-gid=<gid> : Force set GID on archive creation/extraction
+    --force-group <groupname> | --force-group=<group> : Force set GID (same as --force-gid but fetched from groupname)
       On archive creation, sets GID for all files/dirs in the archive.
       On archive extraction, sets GID for all files/dirs only if EUID is 0.
     --extract-prefer-uid : Prefer UID over Username when extracting
       Note that by default Username is preferred over UID
     --extract-prefer-gid : Prefer GID over Group when extracting
       Note that by default Group is preferred over GID
-    --map-user <UID/Uname>:<UID/Uname> : Maps a UID/Username to UID/Username
-    --map-group <GID/Gname>:<GID/Gname> : Maps a GID/Group to GID/Group
-    --force-file-permissions <3-octal-values> : Force set permissions for files on archive creation/extraction
+    --map-user <UID/Uname>:<UID/Uname> | --map-user=<UID/Uname>:<UID/Uname> : Maps a UID/Username to UID/Username
+    --map-group <GID/Gname>:<GID/Gname> | --map-group=<GID/Gname>:<GID/Gname> : Maps a GID/Group to GID/Group
+    --force-file-permissions <3-octal-values> | --force-file-permissions=<perms> : Force set permissions for files on archive creation/extraction
       Must be three octal characters like "755" or "440"
-    --force-dir-permissions <3-octal-values> : Force set permissions for directories on archive creation/extraction
+    --force-dir-permissions <3-octal-values> | --force-dir-permissions=<perms> : Force set permissions for directories on archive creation/extraction
       Must be three octal characters like "755" or "440"
-    --force-empty-dir-permissions <3-octal-values> : Force set EMPTY dir permissions. Like "--force-dir-permissions", but for empty directories.
-    --whitelist-contains-any <text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain any of the specified "<text>"s.
-    --whitelist-contains-all <text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain all of the specified "<text>"s.
-    --whitelist-begins-with <text> : Whitelist entries to start with "<text>", specify multiple times to allow different entries to start with different "<text>" entries.
-    --whitelist-ends-with <text> : Whitelist entries to end with "<text>", specify multiple times to allow different entries to end with different "<text>" entries.
-    --blacklist-contains-any <text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain any of the specified "<text>"s.
-    --blacklist-contains-all <text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain all of the specified "<text>"s.
-    --blacklist-begins-with <text> : blacklist entries that starts with "<text>", specify multiple times to deny multiple entries starting with different "<text>" entries.
-    --blacklist-ends-with <text> : blacklist entries that ends with "<text>", specify multiple times to deny multiple entries ending with different "<text>" entries.
+    --force-empty-dir-permissions <3-octal-values> | --force-empty-dir-permissions=<perms> : Force set EMPTY dir permissions. Like "--force-dir-permissions", but for empty directories.
+    --whitelist-contains-any <text> | --whitelist-contains-any=<text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain any of the specified "<text>"s.
+    --whitelist-contains-all <text> | --whitelist-contains-all=<text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain all of the specified "<text>"s.
+    --whitelist-begins-with <text> | --whitelist-begins-with=<text> : Whitelist entries to start with "<text>", specify multiple times to allow different entries to start with different "<text>" entries.
+    --whitelist-ends-with <text> | --whitelist-ends-with=<text> : Whitelist entries to end with "<text>", specify multiple times to allow different entries to end with different "<text>" entries.
+    --blacklist-contains-any <text> | --blacklist-contains-any=<text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain any of the specified "<text>"s.
+    --blacklist-contains-all <text> | --blacklist-contains-all=<text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain all of the specified "<text>"s.
+    --blacklist-begins-with <text> | --blacklist-begins-with=<text> : blacklist entries that starts with "<text>", specify multiple times to deny multiple entries starting with different "<text>" entries.
+    --blacklist-ends-with <text> | --blacklist-ends-with=<text> : blacklist entries that ends with "<text>", specify multiple times to deny multiple entries ending with different "<text>" entries.
     --wb-case-insensitive : Makes white/black-list checking case insensitive.
     --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract
