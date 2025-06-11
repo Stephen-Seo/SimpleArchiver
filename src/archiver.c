@@ -8214,7 +8214,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         }
         if (!lists_allowed) {
           if (!did_print_skipped_wb) {
-            fprintf(stderr, "\nSkipping not allowed by white/black lists...\n\n");
+            fprintf(stderr,
+                    "\nSkipping not allowed by white/black lists...\n\n");
             did_print_skipped_wb = 1;
           }
         }
@@ -9116,7 +9117,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
           if (!did_print_skipped_wb) {
-            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            fprintf(stderr,
+                    "\n    Skipping not allowed by white/black lists...\n\n");
             did_print_skipped_wb = 1;
           }
         }
@@ -9300,7 +9302,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           fprintf(stderr, "    Skipping invalid filename...\n");
         } else if ((file_info->other_flags & 2) == 0) {
           if (!did_print_skipped_wb) {
-            fprintf(stderr, "    Skipping not allowed by white/black lists...\n");
+            fprintf(stderr,
+                    "    Skipping not allowed by white/black lists...\n");
             did_print_skipped_wb = 1;
           }
         }
@@ -10928,7 +10931,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
           if (!did_print_skipped_wb) {
-            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            fprintf(stderr,
+                    "\n    Skipping not allowed by white/black lists...\n\n");
             did_print_skipped_wb = 1;
           }
         }
@@ -11110,7 +11114,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
           if (!did_print_skipped_wb) {
-            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            fprintf(stderr,
+                    "\n    Skipping not allowed by white/black lists...\n\n");
             did_print_skipped_wb = 1;
           }
         }
@@ -12816,7 +12821,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
           if (!did_print_skipped_wb) {
-            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            fprintf(stderr,
+                    "\n    Skipping not allowed by white/black lists...\n\n");
             did_print_skipped_wb = 1;
           }
         }
@@ -13062,7 +13068,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
           if (!did_print_skipped_wb) {
-            fprintf(stderr, "\n    Skipping not allowed by white/black lists...\n\n");
+            fprintf(stderr,
+                    "\n    Skipping not allowed by white/black lists...\n\n");
             did_print_skipped_wb = 1;
           }
         }
