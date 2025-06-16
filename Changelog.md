@@ -2,16 +2,18 @@
 
 ## Upcoming Changes
 
-Minor refactorings.
-
-Support "=" for long-arguments that support an option.  
-For example, "--prefix out" can now be used as "--prefix=out".
-
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 1.29
+
+Minor refactorings.
+
+Support "=" for long-arguments that support an option.  
+For example, "--prefix out" can now be used as "--prefix=out".
 
 ## Version 1.28
 
