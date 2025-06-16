@@ -54,22 +54,22 @@ Sets the current working directory for archiving or extracting. Note that this
 does not affect
 \fB\-f\fR \fIfilename\fR.
 .TP
-.BR --prefix " " \fIprefix\fR
+.BR --prefix " " \fIprefix\fR " | " --prefix=\fIprefix\fR
 Sets a prefix-string to be prepended to every extracted file/directory. Note
 that if the prefix-string does not end with a "/", then "/" will be appended to
 it before it is used. This affects archive creation and extraction.
 .TP
-.BR --compressor " " \fIcompressor_command\fR
+.BR --compressor " " \fIcompressor_command\fR " | " --compressor=\fIcmd\fR
 Enables compression and sets the compressor when creating an archive with the
 given compressor command. For example, \fB\-\-compressor\fR \fI"gzip"\fR, or
-\fB\-\-compressor\fR \fI"xz"\fR can be used. Using this option requires the use
+\fB\-\-compressor\fR=\fI"xz"\fR can be used. Using this option requires the use
 of \fB\-\-decompressor\fR \fIdecompressor_command\fR.
 .TP
-.BR --decompressor " " \fIdecompressor_command\fR
+.BR --decompressor " " \fIdecompressor_command\fR " | " --decompressor=\fIcmd\fR
 Sets the decompressor to be used when an archive is to be extracted later. This
 is done by storing the command verbatim in the archive's data when creating an
 archive. For example, \fB\-\-decompressor\fR \fI"gzip -d"\fR, or
-\fB\-\-decompressor\fR \fI"unxz"\fR can be used. This option can also be used
+\fB\-\-decompressor\fR=\fI"unxz"\fR can be used. This option can also be used
 when extracting to override the decompressor command stored in the archive.
 .TP
 .BR --overwrite-create
@@ -93,7 +93,7 @@ On archive creation, enables storing links that point to any path that does not
 exist in the created archive. On archive extraction, enables creating links
 that point to any path that does refer to any extracted file.
 .TP
-.BR --temp-files-dir " " \fIdirectory\fR
+.BR --temp-files-dir " " \fIdirectory\fR " | " --temp-files-dir=\fIdir\fR
 Sets the directory to store temporary files. Note that temporary files are only
 created when creating and archive and when compression is being used such that
 the temporary file is a compressed file/chunk and is stored into the archive
@@ -106,13 +106,13 @@ archive. If the output is standard-output, then tmpfile(3) is used instead.
 Forces temporary files to use tmpfile(3) when they are created. Note that this
 option is mutually exclusive with \fB\-\-temp\-files\-dir\fR.
 .TP
-.BR --write-version " " \fIversion_number\fR
+.BR --write-version " " \fIversion_number\fR " | " --write-version=\fIver\fR
 Forces \fBsimplearchiver\fR to use the specified file format version. Currently
 there are versions 0 through 5, and the default is the latest file format. If
 you are not sure which to use, it is best to just use the latest version, which
 is the default.
 .TP
-.BR --chunk-min-size " " \fIbytes\fR
+.BR --chunk-min-size " " \fIbytes\fR " | " --chunk-min-size=\fIbytes\fR
 Sets the minimum chunk size when creating archives. By default, this is 4MiB.
 Note that this value must be specified in bytes or with one of the following
 suffixes (without spaces): KB, KiB, MB, MiB, GB, or GiB. "32MiB" is valid but
@@ -132,24 +132,24 @@ option is specified, then the files will be stored in an arbitrary order.
 Do not store empty directories in the archive when created. Note that storing
 of empty directories is only done for file formats 2 and onwards by default.
 .TP
-.BR --force-uid " " \fIUID\fR
+.BR --force-uid " " \fIUID\fR " | " --force-uid=\fIUID\fR
 Force the ownership of all archived items to the given UID when creating an
 archive. Note that this option will only take effect on extraction if the
 current effective user ID is 0 (root).
 .TP
-.BR --force-user " " \fIusername\fR
+.BR --force-user " " \fIusername\fR " | " --force-user=\fIusername\fR
 Force the ownership of all archived items to the given user when creating an
 archive. If the user does not exist on the machine creating/extracting an
 archive, then \fBsimplearchiver\fR will stop with an error. Note that this
 option will only take effect on extraction if the current effective user ID is
 0 (root).
 .TP
-.BR --force-gid " " \fIGID\fR
+.BR --force-gid " " \fIGID\fR " | " --force-gid=\fIGID\fR
 Force the group of all archived items to the given GID when creating or
 extracting an archive. Note that this option will only take effect on
 extraction if the current effective user ID is 0 (root).
 .TP
-.BR --force-group " " \fIgroupname\fR
+.BR --force-group " " \fIgroupname\fR " | " --force-group=\fIgroup\fR
 Force the group of all archived items to the given group when creating an
 archive. If the group does not exist on the machine creating/extracting an
 archive, then \fBsimplearchiver\fR will stop with an error. Note that this
@@ -164,78 +164,78 @@ in the archive is preferred.
 Prefer the archive's stored GID over groupname. By default, the groupname
 stored in the archive is preferred.
 .TP
-.BR --map-user " " \fIUID/Username\fR:\fIUID/Username\fR
+.BR --map-user " " \fIUID/Username\fR:\fIUID/Username\fR " | " --map-user=\fIUID/Username\fR:\fIUID/Username\fR
 Store a mapping from a UID/Username to another UID/Username. This will be used
 to convert UIDs when archiving. Note that this option will only take effect on
 extraction if the current effective user ID is 0 (root).
 .TP
-.BR --map-group " " \fIGID/Groupname\fR:\fIGID/Groupname\fR
+.BR --map-group " " \fIGID/Groupname\fR:\fIGID/Groupname\fR " | " --map-group=\fIGID/Groupname\fR:\fIGID/Groupname\fR
 Store a mapping from a GID/Grouname to another GID/Groupname. This will be used
 to convert GIDs when archiving. Note that this option will only take effect on
 extraction if the current effective user ID is 0 (root).
 .TP
-.BR --force-file-permissions " " \fI3-OctalValues\fR
+.BR --force-file-permissions " " \fI3-OctalValues\fR " | " --force-file-permissions=\fI3-OctalValues\fR
 Force set permissions for files on archive creation. Note that this option will
 only take effect on extraction if the current effective user ID is 0 (root).
 For example, a valid value can be 644 or 440.
 .TP
-.BR --force-dir-permissions " " \fI3-OctalValues\fR
+.BR --force-dir-permissions " " \fI3-OctalValues\fR " | " --force-dir-permissions=\fI3-OctalValues\fR
 Force set permissions for directories on archive creation. Note that this
 option will only take effect on extraction if the current effective user ID is
 0 (root). For example, a valid value can be 755 or 750. Note that this does not
 have any effect on empty directories. See the following option to force
 permissions on empty directories.
 .TP
-.BR --force-empty-dir-permissions " " \fI3-OctalValues\fR
+.BR --force-empty-dir-permissions " " \fI3-OctalValues\fR " | " --force-empty-dir-permissions=\fI3-OctalValues\fR
 Force set permissions for empty directories on archive creation. Note that this
 option will only take effect on extraction if the current effective user ID is
 0 (root). For example, a valid value can be 755 or 750. Note that this does not
 effect intermediate directories that hold files/directories. See the previous
 option to force permissions on such directories.
 .TP
-.BR --whitelist-contains-any " " \fItext\fR
+.BR --whitelist-contains-any " " \fItext\fR " | " --whitelist-contains-any=\fItext\fR
 In any archival mode (create/test/extract), only allow files/directories that
 contain the specified text. Use this flag multiple times to add more text
 entries such that any file/directory path that has ANY of the specified texts
 will be allowed/whitelisted.
 .TP
-.BR --whitelist-contains-all " " \fItext\fR
+.BR --whitelist-contains-all " " \fItext\fR " | " --whitelist-contains-all=\fItext\fR
 In any archival mode (create/test/extract), only allow files/directories that
 contain the specified text. Use this flag multiple times to add more text
 entries such that any file/directory path that has ALL of the specified texts
 will be allowed/whitelisted.
 .TP
-.BR --whitelist-begins-with " " \fItext\fR
+.BR --whitelist-begins-with " " \fItext\fR " | " --whitelist-begins-with=\fItext\fR
 In any archival mode (create/test/extract), only allow file/directory paths
 that start with the specified text. Use this flag multiple times to add more
 text entries such that any path that STARTS with ANY of the specified texts
 will be allowed/whitelisted.
 .TP
-.BR --whitelist-ends-with " " \fItext\fR
+.BR --whitelist-ends-with " " \fItext\fR " | " --whitelist-ends-with=\fItext\fR
 In any archival mode (create/test/extract), only allow file/directory paths
 that end with the specified text. Use this flag multiple times to add more text
 entries such that any path that ENDS with ANY of the specified texts will be
 allowed/whitelisted.
 .TP
-.BR --blacklist-contains-any " " \fItext\fR
+.BR --blacklist-contains-any " " \fItext\fR " | " --blacklist-contains-any=\fItext\fR
 In any archival mode (create/test/extract), only block files/directories that
 contain the specified text. Use this flag multiple times to add more text
 entries such that any file/directory path that has ANY of the specified texts
 will be blocked/blacklisted.
 .TP
-.BR --blacklist-contains-all " " \fItext\fR
+.BR --blacklist-contains-all " " \fItext\fR " | " --blacklist-contains-all=\fItext\fR
 In any archival mode (create/test/extract), only block files/directories that
 contain the specified text. Use this flag multiple times to add more text
 entries such that any file/directory path that has ALL of the specified texts
 will be blocked/blacklisted.
 .TP
-.BR --blacklist-begins-with " " \fItext\fR
+.BR --blacklist-begins-with " " \fItext\fR " | " --blacklist-begins-with=\fItext\fR
 In any archival mode (create/test/extract), only block file/directory paths
 that start with the specified text. Use this flag multiple times to add more
 text entries such that any path that STARTS with ANY of the specified texts
 will be blocked/blacklisted.
 .TP
-.BR --blacklist-ends-with " " \fItext\fR
+.BR --blacklist-ends-with " " \fItext\fR " | " --blacklist-ends-with=\fItext\fR
 In any archival mode (create/test/extract), only block file/directory paths
 that end with the specified text. Use this flag multiple times to add more text
 entries such that any path that ENDS with ANY of the specified texts will be
