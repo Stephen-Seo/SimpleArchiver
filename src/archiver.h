@@ -95,23 +95,28 @@ SDArchiverStateRetStruct simple_archiver_write_all(
 
 SDArchiverStateRetStruct simple_archiver_write_v0(
   FILE *out_f,
-  SDArchiverState *state);
+  SDArchiverState *state,
+  SDArchiverHashMap *write_state);
 
 SDArchiverStateRetStruct simple_archiver_write_v1(
   FILE *out_f,
-  SDArchiverState *state);
+  SDArchiverState *state,
+  SDArchiverHashMap *write_state);
 
 SDArchiverStateRetStruct simple_archiver_write_v2(
   FILE *out_f,
-  SDArchiverState *state);
+  SDArchiverState *state,
+  SDArchiverHashMap *write_state);
 
 SDArchiverStateRetStruct simple_archiver_write_v3(
   FILE *out_f,
-  SDArchiverState *state);
+  SDArchiverState *state,
+  SDArchiverHashMap *write_state);
 
 SDArchiverStateRetStruct simple_archiver_write_v4v5(
   FILE *out_f,
-  SDArchiverState *state);
+  SDArchiverState *state,
+  SDArchiverHashMap *write_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_info(
