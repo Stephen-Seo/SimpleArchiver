@@ -290,4 +290,6 @@ every symlink upon archive creation, and on extraction relative links are
 preferred. If the symlink points to a path not archived and
 \fB\-\-no\-safe\-links\fR is specified, then the absolute path is preferred on
 extraction. Also note that absolute paths can be prevented from being stored on
-archive creation with \fB\-\-no\-abs\-symlink\fR.
+archive creation with \fB\-\-no\-abs\-symlink\fR. Note that specifying both
+\fB\-\-no\-safe\-links\fR and \fB\-\-preserve\-symlinks\fR will store all
+symbolic links as is when creating an archive.
