@@ -2,16 +2,18 @@
 
 ## Upcoming Changes
 
-Show archive size stats (compressed size and actual size; only actual size if
-compression is not used) when archiving (`-c`).
-
-Fix archive stats when using `-t` on file format version 0 archives.
-
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 1.30
+
+Show archive size stats (compressed size and actual size; only actual size if
+compression is not used) when archiving (`-c`).
+
+Fix archive stats when using `-t` on file format version 0 archives.
 
 ## Version 1.29
 
