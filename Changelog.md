@@ -2,6 +2,9 @@
 
 ## Upcoming Changes
 
+Fix manpage still noting 4MiB as the default chunk-min-size when it has recently
+been changed to 256MiB.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
