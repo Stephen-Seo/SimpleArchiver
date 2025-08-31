@@ -199,8 +199,8 @@ void simple_archiver_print_usage(void) {
           "version file format (default 5)\n");
   fprintf(stderr,
           "--chunk-min-size <bytes> | --chunk-min-size=<bytes> : minimum chunk "
-          "size (default 4194304 or 4MiB) when using chunks (file formats v. 1 "
-          "and up)\n  Note suffixes \"KB, KiB, MB, MiB, GB, and GiB\" are "
+          "size (default 268435456 or 256MiB) when using chunks (file formats "
+          "v. 1 and up)\n  Note suffixes \"KB, KiB, MB, MiB, GB, and GiB\" are "
           "supported\n  Use like \"32MiB\" without spaces.\n");
   fprintf(stderr,
           "--no-pre-sort-files : do NOT pre-sort files by size (by default "
@@ -326,7 +326,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
   parsed.write_version = 5;
-  parsed.minimum_chunk_size = 4194304;
+  parsed.minimum_chunk_size = 268435456;
   parsed.uid = 0;
   parsed.gid = 0;
   parsed.file_permissions = 0;
