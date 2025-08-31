@@ -2423,7 +2423,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
       SDArchiverStateRetStruct ret = simple_archiver_write_v0(out_f,
                                                               state,
                                                               write_state);
-      internal_simple_archiver_parse_stats(write_state);
+      if (ret.ret == SDAS_SUCCESS) {
+        internal_simple_archiver_parse_stats(write_state);
+      }
       return ret;
     }
     case 1:
@@ -2431,7 +2433,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
       SDArchiverStateRetStruct ret = simple_archiver_write_v1(out_f,
                                                               state,
                                                               write_state);
-      internal_simple_archiver_parse_stats(write_state);
+      if (ret.ret == SDAS_SUCCESS) {
+        internal_simple_archiver_parse_stats(write_state);
+      }
       return ret;
     }
     case 2:
@@ -2439,7 +2443,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
       SDArchiverStateRetStruct ret = simple_archiver_write_v2(out_f,
                                                               state,
                                                               write_state);
-      internal_simple_archiver_parse_stats(write_state);
+      if (ret.ret == SDAS_SUCCESS) {
+        internal_simple_archiver_parse_stats(write_state);
+      }
       return ret;
     }
     case 3:
@@ -2447,7 +2453,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
       SDArchiverStateRetStruct ret = simple_archiver_write_v3(out_f,
                                                               state,
                                                               write_state);
-      internal_simple_archiver_parse_stats(write_state);
+      if (ret.ret == SDAS_SUCCESS) {
+        internal_simple_archiver_parse_stats(write_state);
+      }
       return ret;
     }
     case 4:
@@ -2455,7 +2463,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
       SDArchiverStateRetStruct ret = simple_archiver_write_v4v5(out_f,
                                                                 state,
                                                                 write_state);
-      internal_simple_archiver_parse_stats(write_state);
+      if (ret.ret == SDAS_SUCCESS) {
+        internal_simple_archiver_parse_stats(write_state);
+      }
       return ret;
     }
     case 5:
@@ -2463,7 +2473,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
       SDArchiverStateRetStruct ret = simple_archiver_write_v4v5(out_f,
                                                                 state,
                                                                 write_state);
-      internal_simple_archiver_parse_stats(write_state);
+      if (ret.ret == SDAS_SUCCESS) {
+        internal_simple_archiver_parse_stats(write_state);
+      }
       return ret;
     }
     default:

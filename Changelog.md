@@ -8,6 +8,14 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.31
+
+Update man page.
+
+Change behavior to only print size stats on success.
+
+Change chunk-min-size from 4MiB to 256MiB.
+
 ## Version 1.30
 
 Show archive size stats (compressed size and actual size; only actual size if
