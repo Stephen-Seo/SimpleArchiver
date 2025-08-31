@@ -36,7 +36,7 @@ API calls.
     --temp-files-dir <dir> | --temp-files-dir=<dir> : where to store temporary files created when compressing (defaults to same directory as output file) (this is mutually exclusive with "--force-tmpfile")
     --force-tmpfile : Force the use of "tmpfile()" during compression (this is mutually exclusive with "--temp-files-dir")
     --write-version <version> | --write-version=<version> : Force write version file format (default 5)
-    --chunk-min-size <bytes> | --chunk-min-size=<bytes> : minimum chunk size (default 4194304 or 4MiB) when using chunks (file formats v. 1 and up)
+    --chunk-min-size <bytes> | --chunk-min-size=<bytes> : minimum chunk size (default 268435456 or 256MiB) when using chunks (file formats v. 1 and up)
       Note suffixes "KB, KiB, MB, MiB, GB, and GiB" are supported
       Use like "32MiB" without spaces.
     --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
