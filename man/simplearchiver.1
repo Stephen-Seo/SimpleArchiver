@@ -113,7 +113,7 @@ you are not sure which to use, it is best to just use the latest version, which
 is the default.
 .TP
 .BR --chunk-min-size " " \fIbytes\fR " | " --chunk-min-size=\fIbytes\fR
-Sets the minimum chunk size when creating archives. By default, this is 4MiB.
+Sets the minimum chunk size when creating archives. By default, this is 256MiB.
 Note that this value must be specified in bytes or with one of the following
 suffixes (without spaces): KB, KiB, MB, MiB, GB, or GiB. "32MiB" is valid but
 "32 MiB" is not. The behavior is as follows: combine files into a chunk until
@@ -272,7 +272,7 @@ are related to this behavior are:
 .BR "Chunks"
 Starting in file format version 1 (and up to the latest format),
 \fBsimplearchiver\fR stores files in "chunks". The size of each chunk is
-controlled by the \fB\-\-chunk\-min\-size\fR option and is by default 4MiB. It
+controlled by the \fB\-\-chunk\-min\-size\fR option and is by default 256MiB. It
 may be better to use a larger chunk size if using a compressor with a higher
 compression level. Suffixes are supported (without spaces): "KB, KiB, MB, MiB,
 GB, and GiB". For example, "32MiB" is valid but "32 MiB" is not. The behavior
