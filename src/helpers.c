@@ -889,31 +889,30 @@ FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
            dir,
            dir[dir_len - 1] == '/' ? "" : "/",
            idx);
+  int temp_file_fd = -1;
   do {
-    FILE *test_fd = fopen(temp_filename, "rb");
-    if (test_fd) {
-      // File exists.
-      fclose(test_fd);
-        snprintf(temp_filename,
-                 512,
-                 TEMP_FILENAME_CMP,
-                 dir,
-                 dir[dir_len - 1] == '/' ? "" : "/",
-                 ++idx);
-    } else if (idx > 0xFFFF) {
-      // Sanity check.
-      if (out_temp_filename) {
-        *out_temp_filename = NULL;
+    temp_file_fd = open(temp_filename,
+                        O_CREAT | O_EXCL | O_RDWR | O_TRUNC,
+                        S_IRUSR | S_IWUSR);
+    if (temp_file_fd == -1) {
+      if (idx >= 0x7FFFFFFF) {
+        return tmpfile();
       }
-      return tmpfile();
+      snprintf(temp_filename,
+               512,
+               TEMP_FILENAME_CMP,
+               dir,
+               dir[dir_len - 1] == '/' ? "" : "/",
+               ++idx);
     } else {
       break;
     }
   } while (1);
+  if (temp_file_fd == -1) {
+    return tmpfile();
+  }
 
-  mode_t prev_umask = umask(S_IRWXG | S_IRWXO);
-  FILE *temp_file = fopen(temp_filename, "w+b");
-  umask(prev_umask);
+  FILE *temp_file = fdopen(temp_file_fd, "w+b");
 
   if (temp_file) {
     if (out_temp_filename) {
@@ -923,6 +922,9 @@ FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
   } else {
     if (out_temp_filename) {
       *out_temp_filename = NULL;
+    }
+    if (temp_file_fd != -1) {
+      close(temp_file_fd);
     }
     return tmpfile();
   }

@@ -2,16 +2,21 @@
 
 ## Upcoming Changes
 
-Fix manpage still noting 4MiB as the default chunk-min-size when it has recently
-been changed to 256MiB.
-
-Update README.md to show the default chunk-min-size is 256MiB.
-
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 1.32
+
+Fix manpage still noting 4MiB as the default chunk-min-size when it has recently
+been changed to 256MiB.
+
+Update README.md to show the default chunk-min-size is 256MiB.
+
+Rework how temporary files are created to avoid a race condition in creating a
+new temporary file.
 
 ## Version 1.31
 
