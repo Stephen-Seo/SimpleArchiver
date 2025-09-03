@@ -2,6 +2,10 @@
 
 ## Upcoming Changes
 
+Add "--sort-files-by-name" option. This will sort files by name before
+archiving. Note that this option is mutally exclusive with
+"--no-pre-sort-files".
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
