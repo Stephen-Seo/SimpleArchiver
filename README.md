@@ -39,7 +39,8 @@ API calls.
     --chunk-min-size <bytes> | --chunk-min-size=<bytes> : minimum chunk size (default 268435456 or 256MiB) when using chunks (file formats v. 1 and up)
       Note suffixes "KB, KiB, MB, MiB, GB, and GiB" are supported
       Use like "32MiB" without spaces.
-    --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest)
+    --no-pre-sort-files : do NOT pre-sort files by size (by default enabled so that the first file is the largest; mutually exclusive with "--sort-files-by-name")
+    --sort-files-by-name : pre-sort files by name (mutually exclusive with "--no-pre-sort-files").
     --no-preserve-empty-dirs : do NOT preserve empty dirs (only for file format 2 and onwards)
     --force-uid <uid> | --force-uid=<uid> : Force set UID on archive creation/extraction
       On archive creation, sets UID for all files/dirs in the archive.
