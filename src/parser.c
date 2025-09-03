@@ -204,7 +204,11 @@ void simple_archiver_print_usage(void) {
           "supported\n  Use like \"32MiB\" without spaces.\n");
   fprintf(stderr,
           "--no-pre-sort-files : do NOT pre-sort files by size (by default "
-          "enabled so that the first file is the largest)\n");
+          "enabled so that the first file is the largest; mutually exclusive "
+          "with \"--sort-files-by-name\")\n");
+  fprintf(stderr,
+          "--sort-files-by-name : pre-sort files by name (mutually exclusive "
+          "with \"--no-pre-sort-files\").\n");
   fprintf(stderr,
           "--no-preserve-empty-dirs : do NOT preserve empty dirs (only for file"
           " format 2 and onwards)\n");
@@ -682,7 +686,19 @@ int simple_archiver_parse_args(int argc, const char **argv,
           ++argv;
         }
       } else if (strcmp(argv[0], "--no-pre-sort-files") == 0) {
+        if (out->flags & 0x80000) {
+          fprintf(stderr, "ERROR: \"--no-pre-sort-files\" is mutually "
+              "exclusive with \"--sort-files-by-name\"!\n");
+          return 1;
+        }
         out->flags &= 0xFFFFFFBF;
+      } else if (strcmp(argv[0], "--sort-files-by-name") == 0) {
+        if ((out->flags & 0x40) == 0) {
+          fprintf(stderr, "ERROR: \"--sort-files-by-name\" is mutually "
+              "exclusive with \"--no-pre-sort-files\"!\n");
+          return 1;
+        }
+        out->flags |= 0x80000;
       } else if (strcmp(argv[0], "--no-preserve-empty-dirs") == 0) {
         out->flags |= 0x200;
       } else if (strcmp(argv[0], "--force-uid") == 0

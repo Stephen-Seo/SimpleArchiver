@@ -62,6 +62,7 @@ typedef struct SDArchiverParsed {
   /// 0b xxxx xx1x xxxx xxxx xxxx xxxx - white/black-list checking is
   ///   case-insensitive.
   /// 0b xxxx x1xx xxxx xxxx xxxx xxxx - Force use tmpfile.
+  /// 0b xxxx 1xxx xxxx xxxx xxxx xxxx - Sort files by name before archiving.
   uint32_t flags;
   /// Null-terminated string.
   char *filename;
