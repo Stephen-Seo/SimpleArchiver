@@ -135,6 +135,10 @@ void *internal_pheap_clone_uint32_t(void *data) {
   return u32;
 }
 
+int internal_pheap_less_generic(void *left, void *right) {
+  return *((int*)left) < *((int*)right);
+}
+
 int main(void) {
   puts("Begin data-structures unit test.");
   fflush(stdout);
@@ -1037,6 +1041,31 @@ int main(void) {
       while (simple_archiver_priority_heap_size(pheap_clone) != 0) {
         uint32_t *data = simple_archiver_priority_heap_pop(pheap_clone);
         CHECK_TRUE(*data == idx++);
+        free(data);
+      }
+    }
+
+    simple_archiver_priority_heap_free(&priority_heap);
+
+    priority_heap = simple_archiver_priority_heap_init_less_generic_fn(internal_pheap_less_generic);
+
+    for (int idx = 0; idx < 10; idx += 2) {
+      int *data = malloc(sizeof(int));
+      *data = idx;
+      simple_archiver_priority_heap_insert(priority_heap, 0, data, NULL);
+    }
+
+    for (int idx = 1; idx < 10; idx += 2) {
+      int *data = malloc(sizeof(int));
+      *data = idx;
+      simple_archiver_priority_heap_insert(priority_heap, 0, data, NULL);
+    }
+
+    for (int idx = 0; idx < 10; ++idx) {
+      int *data = simple_archiver_priority_heap_pop(priority_heap);
+      CHECK_TRUE(data);
+      if (data) {
+        CHECK_TRUE(*data == idx);
         free(data);
       }
     }
