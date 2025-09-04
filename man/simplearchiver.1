@@ -126,7 +126,13 @@ accumulating files and will be stored/compressed as the last chunk.
 .BR --no-pre-sort-files
 Do not pre-sort files before they are stored into a new archive. By default,
 files are sorted by size such that the largest file is archived first. If this
-option is specified, then the files will be stored in an arbitrary order.
+option is specified, then the files will be stored in an arbitrary order. This
+option is mutually exclusive with "--sort-files-by-name". Note that this option
+may not apply to file format 0.
+.TP
+.BR --sort-files-by-name
+Sorts files by filename before archiving. This option is mutually exclusive with
+"--no-pre-sort-files". Note that this option may not apply to file format 0.
 .TP
 .BR --no-preserve-empty-dirs
 Do not store empty directories in the archive when created. Note that storing

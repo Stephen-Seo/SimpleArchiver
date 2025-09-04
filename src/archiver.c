@@ -1951,6 +1951,13 @@ int files_to_chunk_count(void *data, void *ud) {
 
 int greater_fn(int64_t a, int64_t b) { return a > b; }
 
+int internal_strcmp_less_fn(void *a, void *b) {
+  SDArchiverInternalFileInfo *a_finfo = a;
+  SDArchiverInternalFileInfo *b_finfo = b;
+
+  return strcmp(a_finfo->filename, b_finfo->filename) < 0;
+}
+
 void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
                                                  const char *filename) {
   simple_archiver_hash_map_insert(
@@ -2714,10 +2721,13 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_priority_heap_free)))
-  SDArchiverPHeap *files_pheap =
-      (state->parsed->flags & 0x40)
-          ? simple_archiver_priority_heap_init_less_fn(greater_fn)
-          : NULL;
+  SDArchiverPHeap *files_pheap = NULL;
+  if (state->parsed->flags & 0x80000) {
+    files_pheap = simple_archiver_priority_heap_init_less_generic_fn(
+        internal_strcmp_less_fn);
+  } else if (state->parsed->flags & 0x40) {
+    files_pheap = simple_archiver_priority_heap_init_less_fn(greater_fn);
+  }
   uint64_t from_files_count = 0;
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
@@ -3711,10 +3721,13 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *dirs_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_priority_heap_free)))
-  SDArchiverPHeap *files_pheap =
-      (state->parsed->flags & 0x40)
-          ? simple_archiver_priority_heap_init_less_fn(greater_fn)
-          : NULL;
+  SDArchiverPHeap *files_pheap = NULL;
+  if (state->parsed->flags & 0x80000) {
+    files_pheap = simple_archiver_priority_heap_init_less_generic_fn(
+        internal_strcmp_less_fn);
+  } else if (state->parsed->flags & 0x40) {
+    files_pheap = simple_archiver_priority_heap_init_less_fn(greater_fn);
+  }
   uint64_t from_files_count = 0;
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
@@ -4745,10 +4758,13 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *dirs_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_priority_heap_free)))
-  SDArchiverPHeap *files_pheap =
-      (state->parsed->flags & 0x40)
-          ? simple_archiver_priority_heap_init_less_fn(greater_fn)
-          : NULL;
+  SDArchiverPHeap *files_pheap = NULL;
+  if (state->parsed->flags & 0x80000) {
+    files_pheap = simple_archiver_priority_heap_init_less_generic_fn(
+        internal_strcmp_less_fn);
+  } else if (state->parsed->flags & 0x40) {
+    files_pheap = simple_archiver_priority_heap_init_less_fn(greater_fn);
+  }
   uint64_t from_files_count = 0;
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
@@ -6014,10 +6030,13 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *dirs_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_priority_heap_free)))
-  SDArchiverPHeap *files_pheap =
-      (state->parsed->flags & 0x40)
-          ? simple_archiver_priority_heap_init_less_fn(greater_fn)
-          : NULL;
+  SDArchiverPHeap *files_pheap = NULL;
+  if (state->parsed->flags & 0x80000) {
+    files_pheap = simple_archiver_priority_heap_init_less_generic_fn(
+        internal_strcmp_less_fn);
+  } else if (state->parsed->flags & 0x40) {
+    files_pheap = simple_archiver_priority_heap_init_less_fn(greater_fn);
+  }
   uint64_t from_files_count = 0;
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
