@@ -2,17 +2,19 @@
 
 ## Upcoming Changes
 
-Add "--sort-files-by-name" option. This will sort files by name before
-archiving. Note that this option is mutally exclusive with
-"--no-pre-sort-files".
-
-Updated README.md and man page for the new option.
-
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 1.33
+
+Add "--sort-files-by-name" option. This will sort files by name before
+archiving. Note that this option is mutally exclusive with
+"--no-pre-sort-files".
+
+Updated README.md and man page for the new option.
 
 ## Version 1.32
 
