@@ -21,7 +21,7 @@ jobs:
       - name: Checkout "gh-pages"
         run: cd SA && git checkout gh-pages
       - name: Set HTML
-        run: cp simplearchiver.html SA/index.html && echo '<link href="/style.css" rel="stylesheet" />' >> SA/index.html
+        run: cp simplearchiver.html SA/index.html && echo '<link href="style.css" rel="stylesheet" />' >> SA/index.html
       - name: Set Up Git
         run: git config --global user.name 'Stephen Seo' && git config --global user.email 'seo.disparate@gmail.com' && cd SA && git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}
       - name: Push Changes
