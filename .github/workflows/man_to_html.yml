@@ -25,4 +25,4 @@ jobs:
       - name: Set Up Git
         run: git config --global user.name 'Stephen Seo' && git config --global user.email 'seo.disparate@gmail.com' && cd SA && git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}
       - name: Push Changes
-        run: cd SA && git add . && git commit --no-edit -m 'Update exported Man to HTML page' && git push origin gh-pages
+        run: cd SA && (git add . && git commit --no-edit -m 'Update exported Man to HTML page') && git push origin gh-pages || true
