@@ -2313,13 +2313,26 @@ void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
   if (temp && *temp != 0) {
     fprintf(stderr, "Compressed size is %" PRIu64, *temp);
     if (*temp > 1024) {
-      fprintf(stderr, ", %" PRIu64 " KiB", *temp / 1024);
+      uint64_t hundredths = (100 * (*temp % 1024)) / 1024;
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " KiB",
+              *temp / 1024,
+              hundredths);
     }
     if (*temp > 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " MiB", *temp / (1024 * 1024));
+      uint64_t hundredths = (100 * (*temp % (1024 * 1024))) / (1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " MiB",
+              *temp / (1024 * 1024),
+              hundredths);
     }
     if (*temp > 1024 * 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " GiB", *temp / (1024 * 1024 * 1024));
+      uint64_t hundredths =
+        (100 * (*temp % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " GiB",
+              *temp / (1024 * 1024 * 1024),
+              hundredths);
     }
     fprintf(stderr, "\n");
   }
@@ -2329,13 +2342,26 @@ void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
   if (temp && *temp != 0) {
     fprintf(stderr, "Actual size is %" PRIu64, *temp);
     if (*temp > 1024) {
-      fprintf(stderr, ", %" PRIu64 " KiB", *temp / 1024);
+      uint64_t hundredths = (100 * (*temp % 1024)) / 1024;
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " KiB",
+              *temp / 1024,
+              hundredths);
     }
     if (*temp > 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " MiB", *temp / (1024 * 1024));
+      uint64_t hundredths = (100 * (*temp % (1024 * 1024))) / (1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " MiB",
+              *temp / (1024 * 1024),
+              hundredths);
     }
     if (*temp > 1024 * 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " GiB", *temp / (1024 * 1024 * 1024));
+      uint64_t hundredths =
+        (100 * (*temp % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " GiB",
+              *temp / (1024 * 1024 * 1024),
+              hundredths);
     }
     fprintf(stderr, "\n");
   }
