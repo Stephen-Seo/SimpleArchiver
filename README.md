@@ -14,6 +14,8 @@ API calls.
 
 [AUR package](https://aur.archlinux.org/packages/simplearchiver)
 
+[Man Page Converted To HTML](https://stephen-seo.github.io/SimpleArchiver/)
+
 ## Usage
 
     Usage flags:
