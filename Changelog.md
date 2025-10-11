@@ -8,6 +8,12 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.34
+
+When showing un/compressed data sizes, show up to "hundredths" decimal numbers.
+
+Add Github page for man-page converted to HTML. (Link in the README.md)
+
 ## Version 1.33
 
 Add "--sort-files-by-name" option. This will sort files by name before
