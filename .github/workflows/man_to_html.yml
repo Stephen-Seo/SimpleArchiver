@@ -1,0 +1,29 @@
+name: Make html from man page
+on:
+  push:
+    branches:
+      - 'main'
+      - 'dev'
+
+jobs:
+  get-pandoc-and-convert-man-to-html:
+    runs-on: ubuntu-latest
+    permissions:
+        contents: write
+    steps:
+      - name: Get pandoc
+        run: sudo apt-get -y install pandoc git
+      - name: Get Repository
+        run: git clone --depth=1 --no-single-branch https://github.com/Stephen-Seo/SimpleArchiver.git SA
+      - name: Checkout Current Branch
+        run: cd SA && git checkout "${GITHUB_REF_NAME}"
+      - name: Generate HTML
+        run: pandoc -f man -t html SA/man/simplearchiver.1 > simplearchiver.html
+      - name: Checkout "gh-pages"
+        run: cd SA && git checkout gh-pages
+      - name: Set HTML
+        run: cp simplearchiver.html SA/index.html && echo '<link href="/style.css" rel="stylesheet" />' >> SA/index.html
+      - name: Set Up Git
+        run: git config --global user.name 'Stephen Seo' && git config --global user.email 'seo.disparate@gmail.com' && cd SA && git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}
+      - name: Push Changes
+        run: cd SA && git add . && git commit --no-edit -m 'Update exported Man to HTML page' && git push origin gh-pages
