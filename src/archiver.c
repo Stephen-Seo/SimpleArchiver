@@ -1065,6 +1065,10 @@ int filenames_to_abs_map_fn(void *val, void *ud) {
   char *prev = fullpath_copy;
   char *fullpath_dirname;
   while (1) {
+    if (is_sig_int_occurred) {
+      fprintf(stderr, "SIGINT, stopping getting dirnames...\n");
+      return 1;
+    }
     fullpath_dirname = dirname(prev);
     if (!fullpath_dirname || strlen(fullpath_dirname) <= strlen(cwd_dirname)) {
       break;
@@ -1793,6 +1797,11 @@ int symlinks_and_files_from_files(
   const SDArchiverState *state = ptr_array[5];
   uint64_t *from_files_count = ptr_array[6];
   uint64_t *files_actual_size = ptr_array[7];
+
+  if (is_sig_int_occurred) {
+    fprintf(stderr, "SIGINT, stopping populating priority heap...\n");
+    return 1;
+  }
 
   if (file_info->filename) {
     // Check white/black lists.
