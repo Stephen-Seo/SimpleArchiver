@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Make simplearchiver more responsive to early Ctrl-C.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
