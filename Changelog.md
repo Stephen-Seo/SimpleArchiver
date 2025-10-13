@@ -2,13 +2,15 @@
 
 ## Upcoming Changes
 
-Make simplearchiver more responsive to early Ctrl-C.
-
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 1.35
+
+Make simplearchiver more responsive to early Ctrl-C.
 
 ## Version 1.34
 

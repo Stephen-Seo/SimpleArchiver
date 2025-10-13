@@ -1,6 +1,6 @@
 COSMOCC ?= ${HOME}/Downloads/cosmocc/bin/cosmocc
 
-VERSION_STR := $(shell /usr/bin/git describe --long --tags || /usr/bin/echo 1.34)
+VERSION_STR := $(shell /usr/bin/git describe --long --tags || /usr/bin/echo 1.35)
 
 OTHER_FLAGS := -DSIMPLE_ARCHIVER_VERSION_STR=\"${VERSION_STR}\"
 
