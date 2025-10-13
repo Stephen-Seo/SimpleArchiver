@@ -8,6 +8,10 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.35
+
+Make simplearchiver more responsive to early Ctrl-C.
+
 ## Version 1.34
 
 When showing un/compressed data sizes, show up to "hundredths" decimal numbers.
