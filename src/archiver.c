@@ -2403,7 +2403,7 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
     case SDAS_INVALID_WRITE_VERSION:
       return "Unsupported write version file format";
     case SDAS_SIGINT:
-      return "Interrupt signal SIGINT recieved";
+      return "Interrupt signal SIGINT/SIGHUP/SIGTERM recieved";
     case SDAS_TOO_MANY_DIRS:
       return "Too many directories (limit is 2^32)";
     case SDAS_COMPRESSION_ERROR:
