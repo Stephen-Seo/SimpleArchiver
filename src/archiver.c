@@ -58,7 +58,7 @@ void handle_sig_pipe(int sig) {
 }
 
 void handle_sig_int(int sig) {
-  if (sig == SIGINT) {
+  if (sig == SIGINT || sig == SIGHUP || sig == SIGTERM) {
     is_sig_int_occurred = 1;
   }
 }
@@ -1066,7 +1066,7 @@ int filenames_to_abs_map_fn(void *val, void *ud) {
   char *fullpath_dirname;
   while (1) {
     if (is_sig_int_occurred) {
-      fprintf(stderr, "SIGINT, stopping getting dirnames...\n");
+      fprintf(stderr, "Interrupt, stopping getting dirnames...\n");
       return 1;
     }
     fullpath_dirname = dirname(prev);
@@ -1799,7 +1799,7 @@ int symlinks_and_files_from_files(
   uint64_t *files_actual_size = ptr_array[7];
 
   if (is_sig_int_occurred) {
-    fprintf(stderr, "SIGINT, stopping populating priority heap...\n");
+    fprintf(stderr, "Interrupt, stopping populating priority heap...\n");
     return 1;
   }
 
@@ -2403,7 +2403,7 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
     case SDAS_INVALID_WRITE_VERSION:
       return "Unsupported write version file format";
     case SDAS_SIGINT:
-      return "Interrupt signal SIGINT recieved";
+      return "Interrupt signal SIGINT/SIGHUP/SIGTERM recieved";
     case SDAS_TOO_MANY_DIRS:
       return "Too many directories (limit is 2^32)";
     case SDAS_COMPRESSION_ERROR:
@@ -2455,6 +2455,8 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     FILE *out_f,
     SDArchiverState *state) {
   signal(SIGINT, handle_sig_int);
+  signal(SIGHUP, handle_sig_int);
+  signal(SIGTERM, handle_sig_int);
 
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *write_state = simple_archiver_hash_map_init();
@@ -7269,6 +7271,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
     int_fast8_t do_extract,
     SDArchiverState *state) {
   signal(SIGINT, handle_sig_int);
+  signal(SIGHUP, handle_sig_int);
+  signal(SIGTERM, handle_sig_int);
 
   uint8_t buf[32];
   memset(buf, 0, 32);

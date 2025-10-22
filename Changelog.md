@@ -8,6 +8,10 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.36
+
+Handle SIGHUP and SIGTERM as well as SIGINT during compress/extract execution.
+
 ## Version 1.35
 
 Make simplearchiver more responsive to early Ctrl-C.
