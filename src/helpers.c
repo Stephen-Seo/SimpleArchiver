@@ -32,6 +32,7 @@
 #include <libgen.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <signal.h>
 #endif
 
 void simple_archiver_helper_cleanup_FILE(FILE **fd) {
@@ -945,4 +946,14 @@ char *simple_archiver_helper_combine_strs(const char *prefix,
   res[len - 1] = 0;
 
   return res;
+}
+
+int simple_archiver_helper_set_signal_action(int signal, void (*handler)(int)) {
+  struct sigaction sa;
+
+  sa.sa_handler = handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+
+  return sigaction(signal, &sa, NULL);
 }

@@ -158,4 +158,7 @@ FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
 char *simple_archiver_helper_combine_strs(const char *prefix,
                                           const char *suffix);
 
+// Returns non-zero on error, check errno
+int simple_archiver_helper_set_signal_action(int signal, void(*handler)(int));
+
 #endif

@@ -29,7 +29,6 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include <limits.h>
-#include <signal.h>
 #include <spawn.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -206,7 +205,7 @@ int write_files_fn_file_v0(void *data, void *ud) {
       }
 
       // Handle SIGPIPE.
-      signal(SIGPIPE, handle_sig_pipe);
+      simple_archiver_helper_set_signal_action(SIGPIPE, handle_sig_pipe);
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
@@ -2454,9 +2453,9 @@ void simple_archiver_free_state(SDArchiverState **state) {
 SDArchiverStateRetStruct simple_archiver_write_all(
     FILE *out_f,
     SDArchiverState *state) {
-  signal(SIGINT, handle_sig_int);
-  signal(SIGHUP, handle_sig_int);
-  signal(SIGTERM, handle_sig_int);
+  simple_archiver_helper_set_signal_action(SIGINT, handle_sig_int);
+  simple_archiver_helper_set_signal_action(SIGHUP, handle_sig_int);
+  simple_archiver_helper_set_signal_action(SIGTERM, handle_sig_int);
 
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *write_state = simple_archiver_hash_map_init();
@@ -3422,7 +3421,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
 
       // Handle SIGPIPE.
       is_sig_pipe_occurred = 0;
-      signal(SIGPIPE, handle_sig_pipe);
+      simple_archiver_helper_set_signal_action(SIGPIPE, handle_sig_pipe);
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
@@ -4432,7 +4431,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
 
       // Handle SIGPIPE.
       is_sig_pipe_occurred = 0;
-      signal(SIGPIPE, handle_sig_pipe);
+      simple_archiver_helper_set_signal_action(SIGPIPE, handle_sig_pipe);
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
@@ -5701,7 +5700,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
 
       // Handle SIGPIPE.
       is_sig_pipe_occurred = 0;
-      signal(SIGPIPE, handle_sig_pipe);
+      simple_archiver_helper_set_signal_action(SIGPIPE, handle_sig_pipe);
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
@@ -6910,7 +6909,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
 
       // Handle SIGPIPE.
       is_sig_pipe_occurred = 0;
-      signal(SIGPIPE, handle_sig_pipe);
+      simple_archiver_helper_set_signal_action(SIGPIPE, handle_sig_pipe);
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
@@ -7270,9 +7269,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
     FILE *in_f,
     int_fast8_t do_extract,
     SDArchiverState *state) {
-  signal(SIGINT, handle_sig_int);
-  signal(SIGHUP, handle_sig_int);
-  signal(SIGTERM, handle_sig_int);
+  simple_archiver_helper_set_signal_action(SIGINT, handle_sig_int);
+  simple_archiver_helper_set_signal_action(SIGHUP, handle_sig_int);
+  simple_archiver_helper_set_signal_action(SIGTERM, handle_sig_int);
 
   uint8_t buf[32];
   memset(buf, 0, 32);
@@ -7863,7 +7862,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         }
         if (is_compressed) {
           // Handle SIGPIPE.
-          signal(SIGPIPE, handle_sig_pipe);
+          simple_archiver_helper_set_signal_action(SIGPIPE, handle_sig_pipe);
 
           int pipe_into_cmd[2];
           int pipe_outof_cmd[2];
@@ -9282,7 +9281,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
 
       // Handle SIGPIPE.
       is_sig_pipe_occurred = 0;
-      signal(SIGPIPE, handle_sig_pipe);
+      simple_archiver_helper_set_signal_action(SIGPIPE, handle_sig_pipe);
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
@@ -11095,7 +11094,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
 
       // Handle SIGPIPE.
       is_sig_pipe_occurred = 0;
-      signal(SIGPIPE, handle_sig_pipe);
+      simple_archiver_helper_set_signal_action(SIGPIPE, handle_sig_pipe);
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
@@ -12979,7 +12978,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
 
       // Handle SIGPIPE.
       is_sig_pipe_occurred = 0;
-      signal(SIGPIPE, handle_sig_pipe);
+      simple_archiver_helper_set_signal_action(SIGPIPE, handle_sig_pipe);
 
       int pipe_into_cmd[2];
       int pipe_outof_cmd[2];
