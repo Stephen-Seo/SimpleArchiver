@@ -955,5 +955,47 @@ int simple_archiver_helper_set_signal_action(int signal, void (*handler)(int)) {
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = 0;
 
-  return sigaction(signal, &sa, NULL);
+  int result = sigaction(signal, &sa, NULL);
+
+  if (result != 0) {
+    switch(signal) {
+      case SIGINT:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for SIGINT! Program may not "
+            "be responsive to Ctrl-C or other kill signals! (errno %d)",
+            errno);
+        break;
+      case SIGHUP:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for SIGHUP! Program may not "
+            "be responsive to Ctrl-C or other kill signals! (errno %d)",
+            errno);
+        break;
+      case SIGTERM:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for SIGTERM! Program may "
+            "not be responsive to Ctrl-C or other kill signals! (errno %d)",
+            errno);
+        break;
+      case SIGPIPE:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for SIGPIPE! Program may "
+            "not handle \"pipe\" errors properly! (errno %d)",
+            errno);
+        break;
+      default:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for unknown signal! "
+            "(errno %d)",
+            errno);
+        break;
+    }
+  }
+
+  return result;
 }
