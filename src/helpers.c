@@ -32,6 +32,7 @@
 #include <libgen.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <signal.h>
 #endif
 
 void simple_archiver_helper_cleanup_FILE(FILE **fd) {
@@ -945,4 +946,56 @@ char *simple_archiver_helper_combine_strs(const char *prefix,
   res[len - 1] = 0;
 
   return res;
+}
+
+int simple_archiver_helper_set_signal_action(int signal, void (*handler)(int)) {
+  struct sigaction sa;
+
+  sa.sa_handler = handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+
+  int result = sigaction(signal, &sa, NULL);
+
+  if (result != 0) {
+    switch(signal) {
+      case SIGINT:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for SIGINT! Program may not "
+            "be responsive to Ctrl-C or other kill signals! (errno %d)",
+            errno);
+        break;
+      case SIGHUP:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for SIGHUP! Program may not "
+            "be responsive to Ctrl-C or other kill signals! (errno %d)",
+            errno);
+        break;
+      case SIGTERM:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for SIGTERM! Program may "
+            "not be responsive to Ctrl-C or other kill signals! (errno %d)",
+            errno);
+        break;
+      case SIGPIPE:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for SIGPIPE! Program may "
+            "not handle \"pipe\" errors properly! (errno %d)",
+            errno);
+        break;
+      default:
+        fprintf(
+            stderr,
+            "WARNING: Failed to set signal handler for unknown signal! "
+            "(errno %d)",
+            errno);
+        break;
+    }
+  }
+
+  return result;
 }
