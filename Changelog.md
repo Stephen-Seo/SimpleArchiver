@@ -8,6 +8,10 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.37.1
+
+Fix missing include line in `archive.c`.
+
 ## Version 1.37
 
 Refactored signal handling (e.g. SIGINT/SIGHUP/SIGTERM/SIGPIPE).
