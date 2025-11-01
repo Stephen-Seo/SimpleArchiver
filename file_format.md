@@ -642,57 +642,23 @@ The two bytes are 'S' and 'A' (ascii), which is 0x53 and 0x41.
 This format is nearly identical to file format version 5. The difference is the
 metadata per-chunk:
 
-The following bytes are added for each file within the current chunk:
+...
+
+Following the chunk-count bytes, the following bytes are added for each chunk:
+
+1. 8 bytes that are a 64-bit unsigned integer "file count" in big-endian.
+2. 2 bytes bit-flag:
+    1. The first bit is set if this chunk is compressed.
+    2. The remaining bits are reserved for future use.
 
 ...
 
-1. 2 bytes that are a 16-bit unsigned integer "filename length" in big-endian.
-   This does not include the NULL at the end of the string.
-2. X bytes of filename (length defined by previous value). Is a NULL-terminated
-   string.
-3. 4 bytes bit-flags.
-    1. The first byte.
-        1. The first bit is "user read permission".
-        2. The second bit is "user write permission".
-        3. The third bit is "user execute permission".
-        4. The fourth bit is "group read permission".
-        5. The fifth bit is "group write permission".
-        6. The sixth bit is "group execute permission".
-        7. The seventh bit is "other read permission".
-        8. The eighth bit is "other write permission".
-    2. The second byte.
-        1. The first bit is "other execute permission".
-        2. The second bit is set if this chunk is compressed. *NEW*
-    3. The third byte.
-        1. Currently unused.
-    4. The fourth byte.
-        1. Currently unused.
-4. Two 4-byte unsigned integers in big-endian for UID and GID.
-    1. A 32-bit unsigned integer in big endian that specifies the UID of the
-       file. Note that during extraction, if the user is not root, then this
-       value will be ignored.
-    2. A 32-bit unsigned integer in big endian that specifies the GID of the
-       file. Note that during extraction, if the user is not root, then this
-       value will be ignored.
-5. 2 bytes 16-bit unsigned integer "user name" length in big-endian. This does
-   not include the NULL at the end of the string.
-6. X bytes of user-name (length defined by previous value). Is a
-   NULL-terminated string. If the previous "size" value is 0, then this entry
-   does not exist and should be skipped.
-7. 2 bytes 16-bit unsigned integer "group name" length in big-endian. This does
-   not include the NULL at the end of the string.
-8. X bytes of group-name (length defined by previous value). Is a
-   NULL-terminated string. If the previous "size" value is 0, then this entry
-   does not exist and should be skipped.
-9. A 64-bit unsigned integer in big endian for the "size of file".
-
-...
-
-The difference is in the 4-bytes bit-flags. A new bit is designated as an
-indicator that the chunk may or may not be compressed. If compression is not
-used, then it is ignored and the data is known to be uncompressed. Previous file
-formats cannot be assigned a bit for this feature because the previous
-implementations of prior file formats do not know to check for this.
+The difference is the additional 2-byte bit-flag added after the file-count
+bytes for the chunk. A new bit is designated as an indicator that the chunk may
+or may not be compressed. If compression is not used, then it is ignored and
+the data is known to be uncompressed. Previous file formats cannot be assigned
+a bit for this feature because the previous implementations of prior file
+formats do not know to check for this.
 
 This additional bit for indicating un/compressed chunks is made for the case
 that all files in the chunk match some criteria to prevent it from being
