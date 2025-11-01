@@ -636,3 +636,68 @@ that two bytes are prepended to every chunk (prior to compression) on creation,
 and that the starting two bytes (after decompression) in chunks are ignored.
 
 The two bytes are 'S' and 'A' (ascii), which is 0x53 and 0x41.
+
+## Format Version 6
+
+This format is nearly identical to file format version 5. The difference is the
+metadata per-chunk:
+
+The following bytes are added for each file within the current chunk:
+
+...
+1. 2 bytes that are a 16-bit unsigned integer "filename length" in big-endian.
+   This does not include the NULL at the end of the string.
+2. X bytes of filename (length defined by previous value). Is a NULL-terminated
+   string.
+3. 4 bytes bit-flags.
+    1. The first byte.
+        1. The first bit is "user read permission".
+        2. The second bit is "user write permission".
+        3. The third bit is "user execute permission".
+        4. The fourth bit is "group read permission".
+        5. The fifth bit is "group write permission".
+        6. The sixth bit is "group execute permission".
+        7. The seventh bit is "other read permission".
+        8. The eighth bit is "other write permission".
+    2. The second byte.
+        1. The first bit is "other execute permission".
+        2. The second bit is set if this chunk is compressed. *NEW*
+    3. The third byte.
+        1. Currently unused.
+    4. The fourth byte.
+        1. Currently unused.
+4. Two 4-byte unsigned integers in big-endian for UID and GID.
+    1. A 32-bit unsigned integer in big endian that specifies the UID of the
+       file. Note that during extraction, if the user is not root, then this
+       value will be ignored.
+    2. A 32-bit unsigned integer in big endian that specifies the GID of the
+       file. Note that during extraction, if the user is not root, then this
+       value will be ignored.
+5. 2 bytes 16-bit unsigned integer "user name" length in big-endian. This does
+   not include the NULL at the end of the string.
+6. X bytes of user-name (length defined by previous value). Is a
+   NULL-terminated string. If the previous "size" value is 0, then this entry
+   does not exist and should be skipped.
+7. 2 bytes 16-bit unsigned integer "group name" length in big-endian. This does
+   not include the NULL at the end of the string.
+8. X bytes of group-name (length defined by previous value). Is a
+   NULL-terminated string. If the previous "size" value is 0, then this entry
+   does not exist and should be skipped.
+9. A 64-bit unsigned integer in big endian for the "size of file".
+...
+
+The difference is in the 4-bytes bit-flags. A new bit is designated as an
+indicator that the chunk may or may not be compressed. If compression is not
+used, then it is ignored and the data is known to be uncompressed. Previous file
+formats cannot be assigned a bit for this feature because the previous
+implementations of prior file formats do not know to check for this.
+
+This additional bit for indicating un/compressed chunks is made for the case
+that all files in the chunk match some criteria to prevent it from being
+compressed.  Currently, it is planned for "already compressed" files, such as
+.jpg (uses lossy compression), .png (uses lossless compression), .mp3 (uses
+lossy compression usually), .flac (uses losslesss compression), .zip (already
+archived), .gz/.xz/.zst/.lz/.7z (already compressed), and etc. This feature
+will be opt-in by default, and a opt-in-able preset will be available, as well
+as a flag to add user-defined file extensions, and other flags that may tune
+this behavior.
