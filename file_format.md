@@ -700,6 +700,7 @@ compressed.  Currently, it is planned for "already compressed" files, such as
 .jpg (uses lossy compression), .png (uses lossless compression), .mp3 (uses
 lossy compression usually), .flac (uses losslesss compression), .zip (already
 archived), .gz/.xz/.zst/.lz/.7z (already compressed), and etc. This feature
-will be opt-in by default, and a opt-in-able preset will be available, as well
-as a flag to add user-defined file extensions, and other flags that may tune
-this behavior.
+will be opt-in by default (in other words, by default all chunks will be
+compressed when using compression), and a opt-in-able preset will be available,
+as well as a flag to add user-defined file extensions, and other flags that may
+tune this behavior.
