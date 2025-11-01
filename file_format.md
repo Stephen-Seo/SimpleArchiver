@@ -645,6 +645,7 @@ metadata per-chunk:
 The following bytes are added for each file within the current chunk:
 
 ...
+
 1. 2 bytes that are a 16-bit unsigned integer "filename length" in big-endian.
    This does not include the NULL at the end of the string.
 2. X bytes of filename (length defined by previous value). Is a NULL-terminated
@@ -684,6 +685,7 @@ The following bytes are added for each file within the current chunk:
    NULL-terminated string. If the previous "size" value is 0, then this entry
    does not exist and should be skipped.
 9. A 64-bit unsigned integer in big endian for the "size of file".
+
 ...
 
 The difference is in the 4-bytes bit-flags. A new bit is designated as an
