@@ -6692,10 +6692,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
   }
 
   __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void
-      *non_compressing_chunk_size = NULL;
-  if (!state->parsed->compressor || !state->parsed->decompressor) {
-    non_compressing_chunk_size = malloc(sizeof(uint64_t));
-  }
+      *non_compressing_chunk_size = malloc(sizeof(uint64_t));
   uint64_t *non_c_chunk_size = non_compressing_chunk_size;
 
   __attribute__((cleanup(cleanup_uint64_t_ptr)))
@@ -6728,11 +6725,13 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     }
 
     // File format version 6: two-byte bit-flags.
+    int_fast8_t compressed_bit_set = 1;
     if (state->parsed->write_version >= 6) {
       uint8_t v6_byte_flags[2];
       // Default, compressed bit is set.
       // TODO: flags affecting this bit.
-      v6_byte_flags[0] = 1;
+      v6_byte_flags[0] = 0;
+      v6_byte_flags[0] |= compressed_bit_set ? 1 : 0;
       v6_byte_flags[1] = 0;
       if (fwrite(v6_byte_flags, 1, 2, out_f) != 2) {
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
@@ -6914,7 +6913,9 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
 
     file_node = saved_node;
 
-    if (state->parsed->compressor && state->parsed->decompressor) {
+    if (state->parsed->compressor
+        && state->parsed->decompressor
+        && compressed_bit_set) {
       // Is compressing.
       __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
       char *temp_filename = NULL;
@@ -7212,6 +7213,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       // Is NOT compressing.
       if (!non_c_chunk_size) {
         return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      }
+      if (state->parsed->write_version >= 6) {
+        // Sum uncompressed chunk size with total "compressed size".
+        *files_compressed_size += *non_c_chunk_size;
       }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
