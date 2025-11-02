@@ -8,6 +8,13 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 1.38
+
+Fix bug in writing uncompressed file format v5 chunks where "SA" was prepended
+to the chunk size instead of the chunk data. This broke chunk size stats, but
+extraction still worked because extraction was based on individual file sizes
+instead of the chunk size.
+
 ## Version 1.37.1
 
 Fix missing include line in `archive.c`.
