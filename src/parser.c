@@ -329,7 +329,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.just_w_files = simple_archiver_hash_map_init();
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
-  parsed.write_version = 5;
+  parsed.write_version = 6;
   parsed.minimum_chunk_size = 268435456;
   parsed.uid = 0;
   parsed.gid = 0;
@@ -592,9 +592,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           fprintf(stderr, "ERROR: --write-version cannot be negative!\n");
           simple_archiver_print_usage();
           return 1;
-        } else if (version > 5) {
+        } else if (version > 6) {
           fprintf(stderr,
-                  "ERROR: --write-version must be 0, 1, 2, 3, 4, or 5!\n");
+                  "ERROR: --write-version must be 0, 1, 2, 3, 4, 5, or 6!\n");
           simple_archiver_print_usage();
           return 1;
         }
