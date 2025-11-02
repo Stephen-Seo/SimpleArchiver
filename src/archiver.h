@@ -113,7 +113,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   SDArchiverState *state,
   SDArchiverHashMap *write_state);
 
-SDArchiverStateRetStruct simple_archiver_write_v4v5(
+SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
   FILE *out_f,
   SDArchiverState *state,
   SDArchiverHashMap *write_state);

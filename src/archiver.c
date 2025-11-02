@@ -1990,7 +1990,7 @@ void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
   }
 }
 
-int internal_write_dir_entries_v2_v3_v4_v5(void *data, void *ud) {
+int internal_write_dir_entries_v2_v3_v4_v5_v6(void *data, void *ud) {
   const char *dir = data;
   void **ptrs = ud;
   FILE *out_f = ptrs[0];
@@ -2152,9 +2152,7 @@ int internal_write_dir_entries_v2_v3_v4_v5(void *data, void *ud) {
     return 1;
   }
 
-  if (state->parsed->write_version == 3
-      || state->parsed->write_version == 4
-      || state->parsed->write_version == 5) {
+  if (state->parsed->write_version >= 3) {
     u32 = stat_buf.st_uid;
     if (state->parsed->flags & 0x400) {
       u32 = state->parsed->uid;
@@ -2504,9 +2502,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     }
     case 4:
     {
-      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5(out_f,
-                                                                state,
-                                                                write_state);
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6(out_f,
+                                                                  state,
+                                                                  write_state);
       if (ret.ret == SDAS_SUCCESS) {
         internal_simple_archiver_parse_stats(write_state);
       }
@@ -2514,9 +2512,19 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     }
     case 5:
     {
-      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5(out_f,
-                                                                state,
-                                                                write_state);
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6(out_f,
+                                                                  state,
+                                                                  write_state);
+      if (ret.ret == SDAS_SUCCESS) {
+        internal_simple_archiver_parse_stats(write_state);
+      }
+      return ret;
+    }
+    case 6:
+    {
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6(out_f,
+                                                                  state,
+                                                                  write_state);
       if (ret.ret == SDAS_SUCCESS) {
         internal_simple_archiver_parse_stats(write_state);
       }
@@ -4757,7 +4765,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4_v5,
+                               internal_write_dir_entries_v2_v3_v4_v5_v6,
                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
@@ -6025,7 +6033,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4_v5,
+                               internal_write_dir_entries_v2_v3_v4_v5_v6,
                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
@@ -6035,11 +6043,13 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-SDArchiverStateRetStruct simple_archiver_write_v4v5(
+SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     FILE *out_f,
     SDArchiverState *state,
     SDArchiverHashMap *write_state) {
-  if (state->parsed->write_version == 5) {
+  if (state->parsed->write_version == 6) {
+    fprintf(stderr, "Writing archive of file format 6\n");
+  } else if (state->parsed->write_version == 5) {
     fprintf(stderr, "Writing archive of file format 5\n");
   } else {
     fprintf(stderr, "Writing archive of file format 4\n");
@@ -6128,7 +6138,14 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   }
 
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
-  uint16_t u16 = state->parsed->write_version == 5 ? 5 : 4;
+  uint16_t u16;
+  if (state->parsed->write_version == 6) {
+    u16 = 6;
+  } else if (state->parsed->write_version == 5) {
+    u16 = 5;
+  } else {
+    u16 = 4;
+  }
 
   simple_archiver_helper_16_bit_be(&u16);
 
@@ -6694,7 +6711,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
-    v5_to_write_header = state->parsed->write_version == 5 ? 1 : 0;
+    v5_to_write_header = state->parsed->write_version >= 5 ? 1 : 0;
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             ++chunk_count,
@@ -6709,6 +6726,19 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
     if (fwrite(&u64, 8, 1, out_f) != 1) {
       return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
+
+    // File format version 6: two-byte bit-flags.
+    if (state->parsed->write_version >= 6) {
+      uint8_t v6_byte_flags[2];
+      // Default, compressed bit is set.
+      // TODO: flags affecting this bit.
+      v6_byte_flags[0] = 1;
+      v6_byte_flags[1] = 0;
+      if (fwrite(v6_byte_flags, 1, 2, out_f) != 2) {
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+    }
+
     SDArchiverLLNode *saved_node = file_node;
     for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
          ++file_idx) {
@@ -7256,7 +7286,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4_v5,
+                               internal_write_dir_entries_v2_v3_v4_v5_v6,
                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
