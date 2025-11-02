@@ -7183,6 +7183,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
       if (!non_c_chunk_size) {
         return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
+      simple_archiver_helper_64_bit_be(non_c_chunk_size);
+      fwrite(non_c_chunk_size, 8, 1, out_f);
       if (v5_to_write_header) {
         size_t fwrite_ret = fwrite("SA", 1, 2, out_f);
         if (fwrite_ret != 2) {
@@ -7190,8 +7192,6 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
         }
         v5_to_write_header = 0;
       }
-      simple_archiver_helper_64_bit_be(non_c_chunk_size);
-      fwrite(non_c_chunk_size, 8, 1, out_f);
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
