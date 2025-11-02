@@ -153,7 +153,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   SDArchiverHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
-SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
   FILE *in_f,
   int_fast8_t do_extract,
   const SDArchiverState *state,

@@ -7333,19 +7333,28 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
   } else if (u16 == 4) {
     fprintf(stderr, "File format version 4\n");
     state->parsed->write_version = 4;
-    ret_struct = simple_archiver_parse_archive_version_4_5(in_f,
-                                                           do_extract,
-                                                           state,
-                                                           parse_state);
+    ret_struct = simple_archiver_parse_archive_version_4_5_6(in_f,
+                                                             do_extract,
+                                                             state,
+                                                             parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else if (u16 == 5) {
     fprintf(stderr, "File format version 5\n");
     state->parsed->write_version = 5;
-    ret_struct = simple_archiver_parse_archive_version_4_5(in_f,
-                                                           do_extract,
-                                                           state,
-                                                           parse_state);
+    ret_struct = simple_archiver_parse_archive_version_4_5_6(in_f,
+                                                             do_extract,
+                                                             state,
+                                                             parse_state);
+    internal_simple_archiver_parse_stats(parse_state);
+    return ret_struct;
+  } else if (u16 == 6) {
+    fprintf(stderr, "File format version 6\n");
+    state->parsed->write_version = 6;
+    ret_struct = simple_archiver_parse_archive_version_4_5_6(in_f,
+                                                             do_extract,
+                                                             state,
+                                                             parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else {
@@ -11899,7 +11908,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     FILE *in_f,
     int_fast8_t do_extract,
     const SDArchiverState *state,
@@ -12629,7 +12638,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
-    v5_to_skip = state->parsed->write_version == 5 ? 1 : 0;
+    v5_to_skip = state->parsed->write_version >= 5 ? 1 : 0;
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             chunk_idx + 1,
@@ -12643,6 +12652,17 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     simple_archiver_helper_64_bit_be(&u64);
 
     const uint64_t file_count = u64;
+
+    // File Format 6: two-bytes bit-flags
+    int_fast8_t compressed_bit_set = 1;
+    if (state->parsed->write_version >= 6) {
+      uint8_t v6_flags_bytes[2];
+
+      if (fread(v6_flags_bytes, 1, 2, in_f) != 2) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      compressed_bit_set = (v6_flags_bytes[0] & 1) ? 1 : 0;
+    }
 
     __attribute__((cleanup(simple_archiver_list_free)))
     SDArchiverLinkedList *file_info_list = simple_archiver_list_init();
@@ -12939,7 +12959,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     const uint64_t chunk_size = u64;
     uint64_t chunk_remaining = chunk_size;
     uint64_t chunk_idx = 0;
-    if (is_compressed) {
+    if (is_compressed && compressed_bit_set) {
       compressed_size += u64;
       fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
     } else {
@@ -12974,7 +12994,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
-    } else if (is_compressed) {
+    } else if (is_compressed && compressed_bit_set) {
       // Start the decompressing process and read into files.
 
       // Handle SIGPIPE.
@@ -13221,7 +13241,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           } else {
             fprintf(stderr, "    Groupname not in archive\n");
           }
-          if (is_compressed) {
+          if (is_compressed && compressed_bit_set) {
             fprintf(stderr,
                     "    File size (uncompressed): %" PRIu64 "\n",
                     file_info->file_size);
@@ -13476,7 +13496,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           } else {
             fprintf(stderr, "    Groupname not in archive\n");
           }
-          if (is_compressed) {
+          if (is_compressed && compressed_bit_set) {
             fprintf(stderr,
                     "    File size (uncompressed): %" PRIu64 "\n",
                     file_info->file_size);
