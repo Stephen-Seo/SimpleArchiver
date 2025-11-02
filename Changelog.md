@@ -15,6 +15,14 @@ to the chunk size instead of the chunk data. This broke chunk size stats, but
 extraction still worked because extraction was based on individual file sizes
 instead of the chunk size.
 
+Upon examination of this bug, there is NO RISK OF LOSS OF DATA, because
+individual file-sizes were used when extracting each file from an uncompressed
+archive, and only the CHUNK SIZE was corrupted, which wasn't used for the
+per-file extraction process.
+
+In other words, this bug only caused garbled per-chunk-size-output when using
+`-x` or `-t`.
+
 ## Version 1.37.1
 
 Fix missing include line in `archive.c`.
