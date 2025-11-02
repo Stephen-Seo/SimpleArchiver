@@ -12997,6 +12997,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     if (is_compressed && compressed_bit_set) {
       compressed_size += u64;
       fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
+    } else if (is_compressed) {
+      compressed_size += u64;
+      fprintf(stderr, "  chunk size (not compressed) %" PRIu64, chunk_size);
     } else {
       fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
