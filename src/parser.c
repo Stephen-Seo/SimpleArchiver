@@ -1495,6 +1495,11 @@ int simple_archiver_parse_args(int argc, const char **argv,
                   "\"--add-not-compress-ext\")\n");
           return 1;
         }
+
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);
