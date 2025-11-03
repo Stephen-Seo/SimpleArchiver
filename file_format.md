@@ -646,10 +646,17 @@ metadata per-chunk:
 
 Following the chunk-count bytes, the following bytes are added for each chunk:
 
-1. 8 bytes that are a 64-bit unsigned integer "file count" in big-endian.
-2. 2 bytes bit-flag:
+After the files' metadata are the current chunk's data:
+
+1. 2 bytes bit-flag:
     1. The first bit is set if this chunk is compressed.
     2. The remaining bits are reserved for future use.
+2. A 64-bit unsigned integer in big endian for the "size of chunk".
+3. X bytes of data for the current chunk of the previously specified size. If
+   not using de/compressor, this section is the previously mentioned files
+   concatenated with each other. If using de/compressor, this section is the
+   previously mentioned files concatenated and compressed into a single blob of
+   data.
 
 ...
 
