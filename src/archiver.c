@@ -6726,7 +6726,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     }
 
     // File format 6 compressed bit value.
-    int_fast8_t compressed_bit_set = 0;
+    uint64_t matching_ext_size = 0;
+    uint64_t not_matching_ext_size = 0;
 
     SDArchiverLLNode *saved_node = file_node;
     for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
@@ -6742,14 +6743,16 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       const size_t filename_len = strlen(file_info_struct->filename);
 
       // File format 6: check extension here.
-      if (state->parsed->write_version >= 6 && !compressed_bit_set) {
+      if (state->parsed->write_version >= 6) {
         const char *filename_ext = NULL;
+
         for (size_t name_idx = filename_len; name_idx-- > 0;) {
           if (file_info_struct->filename[name_idx] == '.') {
             filename_ext = &(file_info_struct->filename[name_idx]);
             break;
           }
         }
+
         if (filename_ext) {
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *ext_lower = simple_archiver_helper_to_lower(filename_ext);
@@ -6757,10 +6760,12 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
                 state->parsed->not_to_compress_file_extensions,
                 ext_lower,
                 strlen(ext_lower)) == NULL) {
-            // Exists a file without one of the not-to-compress-extension, set the
-            // compression bit.
-            compressed_bit_set = 1;
+            not_matching_ext_size += file_info_struct->file_size;
+          } else {
+            matching_ext_size += file_info_struct->file_size;
           }
+        } else {
+          not_matching_ext_size += file_info_struct->file_size;
         }
       }
 
@@ -6926,7 +6931,15 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     }
 
     // File format version 6: two-byte bit-flags.
+    int_fast8_t compressed_bit_set = 1;
     if (state->parsed->write_version >= 6) {
+      const double not_matching_percentage =
+        (double)
+        (not_matching_ext_size * 1000
+          / (not_matching_ext_size + matching_ext_size)) / 1000.0;
+      compressed_bit_set =
+        not_matching_percentage >= state->parsed->v6_compress_percent_threshold;
+
       uint8_t v6_byte_flags[2];
       // Default, compressed bit is set.
       // TODO: flags affecting this bit.
@@ -6938,10 +6951,15 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       }
 
       fprintf(stderr,
-              "  file_fmt_v6: %s\n",
+              "  file_fmt_v6: %s due to percentage %.3f %s threshold %.3f\n",
               compressed_bit_set
-                ? "COMPRESSING chunk"
-                : "_NOT_ COMPRESSING chunk");
+                ? "chunk compression ENABLED"
+                : "chunk compression DISABLED",
+              not_matching_percentage,
+              compressed_bit_set
+                ? "at least"
+                : "below",
+              state->parsed->v6_compress_percent_threshold);
     }
 
     file_node = saved_node;

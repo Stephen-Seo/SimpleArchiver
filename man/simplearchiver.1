@@ -255,18 +255,17 @@ characters).
 Enables a preset of known file extensions to be checked against when archiving
 with compression for file format version 6 (and onward). In other words, each
 file extension in the preset is added to a set that will be checked against
-when checking each file in a chunk. Note that a chunk in file format version 6
-is compressed only if any file in the chunk does not match a file extension in
-the current set of file extensions. So if all files match the set of file
-extensions, then that chunk will NOT be compressed.
+when checking each file in a chunk.
 .TP
 .BR --add-not-compress-ext " " \fIext\fR " | " --add-not-compress-ext=\fIext\fR
 Adds an extension to the set of known file extensions to be checked against
-when archiving with compression for file format version 6 (and onward). Note
-that a chunk in file format version 6 is compressed only if any file in the
-chunk does not match a file extension in the current set of file extensions. So
-if all files match the set of file extensions, then that chunk will NOT be
-compressed.
+when archiving with compression for file format version 6 (and onward).
+.TP
+.BR --set-ext-percent-threshold " " \fIpercent\fR " | " --set-ext-percent-threshold=\fIpercent\fR
+Sets the threshold (between 0.0 and 1.0) to decide when to compress a v6 chunk.
+Note that the default threshold is a low percentage.  The percentage is
+calculated per chunk as will_compress_filesize / total_filesizes, and if the
+percentage is lower than the threshold, then the chunk is NOT compressed.
 .TP
 .BR --version
 Prints the current version of \fBsimplearchiver\fR.
@@ -319,11 +318,15 @@ symbolic links as is when creating an archive.
 
 .TP
 .BR "Conditional Chunk Compression Introduced in File Format Version 6"
-By default, \fBsimplearchiver\fR always compresses every chunk if comrpession is
-enabled. Two options \fB\-\-use\-not\-compress\-file\-exts\-preset\fR and
-\fB\-\-add\-not\-compress\-ext\fR add file extensions to a set that
-is intially empty when the program starts. When creating a compressed archive,
-this set is checked against to see if all files in a chunk have a file extension
-that matches the set. If all the files in the chunk match, then that chunk is
-NOT compressed. If any file does not match a file extension in the set, then
-that chunk is compressed.
+By default, \fBsimplearchiver\fR always compresses every chunk if comrpession
+is enabled. Two options \fB\-\-use\-not\-compress\-file\-exts\-preset\fR and
+\fB\-\-add\-not\-compress\-ext\fR add file extensions to a set that is intially
+empty when the program starts. Also, a percentage threshold is used to
+determine when to compress a chunk and is set to a low percentage by default.
+This threshold can be changed with the option
+\fB\-\-set\-ext\-percent\-threshold\fR.  When creating an archive with a
+specified compressor, this set is checked against with every file in the chunk.
+A percentage is calculated which is the file-sizes of files that do not match
+an extension in the set divided by all the file-sizes. When that percentage
+exceeds the threshold, then the chunk WILL be compressed. Otherwise, a
+percentage less than the threshold WILL NOT be compressed.

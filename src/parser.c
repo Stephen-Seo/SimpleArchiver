@@ -18,6 +18,7 @@
 
 #include "parser.h"
 
+#include <math.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -29,6 +30,7 @@
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||   \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_COSMOPOLITAN
+#include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -351,6 +353,10 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--add-not-compress-ext <ext> | --add-not-compress-ext=<ext> : Add a "
           "extension to choose to not compress (must be like \".thing\")\n");
+  fprintf(stderr,
+          "--set-ext-percent-threshold <percent> | --set-ext-percent-threshold="
+          "<percent> : Sets the threshold (between 0.0 to 1.0) to decide when "
+          "to compress a v6 chunk\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -404,6 +410,8 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.blacklist_begins = NULL;
   parsed.blacklist_ends = NULL;
   parsed.not_to_compress_file_extensions = simple_archiver_hash_map_init();
+  parsed.v6_compress_percent_threshold =
+    SDSA_V6_COMPRESS_DEFAULT_PERCENT_THRESHOLD;
 
   return parsed;
 }
@@ -1457,6 +1465,35 @@ int simple_archiver_parse_args(int argc, const char **argv,
         if (is_separate) {
           --argc;
           ++argv;
+        }
+      } else if (strcmp(argv[0], "--set-ext-percent-threshold") == 0
+          || strncmp(argv[0], "--set-ext-percent-threshold=", 28) == 0) {
+        int_fast8_t is_separate =
+          strcmp(argv[0], "--set-ext-percent-threshold") == 0 ? 1 : 0;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --set-ext-percent-threshold expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          out->v6_compress_percent_threshold = strtod(argv[1], NULL);
+        } else {
+          out->v6_compress_percent_threshold = strtod(argv[0] + 28, NULL);
+        }
+        if (out->v6_compress_percent_threshold == HUGE_VAL
+            || out->v6_compress_percent_threshold == HUGE_VALF
+            || out->v6_compress_percent_threshold == HUGE_VALL) {
+          fprintf(stderr,
+                  "ERROR: Failed to parse \"--set-ext-percent-threshold\" "
+                  "(errno %d)!\n",
+                  errno);
+          return 1;
+        } else if (out->v6_compress_percent_threshold == 0.0) {
+          fprintf(stderr,
+                  "ERROR: Threshold percentage set to 0! (If this is desired, "
+                  "just don't use \"--use-not-compress-file-exts-preset\" or "
+                  "\"--add-not-compress-ext\")\n");
+          return 1;
         }
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);

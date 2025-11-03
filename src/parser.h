@@ -27,6 +27,8 @@
 #include "data_structures/hash_map.h"
 #include "users.h"
 
+#define SDSA_V6_COMPRESS_DEFAULT_PERCENT_THRESHOLD 0.13
+
 extern char *SDSA_NOT_TO_COMPRESS_FILE_EXTS[];
 
 typedef struct SDA_UGMapping {
@@ -115,6 +117,7 @@ typedef struct SDArchiverParsed {
   SDArchiverLinkedList *blacklist_begins;
   SDArchiverLinkedList *blacklist_ends;
   SDArchiverHashMap *not_to_compress_file_extensions;
+  double v6_compress_percent_threshold;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {
