@@ -321,9 +321,11 @@ symbolic links as is when creating an archive.
 By default, \fBsimplearchiver\fR always compresses every chunk if comrpession
 is enabled. Two options \fB\-\-use\-not\-compress\-file\-exts\-preset\fR and
 \fB\-\-add\-not\-compress\-ext\fR add file extensions to a set that is intially
-empty when the program starts. Also, a percentage threshold is used to
-determine when to compress a chunk and is set to a low percentage by default.
-This threshold can be changed with the option
+empty when the program starts. Using these flags opts-in to conditionally not
+compressing some chunks based on a heuristic (percentage of compressible files
+compared to a percentage threshold) even if a compressor is specfied. A
+percentage threshold is used to determine when to compress a chunk and is set
+to a low percentage by default.  This threshold can be changed with the option
 \fB\-\-set\-ext\-percent\-threshold\fR.  When creating an archive with a
 specified compressor, this set is checked against with every file in the chunk.
 A percentage is calculated which is the file-sizes of files that do not match
