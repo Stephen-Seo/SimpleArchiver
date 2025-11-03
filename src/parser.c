@@ -42,6 +42,35 @@
 #include "parser_internal.h"
 #include "version.h"
 
+char *SDSA_NOT_TO_COMPRESS_FILE_EXTS[] = {
+  ".simplearchive",
+  ".sa",
+  ".gz",
+  ".xz",
+  ".zst",
+  ".bz2",
+  ".lz",
+  ".ogg",
+  ".mp3",
+  ".flac",
+  ".alac",
+  ".aac",
+  ".jpg",
+  ".jpeg",
+  ".mjpeg",
+  ".png",
+  ".tiff",
+  ".webp",
+  ".webm",
+  ".mp4",
+  ".mkv",
+  ".av1",
+  ".avi",
+  ".iso",
+  ".img",
+  NULL
+};
+
 /// Gets the first non "./"-like character in the filename.
 size_t simple_archiver_parser_internal_get_first_non_current_idx(
     const char *filename) {
