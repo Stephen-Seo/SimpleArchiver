@@ -6948,7 +6948,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
 
     if (state->parsed->compressor
         && state->parsed->decompressor
-        && compressed_bit_set) {
+        && (state->parsed->write_version <= 5 || compressed_bit_set)) {
       // Is compressing.
       __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
       char *temp_filename = NULL;
