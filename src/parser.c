@@ -348,6 +348,9 @@ void simple_archiver_print_usage(void) {
           "--wb-case-insensitive : Makes white/black-list checking case "
           "insensitive.\n");
   fprintf(stderr,
+          "--print-file-exts-preset : Prints the preset extensions to stderr "
+          "and stops simplearchiver.\n");
+  fprintf(stderr,
           "--use-not-compress-file-exts-preset : Adds preset extensions to "
           "collection of file extensions to choose to not compress\n");
   fprintf(stderr,
@@ -1408,6 +1411,14 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
       } else if (strcmp(argv[0], "--wb-case-insensitive") == 0) {
         out->flags |= 0x20000;
+      } else if (strcmp(argv[0], "--print-file-exts-preset") == 0) {
+        for (char **ext = SDSA_NOT_TO_COMPRESS_FILE_EXTS;
+            *ext != NULL;
+            ++ext) {
+          fprintf(stderr, "%s ", *ext);
+        }
+        fprintf(stderr, "\n");
+        exit(0);
       } else if (strcmp(argv[0], "--use-not-compress-file-exts-preset") == 0) {
         for (char **ext = SDSA_NOT_TO_COMPRESS_FILE_EXTS;
             *ext != NULL;
