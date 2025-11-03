@@ -316,3 +316,14 @@ extraction. Also note that absolute paths can be prevented from being stored on
 archive creation with \fB\-\-no\-abs\-symlink\fR. Note that specifying both
 \fB\-\-no\-safe\-links\fR and \fB\-\-preserve\-symlinks\fR will store all
 symbolic links as is when creating an archive.
+
+.TP
+.BR "Conditional Chunk Compression Introduced in File Format Version 6"
+By default, \fBsimplearchiver\fR always compresses every chunk if comrpession is
+enabled. Two options \fB\-\-use\-not\-compress\-file\-exts\-preset\fR and
+\fB\-\-add\-not\-compress\-ext\fR add file extensions to a set that
+is intially empty when the program starts. When creating a compressed archive,
+this set is checked against to see if all files in a chunk have a file extension
+that matches the set. If all the files in the chunk match, then that chunk is
+NOT compressed. If any file does not match a file extension in the set, then
+that chunk is compressed.
