@@ -6936,8 +6936,9 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     if (state->parsed->write_version >= 6) {
       const double not_matching_percentage =
         (double)
-        (not_matching_ext_size * 1000
-          / (not_matching_ext_size + matching_ext_size)) / 1000.0;
+          (not_matching_ext_size * 1000
+            / (not_matching_ext_size + matching_ext_size))
+          / 1000.0;
       compressed_bit_set =
         not_matching_percentage >= state->parsed->v6_compress_percent_threshold;
 
