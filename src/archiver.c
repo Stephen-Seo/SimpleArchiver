@@ -6725,7 +6725,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
-    // File format 6 compressed bit value.
+    // File format 6 counters for getting percentage.
     uint64_t matching_ext_size = 0;
     uint64_t not_matching_ext_size = 0;
 
@@ -6931,6 +6931,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     }
 
     // File format version 6: two-byte bit-flags.
+    // Default, compressed bit is set, but is overwritten when using v6.
     int_fast8_t compressed_bit_set = 1;
     if (state->parsed->write_version >= 6) {
       const double not_matching_percentage =
@@ -6941,8 +6942,6 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
         not_matching_percentage >= state->parsed->v6_compress_percent_threshold;
 
       uint8_t v6_byte_flags[2];
-      // Default, compressed bit is set.
-      // TODO: flags affecting this bit.
       v6_byte_flags[0] = 0;
       v6_byte_flags[0] |= compressed_bit_set ? 1 : 0;
       v6_byte_flags[1] = 0;
