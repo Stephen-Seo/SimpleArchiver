@@ -329,4 +329,8 @@ specified compressor, this set is checked against with every file in the chunk.
 A percentage is calculated which is the file-sizes of files that do not match
 an extension in the set divided by all the file-sizes. When that percentage
 exceeds the threshold, then the chunk WILL be compressed. Otherwise, a
-percentage less than the threshold WILL NOT be compressed.
+percentage less than the threshold WILL NOT be compressed. For example, the
+threshold is 0.2 (20%) and the percentage was calculated as 0.7 (70%) that
+corresponds to 70% of the file-size representing files that are compressible
+(their file extensions are not in the set). This results in the chunk being
+compressed because the calculated percentage of 0.7 is greater than 0.2.
