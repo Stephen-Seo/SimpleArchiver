@@ -1404,17 +1404,20 @@ int simple_archiver_parse_args(int argc, const char **argv,
         for (char **ext = SDSA_NOT_TO_COMPRESS_FILE_EXTS;
             *ext != NULL;
             ++ext) {
+          char *str = simple_archiver_helper_to_lower(*ext);
           if (!simple_archiver_hash_map_get(
                 out->not_to_compress_file_extensions,
-                ext,
-                strlen(*ext))) {
+                str,
+                strlen(str))) {
             simple_archiver_hash_map_insert(
                 out->not_to_compress_file_extensions,
                 (void*)1,
-                simple_archiver_helper_to_lower(*ext),
-                strlen(*ext),
+                str,
+                strlen(str),
                 simple_archiver_helper_datastructure_cleanup_nop,
                 NULL);
+          } else {
+            free(str);
           }
         }
       } else if (strcmp(argv[0], "--add-not-compress-ext") == 0
