@@ -2319,7 +2319,7 @@ void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
                                  SDA_PSTATE_CMP_SIZE_KEY,
                                  SDA_PSTATE_CMP_SIZE_KEY_SIZE);
   if (temp && *temp != 0) {
-    fprintf(stderr, "Compressed size is %" PRIu64, *temp);
+    fprintf(stderr, "Compressed (archived) size is %" PRIu64, *temp);
     if (*temp > 1024) {
       uint64_t hundredths = (100 * (*temp % 1024)) / 1024;
       fprintf(stderr,
