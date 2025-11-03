@@ -999,3 +999,27 @@ int simple_archiver_helper_set_signal_action(int signal, void (*handler)(int)) {
 
   return result;
 }
+
+char *simple_archiver_helper_to_lower(const char *str) {
+  if (!str) {
+    return NULL;
+  }
+  size_t len = strlen(str);
+  if (len == 0) {
+    return NULL;
+  }
+
+  char *new = malloc(len + 1);
+
+  for (size_t idx = 0; idx < len; ++idx) {
+    if (str[idx] >= 'A' && str[idx] <= 'Z') {
+      new[idx] = str[idx] + 32;
+    } else {
+      new[idx] = str[idx];
+    }
+  }
+
+  new[len] = 0;
+
+  return new;
+}

@@ -302,6 +302,12 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--wb-case-insensitive : Makes white/black-list checking case "
           "insensitive.\n");
+  fprintf(stderr,
+          "--use-not-compress-file-exts-preset : Adds preset extensions to "
+          "collection of file extensions to choose to not compress\n");
+  fprintf(stderr,
+          "--add-not-compress-ext <ext> | --add-not-compress-ext=<ext> : Add a "
+          "extension to choose to not compress (must be like \".thing\")\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -354,6 +360,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.blacklist_contains_all = NULL;
   parsed.blacklist_begins = NULL;
   parsed.blacklist_ends = NULL;
+  parsed.not_to_compress_file_extensions = simple_archiver_hash_map_init();
 
   return parsed;
 }
@@ -1350,6 +1357,59 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
       } else if (strcmp(argv[0], "--wb-case-insensitive") == 0) {
         out->flags |= 0x20000;
+      } else if (strcmp(argv[0], "--use-not-compress-file-exts-preset") == 0) {
+        for (char **ext = SDSA_NOT_TO_COMPRESS_FILE_EXTS;
+            *ext != NULL;
+            ++ext) {
+          if (!simple_archiver_hash_map_get(
+                out->not_to_compress_file_extensions,
+                ext,
+                strlen(*ext))) {
+            simple_archiver_hash_map_insert(
+                out->not_to_compress_file_extensions,
+                (void*)1,
+                simple_archiver_helper_to_lower(*ext),
+                strlen(*ext),
+                simple_archiver_helper_datastructure_cleanup_nop,
+                NULL);
+          }
+        }
+      } else if (strcmp(argv[0], "--add-not-compress-ext") == 0
+          || strncmp(argv[0], "--add-not-compress-ext=", 23) == 0) {
+        int_fast8_t is_separate =
+          strcmp(argv[0], "--add-not-compress-ext") == 0 ? 1 : 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --add-not-compress-ext expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 23;
+        }
+        if (!simple_archiver_hash_map_get(
+              out->not_to_compress_file_extensions,
+              str,
+              strlen(str))) {
+          simple_archiver_hash_map_insert(
+              out->not_to_compress_file_extensions,
+              (void*)1,
+              simple_archiver_helper_to_lower(str),
+              strlen(str),
+              simple_archiver_helper_datastructure_cleanup_nop,
+              NULL);
+        } else {
+          fprintf(stderr,
+                  "WARNING: File extension \"%s\" already added.\n",
+                  str);
+        }
+
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);
@@ -1846,6 +1906,9 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   }
   if (parsed->blacklist_ends) {
     simple_archiver_list_free(&parsed->blacklist_ends);
+  }
+  if (parsed->not_to_compress_file_extensions) {
+    simple_archiver_hash_map_free(&parsed->not_to_compress_file_extensions);
   }
 }
 

@@ -162,4 +162,7 @@ char *simple_archiver_helper_combine_strs(const char *prefix,
 // stderr)
 int simple_archiver_helper_set_signal_action(int signal, void(*handler)(int));
 
+// Returned non-null C-string must be free'd.
+char *simple_archiver_helper_to_lower(const char *str);
+
 #endif

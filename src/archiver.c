@@ -37,6 +37,7 @@
 #include <signal.h>
 
 // Local includes.
+#include "data_structures/hash_map.h"
 #include "data_structures/priority_heap.h"
 #include "helpers.h"
 #include "users.h"
@@ -6724,19 +6725,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
-    // File format version 6: two-byte bit-flags.
-    int_fast8_t compressed_bit_set = 1;
-    if (state->parsed->write_version >= 6) {
-      uint8_t v6_byte_flags[2];
-      // Default, compressed bit is set.
-      // TODO: flags affecting this bit.
-      v6_byte_flags[0] = 0;
-      v6_byte_flags[0] |= compressed_bit_set ? 1 : 0;
-      v6_byte_flags[1] = 0;
-      if (fwrite(v6_byte_flags, 1, 2, out_f) != 2) {
-        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
-      }
-    }
+    // File format 6 compressed bit value.
+    int_fast8_t compressed_bit_set = 0;
 
     SDArchiverLLNode *saved_node = file_node;
     for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
@@ -6750,6 +6740,30 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
         *non_c_chunk_size += file_info_struct->file_size;
       }
       const size_t filename_len = strlen(file_info_struct->filename);
+
+      // File format 6: check extension here.
+      if (state->parsed->write_version >= 6 && !compressed_bit_set) {
+        const char *filename_ext = NULL;
+        for (size_t name_idx = filename_len; name_idx-- > 0;) {
+          if (file_info_struct->filename[name_idx] == '.') {
+            filename_ext = &(file_info_struct->filename[name_idx]);
+            break;
+          }
+        }
+        if (filename_ext) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+          char *ext_lower = simple_archiver_helper_to_lower(filename_ext);
+          if (simple_archiver_hash_map_get(
+                state->parsed->not_to_compress_file_extensions,
+                ext_lower,
+                strlen(ext_lower)) == NULL) {
+            // Exists a file without one of the not-to-compress-extension, set the
+            // compression bit.
+            compressed_bit_set = 1;
+          }
+        }
+      }
+
       if (state->parsed->prefix) {
         const size_t total_length = filename_len + prefix_length;
         if (total_length >= 0xFFFF) {
@@ -6909,6 +6923,25 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       if (fwrite(&u64, 8, 1, out_f) != 1) {
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
+    }
+
+    // File format version 6: two-byte bit-flags.
+    if (state->parsed->write_version >= 6) {
+      uint8_t v6_byte_flags[2];
+      // Default, compressed bit is set.
+      // TODO: flags affecting this bit.
+      v6_byte_flags[0] = 0;
+      v6_byte_flags[0] |= compressed_bit_set ? 1 : 0;
+      v6_byte_flags[1] = 0;
+      if (fwrite(v6_byte_flags, 1, 2, out_f) != 2) {
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      fprintf(stderr,
+              "  file_fmt_v6: %s\n",
+              compressed_bit_set
+                ? "COMPRESSING chunk"
+                : "_NOT_ COMPRESSING chunk");
     }
 
     file_node = saved_node;
@@ -9293,13 +9326,29 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
     if (chunk_size > 1024) {
-      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+      uint64_t hundredths = (chunk_size % 1024) * 100 / 1024;
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " KiB",
+        chunk_size / 1024,
+        hundredths);
     }
     if (chunk_size > 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+      uint64_t hundredths = (chunk_size % (1024 * 1024)) * 100 / (1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " MiB",
+        chunk_size / (1024 * 1024),
+        hundredths);
     }
     if (chunk_size > 1024 * 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+      uint64_t hundredths =
+        (chunk_size % (1024 * 1024 * 1024)) * 100 / (1024 * 1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " GiB",
+        chunk_size / (1024 * 1024 * 1024),
+        hundredths);
     }
     fprintf(stderr, "\n");
 
@@ -11106,13 +11155,29 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
     if (chunk_size > 1024) {
-      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+      uint64_t hundredths = (chunk_size % 1024) * 100 / 1024;
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " KiB",
+        chunk_size / 1024,
+        hundredths);
     }
     if (chunk_size > 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+      uint64_t hundredths = (chunk_size % (1024 * 1024)) * 100 / (1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " MiB",
+        chunk_size / (1024 * 1024),
+        hundredths);
     }
     if (chunk_size > 1024 * 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+      uint64_t hundredths =
+        (chunk_size % (1024 * 1024 * 1024)) * 100 / (1024 * 1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " GiB",
+        chunk_size / (1024 * 1024 * 1024),
+        hundredths);
     }
     fprintf(stderr, "\n");
 
@@ -12688,17 +12753,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
 
     const uint64_t file_count = u64;
 
-    // File Format 6: two-bytes bit-flags
-    int_fast8_t compressed_bit_set = 1;
-    if (state->parsed->write_version >= 6) {
-      uint8_t v6_flags_bytes[2];
-
-      if (fread(v6_flags_bytes, 1, 2, in_f) != 2) {
-        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
-      }
-      compressed_bit_set = (v6_flags_bytes[0] & 1) ? 1 : 0;
-    }
-
     __attribute__((cleanup(simple_archiver_list_free)))
     SDArchiverLinkedList *file_info_list = simple_archiver_list_init();
 
@@ -12986,6 +13040,17 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       file_info = NULL;
     }
 
+    // File Format 6: two-bytes bit-flags
+    int_fast8_t compressed_bit_set = 1;
+    if (state->parsed->write_version >= 6) {
+      uint8_t v6_flags_bytes[2];
+
+      if (fread(v6_flags_bytes, 1, 2, in_f) != 2) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      compressed_bit_set = (v6_flags_bytes[0] & 1) ? 1 : 0;
+    }
+
     if (fread(&u64, 1, 8, in_f) != 8) {
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
@@ -13004,13 +13069,29 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
     if (chunk_size > 1024) {
-      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+      uint64_t hundredths = (chunk_size % 1024) * 100 / 1024;
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " KiB",
+        chunk_size / 1024,
+        hundredths);
     }
     if (chunk_size > 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+      uint64_t hundredths = (chunk_size % (1024 * 1024)) * 100 / (1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " MiB",
+        chunk_size / (1024 * 1024),
+        hundredths);
     }
     if (chunk_size > 1024 * 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+      uint64_t hundredths =
+        (chunk_size % (1024 * 1024 * 1024)) * 100 / (1024 * 1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " GiB",
+        chunk_size / (1024 * 1024 * 1024),
+        hundredths);
     }
     fprintf(stderr, "\n");
 

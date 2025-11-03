@@ -27,6 +27,35 @@
 #include "data_structures/hash_map.h"
 #include "users.h"
 
+static char *SDSA_NOT_TO_COMPRESS_FILE_EXTS[] = {
+  ".simplearchive",
+  ".sa",
+  ".gz",
+  ".xz",
+  ".zst",
+  ".bz2",
+  ".lz",
+  ".ogg",
+  ".mp3",
+  ".flac",
+  ".alac",
+  ".aac",
+  ".jpg",
+  ".jpeg",
+  ".mjpeg",
+  ".png",
+  ".tiff",
+  ".webp",
+  ".webm",
+  ".mp4",
+  ".mkv",
+  ".av1",
+  ".avi",
+  ".iso",
+  ".img",
+  NULL
+};
+
 typedef struct SDA_UGMapping {
   SDArchiverHashMap *UidToUname;
   SDArchiverHashMap *UnameToUid;
@@ -112,6 +141,7 @@ typedef struct SDArchiverParsed {
   SDArchiverLinkedList *blacklist_contains_all;
   SDArchiverLinkedList *blacklist_begins;
   SDArchiverLinkedList *blacklist_ends;
+  SDArchiverHashMap *not_to_compress_file_extensions;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

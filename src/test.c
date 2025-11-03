@@ -999,6 +999,21 @@ TEST_HELPERS_PREFIX_END:
       "The String Is This.", "tHIS.", 1));
   }
 
+  // Test helper_to_lower
+  {
+    char *lower = simple_archiver_helper_to_lower(
+        "OneTwoThreeFourFiveAppleZebra");
+    CHECK_TRUE(strcmp(lower, "onetwothreefourfiveapplezebra") == 0);
+    free(lower);
+
+    lower = simple_archiver_helper_to_lower(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    CHECK_TRUE(strcmp(lower,
+                      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")
+                 == 0);
+    free(lower);
+  }
+
   printf("Checks checked: %" PRId32 "\n", checks_checked);
   printf("Checks passed:  %" PRId32 "\n", checks_passed);
   return checks_passed == checks_checked ? 0 : 1;
