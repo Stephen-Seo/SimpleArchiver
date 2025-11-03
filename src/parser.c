@@ -1435,21 +1435,23 @@ int simple_archiver_parse_args(int argc, const char **argv,
         } else {
           str = argv[0] + 23;
         }
+        char *to_lower = simple_archiver_helper_to_lower(str);
         if (!simple_archiver_hash_map_get(
               out->not_to_compress_file_extensions,
-              str,
-              strlen(str))) {
+              to_lower,
+              strlen(to_lower))) {
           simple_archiver_hash_map_insert(
               out->not_to_compress_file_extensions,
               (void*)1,
-              simple_archiver_helper_to_lower(str),
-              strlen(str),
+              to_lower,
+              strlen(to_lower),
               simple_archiver_helper_datastructure_cleanup_nop,
               NULL);
         } else {
           fprintf(stderr,
                   "WARNING: File extension \"%s\" already added.\n",
                   str);
+          free(to_lower);
         }
 
         if (is_separate) {
