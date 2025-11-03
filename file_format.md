@@ -644,8 +644,6 @@ metadata per-chunk:
 
 ...
 
-Following the chunk-count bytes, the following bytes are added for each chunk:
-
 After the files' metadata are the current chunk's data:
 
 1. 2 bytes bit-flag:
@@ -660,12 +658,12 @@ After the files' metadata are the current chunk's data:
 
 ...
 
-The difference is the additional 2-byte bit-flag added after the file-count
-bytes for the chunk. A new bit is designated as an indicator that the chunk may
-or may not be compressed. If compression is not used, then it is ignored and
-the data is known to be uncompressed. Previous file formats cannot be assigned
-a bit for this feature because the previous implementations of prior file
-formats do not know to check for this.
+The difference is the additional 2-byte bit-flag added before the chunk size. A
+new bit is designated as an indicator that the chunk may or may not be
+compressed. If compression is not used, then it is ignored and the data is
+known to be uncompressed. Previous file formats cannot be assigned a bit for
+this feature because the previous implementations of prior file formats do not
+know to check for this.
 
 This additional bit for indicating un/compressed chunks is made for the case
 that all files in the chunk match some criteria to prevent it from being
