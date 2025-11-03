@@ -251,6 +251,23 @@ blocked/blacklisted.
 Makes any whitelist/blacklist option case-insensitive (applies only to ASCII
 characters).
 .TP
+.BR --use-not-compress-file-exts-preset
+Enables a preset of known file extensions to be checked against when archiving
+with compression for file format version 6 (and onward). In other words, each
+file extension in the preset is added to a set that will be checked against
+when checking each file in a chunk. Note that a chunk in file format version 6
+is compressed only if any file in the chunk does not match a file extension in
+the current set of file extensions. So if all files match the set of file
+extensions, then that chunk will NOT be compressed.
+.TP
+.BR --add-not-compress-ext " " \fIext\fR " | " --add-not-compress-ext=\fIext\fR
+Adds an extension to the set of known file extensions to be checked against
+when archiving with compression for file format version 6 (and onward). Note
+that a chunk in file format version 6 is compressed only if any file in the
+chunk does not match a file extension in the current set of file extensions. So
+if all files match the set of file extensions, then that chunk will NOT be
+compressed.
+.TP
 .BR --version
 Prints the current version of \fBsimplearchiver\fR.
 .TP
