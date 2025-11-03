@@ -1494,6 +1494,12 @@ int simple_archiver_parse_args(int argc, const char **argv,
                   "just don't use \"--use-not-compress-file-exts-preset\" or "
                   "\"--add-not-compress-ext\")\n");
           return 1;
+        } else if (out->v6_compress_percent_threshold < 0.0
+            || out->v6_compress_percent_threshold > 1.0) {
+          fprintf(stderr,
+                  "ERROR: Threshold percentage must be betwen 0.0 and 1.0! "
+                  "(Actual values have granularity of 0.001)\n");
+          return 1;
         }
 
         if (is_separate) {
