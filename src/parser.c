@@ -1648,16 +1648,16 @@ int simple_archiver_parse_args(int argc, const char **argv,
         } else {
           free(dir_path);
           free(temp_user_cwd_realpath);
-          dir_path = strdup(file_path);
-          for (size_t idx = strlen(dir_path); idx-- > 0;) {
-            if (idx == strlen(dir_path)) {
+          for (size_t idx = strlen(file_path); idx-- > 0;) {
+            if (idx == strlen(file_path)) {
               continue;
-            } else if (dir_path[idx] == '/') {
-              dir_path[idx] = 0;
+            } else if (file_path[idx] == '/' && idx > 0) {
+              file_path[idx] = 0;
             } else {
               break;
             }
           }
+          dir_path = strdup(file_path);
           simple_archiver_list_add(out->working_dirs, dir_path, NULL);
         }
 
@@ -1673,6 +1673,14 @@ int simple_archiver_parse_args(int argc, const char **argv,
             break;
           }
           DIR *dir = opendir(next);
+          if (!dir) {
+            if (simple_archiver_list_remove(dir_list,
+                                            list_remove_same_str_fn,
+                                            next) == 0) {
+              break;
+            }
+            continue;
+          }
           struct dirent *dir_entry;
           uint_fast8_t is_dir_empty = 1;
           do {
