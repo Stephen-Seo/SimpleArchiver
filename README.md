@@ -137,6 +137,11 @@ the archive. For previous file format versions (version 2 and 1), either name or
 numeric id will have an effect since these older file format versions only store
 UID/GID.
 
+## Additional Info
+
+Check the man page (or
+[the html generated page](https://stephen-seo.github.io/SimpleArchiver/)).
+
 ## LICENSE Information
 
 Uses the [ISC License](https://choosealicense.com/licenses/isc/).
