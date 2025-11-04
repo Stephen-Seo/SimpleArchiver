@@ -6211,6 +6211,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     NULL,
     simple_archiver_helper_datastructure_cleanup_nop);
 
+  int_fast8_t has_non_compressible_chunk = 0;
   if (files_pheap) {
     if (state->parsed->write_version >= 6) {
       __attribute__((cleanup(simple_archiver_priority_heap_free)))
@@ -6235,6 +6236,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
           }
         }
         if (ext && simple_archiver_hash_map_get(state->parsed->not_to_compress_file_extensions, ext, strlen(ext))) {
+          has_non_compressible_chunk = 1;
           simple_archiver_priority_heap_insert(
               name_pheap,
               0,
@@ -7154,7 +7156,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     // Default, compressed bit is set, but is overwritten when using v6.
     int_fast8_t compressed_bit_set = 1;
     if (state->parsed->write_version >= 6) {
-      compressed_bit_set = is_first_chunk ? 0 : 1;
+      compressed_bit_set = is_first_chunk && has_non_compressible_chunk ? 0 : 1;
       is_first_chunk = 0;
 
       uint8_t v6_byte_flags[2];
