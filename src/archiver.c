@@ -2315,61 +2315,128 @@ int simple_archiver_internal_prune_filenames_v0(
 }
 
 void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
-  uint64_t *temp =
+  uint64_t *cmp_size =
     simple_archiver_hash_map_get(parse_state,
                                  SDA_PSTATE_CMP_SIZE_KEY,
                                  SDA_PSTATE_CMP_SIZE_KEY_SIZE);
-  if (temp && *temp != 0) {
-    fprintf(stderr, "Compressed (archived) size is %" PRIu64, *temp);
-    if (*temp > 1024) {
-      uint64_t hundredths = (100 * (*temp % 1024)) / 1024;
+  if (cmp_size && *cmp_size!= 0) {
+    fprintf(stderr, "Compressed (archived) size is %" PRIu64, *cmp_size);
+    if (*cmp_size > 1024) {
+      uint64_t hundredths = (100 * (*cmp_size % 1024)) / 1024;
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " KiB",
-              *temp / 1024,
+              *cmp_size / 1024,
               hundredths);
     }
-    if (*temp > 1024 * 1024) {
-      uint64_t hundredths = (100 * (*temp % (1024 * 1024))) / (1024 * 1024);
+    if (*cmp_size > 1024 * 1024) {
+      uint64_t hundredths = (100 * (*cmp_size % (1024 * 1024))) / (1024 * 1024);
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " MiB",
-              *temp / (1024 * 1024),
+              *cmp_size / (1024 * 1024),
               hundredths);
     }
-    if (*temp > 1024 * 1024 * 1024) {
+    if (*cmp_size > 1024 * 1024 * 1024) {
       uint64_t hundredths =
-        (100 * (*temp % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+        (100 * (*cmp_size % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " GiB",
-              *temp / (1024 * 1024 * 1024),
+              *cmp_size / (1024 * 1024 * 1024),
               hundredths);
     }
     fprintf(stderr, "\n");
   }
-  temp = simple_archiver_hash_map_get(parse_state,
-                                      SDA_PSTATE_ACT_SIZE_KEY,
-                                      SDA_PSTATE_ACT_SIZE_KEY_SIZE);
-  if (temp && *temp != 0) {
-    fprintf(stderr, "Actual size is %" PRIu64, *temp);
-    if (*temp > 1024) {
-      uint64_t hundredths = (100 * (*temp % 1024)) / 1024;
+  uint64_t *act_size =
+    simple_archiver_hash_map_get(
+      parse_state,
+      SDA_PSTATE_ACT_SIZE_KEY,
+      SDA_PSTATE_ACT_SIZE_KEY_SIZE);
+  if (act_size && *act_size != 0) {
+    fprintf(stderr, "Actual size is %" PRIu64, *act_size);
+    if (*act_size > 1024) {
+      uint64_t hundredths = (100 * (*act_size % 1024)) / 1024;
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " KiB",
-              *temp / 1024,
+              *act_size / 1024,
               hundredths);
     }
-    if (*temp > 1024 * 1024) {
-      uint64_t hundredths = (100 * (*temp % (1024 * 1024))) / (1024 * 1024);
+    if (*act_size > 1024 * 1024) {
+      uint64_t hundredths = (100 * (*act_size % (1024 * 1024))) / (1024 * 1024);
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " MiB",
-              *temp / (1024 * 1024),
+              *act_size / (1024 * 1024),
               hundredths);
     }
-    if (*temp > 1024 * 1024 * 1024) {
+    if (*act_size > 1024 * 1024 * 1024) {
       uint64_t hundredths =
-        (100 * (*temp % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+        (100 * (*act_size % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " GiB",
-              *temp / (1024 * 1024 * 1024),
+              *act_size / (1024 * 1024 * 1024),
+              hundredths);
+    }
+    fprintf(stderr, "\n");
+  }
+
+  uint64_t *ncmp_size =
+    simple_archiver_hash_map_get(
+      parse_state,
+      SDA_PSTATE_NOT_CMP_SIZE_KEY,
+      SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE);
+  if (ncmp_size && *ncmp_size != 0
+      && cmp_size && *cmp_size != 0
+      && act_size && *act_size != 0) {
+    const uint64_t cmp_wo_n_size = *cmp_size - *ncmp_size;
+    const uint64_t act_wo_n_size = *act_size - *ncmp_size;
+    fprintf(
+      stderr,
+      "Without non-cmp: Compressed (archived) size is %" PRIu64,
+      cmp_wo_n_size);
+    if (cmp_wo_n_size > 1024) {
+      uint64_t hundredths = (100 * (cmp_wo_n_size % 1024)) / 1024;
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " KiB",
+              cmp_wo_n_size / 1024,
+              hundredths);
+    }
+    if (cmp_wo_n_size > 1024 * 1024) {
+      uint64_t hundredths =
+        (100 * (cmp_wo_n_size % (1024 * 1024))) / (1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " MiB",
+              cmp_wo_n_size / (1024 * 1024),
+              hundredths);
+    }
+    if (cmp_wo_n_size > 1024 * 1024 * 1024) {
+      uint64_t hundredths =
+        (100 * (cmp_wo_n_size % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " GiB",
+              cmp_wo_n_size / (1024 * 1024 * 1024),
+              hundredths);
+    }
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Without non-cmp: Actual size is %" PRIu64, act_wo_n_size);
+    if (act_wo_n_size > 1024) {
+      uint64_t hundredths = (100 * (act_wo_n_size % 1024)) / 1024;
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " KiB",
+              act_wo_n_size / 1024,
+              hundredths);
+    }
+    if (act_wo_n_size > 1024 * 1024) {
+      uint64_t hundredths =
+        (100 * (act_wo_n_size % (1024 * 1024))) / (1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " MiB",
+              act_wo_n_size / (1024 * 1024),
+              hundredths);
+    }
+    if (act_wo_n_size > 1024 * 1024 * 1024) {
+      uint64_t hundredths =
+        (100 * (act_wo_n_size % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " GiB",
+              act_wo_n_size / (1024 * 1024 * 1024),
               hundredths);
     }
     fprintf(stderr, "\n");
@@ -6239,7 +6306,11 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
             break;
           }
         }
-        if (ext && simple_archiver_hash_map_get(state->parsed->not_to_compress_file_extensions, ext, strlen(ext))) {
+        if (ext
+            && simple_archiver_hash_map_get(
+                  state->parsed->not_to_compress_file_extensions,
+                  ext,
+                  strlen(ext))) {
           has_non_compressible_chunk = 1;
           simple_archiver_priority_heap_insert(
               name_pheap,
@@ -7160,6 +7231,18 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     // Default, compressed bit is set, but is overwritten when using v6.
     int_fast8_t compressed_bit_set = 1;
     if (state->parsed->write_version >= 6) {
+      if (is_first_chunk) {
+        uint64_t *temp = malloc(sizeof(uint64_t));
+        memcpy(temp, non_c_chunk_size, sizeof(uint64_t));
+        simple_archiver_hash_map_insert(
+          write_state,
+          temp,
+          SDA_PSTATE_NOT_CMP_SIZE_KEY,
+          SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
+          NULL,
+          simple_archiver_helper_datastructure_cleanup_nop);
+      }
+
       compressed_bit_set = is_first_chunk && has_non_compressible_chunk ? 0 : 1;
       is_first_chunk = 0;
 
@@ -12971,6 +13054,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
   const uint64_t chunk_count = u64;
   int_fast8_t skip_chunk;
   int_fast8_t v5_to_skip;
+  uint64_t not_compressed_size = 0;
   for (uint64_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -13301,6 +13385,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
     } else if (is_compressed) {
       compressed_size += u64;
+      not_compressed_size += u64;
       fprintf(stderr, "  chunk size (not compressed) %" PRIu64, chunk_size);
     } else {
       fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
@@ -14222,6 +14307,17 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       temp,
       SDA_PSTATE_ACT_SIZE_KEY,
       SDA_PSTATE_ACT_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+  }
+  if (not_compressed_size != 0) {
+    uint64_t *temp = malloc(sizeof(uint64_t));
+    memcpy(temp, &not_compressed_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      temp,
+      SDA_PSTATE_NOT_CMP_SIZE_KEY,
+      SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
       NULL,
       simple_archiver_helper_datastructure_cleanup_nop);
   }
