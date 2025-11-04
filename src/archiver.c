@@ -6743,7 +6743,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       const size_t filename_len = strlen(file_info_struct->filename);
 
       // File format 6: check extension here.
-      if (state->parsed->write_version >= 6) {
+      if (state->parsed->write_version >= 6
+          && state->parsed->not_to_compress_file_extensions->count != 0) {
         const char *filename_ext = NULL;
 
         for (size_t name_idx = filename_len; name_idx-- > 0;) {
@@ -6767,6 +6768,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
         } else {
           not_matching_ext_size += file_info_struct->file_size;
         }
+      } else {
+        not_matching_ext_size += file_info_struct->file_size;
       }
 
       if (state->parsed->prefix) {
