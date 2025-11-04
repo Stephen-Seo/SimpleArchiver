@@ -7299,7 +7299,9 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
             fopen(file_info_struct->filename, "rb");
         while (!feof(fd)) {
-          if (ferror(fd)) {
+          if (is_sig_int_occurred) {
+            return SDA_RET_STRUCT(SDAS_SIGINT);
+          } else if (ferror(fd)) {
             fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
             return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
