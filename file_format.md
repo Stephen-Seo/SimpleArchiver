@@ -680,7 +680,7 @@ which indicates the number of directories in this archive.
 Following the directory-count bytes, the following byte is added for each
 directory:
 
-1. 4 bytes 16-bit unsigned integer "directory pathname size" in big-endian.
+1. 4 bytes 32-bit unsigned integer "directory pathname size" in big-endian.
    This does not include the NULL at the end of the C-string. Must not be zero.
 2. X bytes of directory path-name (length defined by previous value). Is a
    NULL-terminated string.
