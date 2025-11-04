@@ -1640,20 +1640,25 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
       } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
         // Is a directory.
-        char *dir_path = strdup(file_path);
-        for (size_t idx = strlen(dir_path); idx-- > 0;) {
-          if (idx == strlen(dir_path)) {
-            continue;
-          } else if (dir_path[idx] == '/') {
-            dir_path[idx] = 0;
-          } else {
-            break;
-          }
-        }
-        if (strcmp(dir_path, ".") != 0) {
-          simple_archiver_list_add(out->working_dirs, dir_path, NULL);
+        char *dir_path = realpath(file_path, NULL);
+        char *temp_user_cwd_realpath = realpath(".", NULL);
+        if (strcmp(dir_path, temp_user_cwd_realpath) == 0) {
+          free(dir_path);
+          free(temp_user_cwd_realpath);
         } else {
           free(dir_path);
+          free(temp_user_cwd_realpath);
+          dir_path = strdup(file_path);
+          for (size_t idx = strlen(dir_path); idx-- > 0;) {
+            if (idx == strlen(dir_path)) {
+              continue;
+            } else if (dir_path[idx] == '/') {
+              dir_path[idx] = 0;
+            } else {
+              break;
+            }
+          }
+          simple_archiver_list_add(out->working_dirs, dir_path, NULL);
         }
 
         __attribute__((cleanup(simple_archiver_list_free)))
