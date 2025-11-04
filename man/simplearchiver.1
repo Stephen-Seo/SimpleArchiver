@@ -259,11 +259,13 @@ Prints to stderr the preset used by
 Enables a preset of known file extensions to be checked against when archiving
 with compression for file format version 6 (and onward). In other words, each
 file extension in the preset is added to a set that will be checked against
-when checking each file in a chunk.
+when checking each file in a chunk. Note that file extension checking is case
+insensitive.
 .TP
 .BR --add-not-compress-ext " " \fIext\fR " | " --add-not-compress-ext=\fIext\fR
 Adds an extension to the set of known file extensions to be checked against
-when archiving with compression for file format version 6 (and onward).
+when archiving with compression for file format version 6 (and onward). Note
+that file extension checking is case insensitive.
 .TP
 .BR --set-ext-percent-threshold " " \fIpercent\fR " | " --set-ext-percent-threshold=\fIpercent\fR
 Sets the threshold (between 0.0 and 1.0) to decide when to compress a v6 chunk.
@@ -327,9 +329,10 @@ is enabled. Two options \fB\-\-use\-not\-compress\-file\-exts\-preset\fR and
 \fB\-\-add\-not\-compress\-ext\fR add file extensions to a set that is intially
 empty when the program starts. Using these flags opts-in to conditionally not
 compressing some chunks based on a heuristic (percentage of compressible files
-compared to a percentage threshold) even if a compressor is specfied. A
-percentage threshold is used to determine when to compress a chunk and is set
-to a low percentage by default.  This threshold can be changed with the option
+compared to a percentage threshold) even if a compressor is specfied. Note that
+checking file extensions is case-insensitive. A percentage threshold is used to
+determine when to compress a chunk and is set to a low percentage by default.
+This threshold can be changed with the option
 \fB\-\-set\-ext\-percent\-threshold\fR.  When creating an archive with a
 specified compressor, this set is checked against with every file in the chunk.
 A percentage is calculated which is the file-sizes of files that do not match
