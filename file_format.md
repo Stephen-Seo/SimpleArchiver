@@ -639,14 +639,188 @@ The two bytes are 'S' and 'A' (ascii), which is 0x53 and 0x41.
 
 ## Format Version 6
 
-This format is nearly identical to file format version 5. The difference is the
-metadata per-chunk:
+This format is similar to file format version 5. The full spec is shown here and
+the changes will be noted afterwards:
 
-...
+File extension is "*.simplearchive" but this isn't really checked.
+
+First 18 bytes of file will be (in ascii):
+
+    SIMPLE_ARCHIVE_VER
+
+Next 2 bytes is a 16-bit unsigned integer "version" in big-endian. It will be:
+
+    0x00 0x06
+
+Next 4 bytes are bit-flags.
+
+1. The first byte
+    1. The first bit is set if de/compressor is set for this archive.
+
+The remaining unused flags in the previous bit-flags bytes are reserved for
+future revisions and are currently ignored.
+
+If the previous "de/compressor is set" flag is enabled, then the next section is
+added:
+
+1. 2 bytes is 16-bit unsigned integer "compressor cmd+args" in big-endian. This
+   does not include the NULL at the end of the string.
+2. X bytes of "compressor cmd+args" (length defined by previous value). Is a
+   NULL-terminated string.
+3. 2 bytes is 16-bit unsigned integer "decompressor cmd+args" in big-endian.
+   This does not include the NULL at the end of the string.
+4. X bytes of "decompressor cmd+args" (length defined by previous value). Is a
+   NULL-terminated string.
+
+*NEW Section*
+
+The next 8 bytes is a 64-bit unsigned integer "directories count" in big-endian
+which indicates the number of directories in this archive.
+
+Following the directory-count bytes, the following byte is added for each
+directory:
+
+1. 4 bytes 16-bit unsigned integer "directory pathname size" in big-endian.
+   This does not include the NULL at the end of the C-string. Must not be zero.
+2. X bytes of directory path-name (length defined by previous value). Is a
+   NULL-terminated string.
+3. 2 bytes bit-flags:
+    1. The first byte:
+        1. The first bit is "user read permission".
+        2. The second bit is "user write permission".
+        3. The third bit is "user execute permission".
+        4. The fourth bit is "group read permission".
+        5. The fifth bit is "group write permission".
+        6. The sixth bit is "group execute permission".
+        7. The seventh bit is "other read permission".
+        8. The eighth bit is "other write permission".
+    2. The second byte:
+        1. The first bit is "other execute permission".
+        2. The remaining bits are reserved for future use.
+4. 4 bytes 32-bit unsigned integer in big-endian UID of this directory.
+5. 4 bytes 32-bit unsigned integer in big-endian GID of this directory.
+6. 2 bytes 16-bit unsigned integer in big-endian length of "user name" which
+   does not include the NULL-terminator of the C-string. Can be 0.
+7. X bytes of "user name" (length defined by previous value). Is a
+   NULL-terminated string. If the previous "size" value is 0, then this entry
+   is skipped and does not exist.
+8. 2 bytes 16-bit unsigned integer in big-endian length of "group name" which
+   does not include the NULL-terminator of the C-string. Can be 0.
+9. X bytes of "group name" (length defined by previous value). Is a
+   NULL-terminated string. If the previous "size" value is 0, then this entry
+   is skipped and does not exist.
+
+Note that the directory entries must be ordered such that parent directires
+must come first. (An easy way to ensure this is ordering the entries by length
+of path.)
+
+*End of New Section*
+
+The next 8 bytes is a 64-bit unsigned integer "link count" in big-endian which
+will indicate the number of symbolic links in this archive.
+
+Following the link-count bytes, the following bytes are added for each symlink:
+
+1. 2 bytes bit-flags:
+    1. The first byte.
+        1. The first bit is UNSET if relative links are preferred, and is SET if
+           absolute links are preferred.
+        2. The second bit is "user read permission".
+        3. The third bit is "user write permission".
+        4. The fourth bit is "user execute permission".
+        5. The fifth bit is "group read permission".
+        6. The sixth bit is "group write permission".
+        7. The seventh bit is "group execute permission".
+        8. The eighth bit is "other read permission".
+    2. The second byte.
+        1. The first bit is "other write permission".
+        2. The second bit is "other execute permission".
+        3. If this bit is set, then this entry is marked invalid. The link name
+           will be preserved in this entry, but the following link target paths
+           will be set to zero-length and will not be stored.
+        4. If this bit is set, then this symlink points to something outside of
+           this archive.
+2. 2 bytes 16-bit unsigned integer "link name" in big-endian. This does not
+   include the NULL at the end of the string. Must not be zero.
+3. X bytes of link-name (length defined by previous value). Is a NULL-terminated
+   string.
+4. 2 bytes is 16-bit unsigned integer "link target absolute path" in
+   big-endian. This does not include the NULL at the end of the string.
+5. X bytes of link-target-absolute-path (length defined by previous value).
+   Is a NULL-terminated string. If the previous "size" value is 0, then
+   this entry does not exist and should be skipped.
+6. 2 bytes is 16-bit unsigned integer "link target relative path" in
+   big-endian. This does not include the NULL at the end of the string.
+7. X bytes of link-target-relative-path (length defined by previous value).
+   Is a NULL-terminated string. If the previous "size" value is 0, then
+   this entry does not exist and should be skipped.
+8. 4 bytes is a 32-bit unsigned integer in big-endian storing UID for this
+   symlink.
+9. 4 bytes is a 32-bit unsigned integer in big-endian storing GID for this
+   symlink.
+10. 2 bytes 16-bit unsigned integer "user name" length in big-endian. This does
+    not include the NULL at the end of the string.
+11. X bytes of user-name (length defined by previous value). Is a
+    NULL-terminated string. If the previous "size" value is 0, then this entry
+    does not exist and should be skipped.
+10. 2 bytes 16-bit unsigned integer "group name" length in big-endian. This does
+    not include the NULL at the end of the string.
+11. X bytes of group-name (length defined by previous value). Is a
+    NULL-terminated string. If the previous "size" value is 0, then this entry
+    does not exist and should be skipped.
+
+After the symlink related data, the next 8 bytes is a 64-bit unsigned integer
+"chunk count" in big-endian which will indicate the number of chunks in this
+archive.
+
+Following the chunk-count bytes, the following bytes are added for each chunk:
+
+1. 8 bytes that are a 64-bit unsigned integer "file count" in big-endian.
+
+The following bytes are added for each file within the current chunk:
+
+1. 2 bytes that are a 16-bit unsigned integer "filename length" in big-endian.
+   This does not include the NULL at the end of the string.
+2. X bytes of filename (length defined by previous value). Is a NULL-terminated
+   string.
+3. 4 bytes bit-flags.
+    1. The first byte.
+        1. The first bit is "user read permission".
+        2. The second bit is "user write permission".
+        3. The third bit is "user execute permission".
+        4. The fourth bit is "group read permission".
+        5. The fifth bit is "group write permission".
+        6. The sixth bit is "group execute permission".
+        7. The seventh bit is "other read permission".
+        8. The eighth bit is "other write permission".
+    2. The second byte.
+        1. The first bit is "other execute permission".
+    3. The third byte.
+        1. Currently unused.
+    4. The fourth byte.
+        1. Currently unused.
+4. Two 4-byte unsigned integers in big-endian for UID and GID.
+    1. A 32-bit unsigned integer in big endian that specifies the UID of the
+       file. Note that during extraction, if the user is not root, then this
+       value will be ignored.
+    2. A 32-bit unsigned integer in big endian that specifies the GID of the
+       file. Note that during extraction, if the user is not root, then this
+       value will be ignored.
+5. 2 bytes 16-bit unsigned integer "user name" length in big-endian. This does
+   not include the NULL at the end of the string.
+6. X bytes of user-name (length defined by previous value). Is a
+   NULL-terminated string. If the previous "size" value is 0, then this entry
+   does not exist and should be skipped.
+7. 2 bytes 16-bit unsigned integer "group name" length in big-endian. This does
+   not include the NULL at the end of the string.
+8. X bytes of group-name (length defined by previous value). Is a
+   NULL-terminated string. If the previous "size" value is 0, then this entry
+   does not exist and should be skipped.
+9. A 64-bit unsigned integer in big endian for the "size of file".
 
 After the files' metadata are the current chunk's data:
 
-1. 2 bytes bit-flag:
+1. 2 bytes bit-flag: *NEW*
     1. The first bit is set if this chunk is compressed.
     2. The remaining bits are reserved for future use.
 2. A 64-bit unsigned integer in big endian for the "size of chunk".
@@ -655,15 +829,20 @@ After the files' metadata are the current chunk's data:
    concatenated with each other. If using de/compressor, this section is the
    previously mentioned files concatenated and compressed into a single blob of
    data.
+    - Note that file format version 5 introduced adding a two-byte suffix to
+      every chunk's data ('S' and 'A'; 0x53 and 0x41).
 
-...
+The changes from verion 5 to version 6 (this version) is that a section is added
+to keep track of every directory (whether it be leaf directories or non-empty
+ones) and there is also the additional 2-byte bit-flag added before the chunk
+size. Also, the empty directory list at the end of the file spec. is removed
+because the directory entries added a the beginning of the spec. obsoletes it.
 
-The difference is the additional 2-byte bit-flag added before the chunk size. A
-new bit is designated as an indicator that the chunk may or may not be
-compressed. If compression is not used, then it is ignored and the data is
-known to be uncompressed. Previous file formats cannot be assigned a bit for
-this feature because the previous implementations of prior file formats do not
-know to check for this.
+The new bit prior to chunk size is designated as an indicator that the chunk may
+or may not be compressed. If compression is not used, then it is ignored and the
+data is known to be uncompressed. Previous file formats cannot be assigned a bit
+for this feature because the previous implementations of prior file formats do
+not know to check for this.
 
 This additional bit for indicating un/compressed chunks is made for the case
 that all files in the chunk match some criteria to prevent it from being
