@@ -56,6 +56,8 @@ SDArchiverPHeap *simple_archiver_priority_heap_init(void) {
 
   priority_heap->less_fn = simple_archiver_priority_heap_default_less;
   priority_heap->gen_less_fn = NULL;
+  priority_heap->gen_less_fn_ud = NULL;
+  priority_heap->ud = NULL;
 
   priority_heap->node_array =
     simple_archiver_chunked_array_init(
@@ -78,6 +80,8 @@ SDArchiverPHeap *simple_archiver_priority_heap_init_less_fn(
 
   priority_heap->less_fn = less_fn;
   priority_heap->gen_less_fn = NULL;
+  priority_heap->gen_less_fn_ud = NULL;
+  priority_heap->ud = NULL;
 
   priority_heap->node_array =
     simple_archiver_chunked_array_init(
@@ -100,6 +104,32 @@ SDArchiverPHeap *simple_archiver_priority_heap_init_less_generic_fn(
 
   priority_heap->less_fn = NULL;
   priority_heap->gen_less_fn = less_fn;
+  priority_heap->gen_less_fn_ud = NULL;
+  priority_heap->ud = NULL;
+
+  priority_heap->node_array =
+    simple_archiver_chunked_array_init(
+      internal_simple_archiver_cleanup_priority_heap_node,
+      sizeof(SDArchiverPHNode));
+
+  // Priorty-heap expects an "unused" first element at idx 0.
+  SDArchiverPHNode *hole_node = malloc(sizeof(SDArchiverPHNode));
+  memset(hole_node, 0, sizeof(SDArchiverPHNode));
+
+  simple_archiver_chunked_array_push(&priority_heap->node_array, hole_node);
+  free(hole_node);
+
+  return priority_heap;
+}
+
+SDArchiverPHeap *simple_archiver_priority_heap_init_less_generic_fn_ud(
+    int (*less_fn)(void*, void*, void*), void *ud) {
+  SDArchiverPHeap *priority_heap = malloc(sizeof(SDArchiverPHeap));
+
+  priority_heap->less_fn = NULL;
+  priority_heap->gen_less_fn = NULL;
+  priority_heap->gen_less_fn_ud = less_fn;
+  priority_heap->ud = ud;
 
   priority_heap->node_array =
     simple_archiver_chunked_array_init(
@@ -135,7 +165,9 @@ void simple_archiver_priority_heap_insert(SDArchiverPHeap *priority_heap,
                                           int64_t priority, void *data,
                                           void (*data_cleanup_fn)(void *)) {
   if (!priority_heap ||
-      (!priority_heap->less_fn && !priority_heap->gen_less_fn)) {
+      (!priority_heap->less_fn
+       && !priority_heap->gen_less_fn
+       && (!priority_heap->gen_less_fn_ud || !priority_heap->ud))) {
     return;
   }
 
@@ -163,6 +195,16 @@ void simple_archiver_priority_heap_insert(SDArchiverPHeap *priority_heap,
             (simple_archiver_chunked_array_at(
             &priority_heap->node_array, hole / 2)))
               ->data) != 0)
+        ||
+        (priority_heap->gen_less_fn_ud &&
+          priority_heap->gen_less_fn_ud(
+            data,
+            ((SDArchiverPHNode *)
+            (simple_archiver_chunked_array_at(
+            &priority_heap->node_array, hole / 2)))
+              ->data,
+            priority_heap->ud
+          ) != 0)
        )) {
     SDArchiverPHNode *to =
       simple_archiver_chunked_array_at(&priority_heap->node_array, hole);
@@ -204,7 +246,9 @@ void *simple_archiver_priority_heap_top(SDArchiverPHeap *priority_heap) {
 void *simple_archiver_priority_heap_pop(SDArchiverPHeap *priority_heap) {
   if (!priority_heap
       || simple_archiver_chunked_array_size(&priority_heap->node_array) <= 1
-      || (!priority_heap->less_fn && !priority_heap->gen_less_fn)) {
+      || (!priority_heap->less_fn
+        && !priority_heap->gen_less_fn
+        && (!priority_heap->gen_less_fn_ud || !priority_heap->ud))) {
     return NULL;
   }
 
@@ -238,13 +282,25 @@ void *simple_archiver_priority_heap_pop(SDArchiverPHeap *priority_heap) {
           priority_heap->less_fn(end->priority, right->priority) != 0)
           || (priority_heap->gen_less_fn &&
               priority_heap->gen_less_fn(end->data, left->data) != 0 &&
-              priority_heap->gen_less_fn(end->data, right->data) != 0)) {
+              priority_heap->gen_less_fn(end->data, right->data) != 0)
+          || (priority_heap->gen_less_fn_ud &&
+              priority_heap->gen_less_fn_ud(end->data,
+                                            left->data,
+                                            priority_heap->ud) != 0 &&
+              priority_heap->gen_less_fn_ud(end->data,
+                                            right->data,
+                                            priority_heap->ud) != 0)
+          ) {
         break;
       }
       if ((priority_heap->less_fn &&
            priority_heap->less_fn(left->priority, right->priority) != 0)
           || (priority_heap->gen_less_fn &&
-              priority_heap->gen_less_fn(left->data, right->data) != 0)) {
+              priority_heap->gen_less_fn(left->data, right->data) != 0)
+          || (priority_heap->gen_less_fn_ud &&
+              priority_heap->gen_less_fn_ud(left->data,
+                                            right->data,
+                                            priority_heap->ud) != 0)) {
         hole_node =
           simple_archiver_chunked_array_at(&priority_heap->node_array, hole);
         memcpy(hole_node, left, sizeof(SDArchiverPHNode));
@@ -259,7 +315,11 @@ void *simple_archiver_priority_heap_pop(SDArchiverPHeap *priority_heap) {
       if ((priority_heap->less_fn &&
            priority_heap->less_fn(end->priority, left->priority) != 0)
           || (priority_heap->gen_less_fn &&
-              priority_heap->gen_less_fn(end->data, left->data) != 0)) {
+              priority_heap->gen_less_fn(end->data, left->data) != 0)
+          || (priority_heap->gen_less_fn_ud &&
+              priority_heap->gen_less_fn_ud(end->data,
+                                            left->data,
+                                            priority_heap->ud) != 0)) {
         break;
       }
       hole_node =
@@ -324,7 +384,10 @@ uint64_t simple_archiver_priority_heap_size(SDArchiverPHeap *priority_heap) {
 SDArchiverPHeap *simple_archiver_priority_heap_clone(
     const SDArchiverPHeap *prev_heap,
     void*(*clone_fn)(void*)) {
-  if (!prev_heap || (!prev_heap->less_fn && !prev_heap->gen_less_fn)) {
+  if (!prev_heap
+      || (!prev_heap->less_fn
+        && !prev_heap->gen_less_fn
+        && (!prev_heap->gen_less_fn_ud || !prev_heap->ud))) {
     return NULL;
   }
 
@@ -334,10 +397,19 @@ SDArchiverPHeap *simple_archiver_priority_heap_clone(
     return NULL;
   }
 
-  SDArchiverPHeap *cloned_heap =
-    prev_heap->less_fn ?
-    simple_archiver_priority_heap_init_less_fn(prev_heap->less_fn) :
-    simple_archiver_priority_heap_init_less_generic_fn(prev_heap->gen_less_fn);
+  SDArchiverPHeap *cloned_heap;
+  if (prev_heap->less_fn) {
+    cloned_heap =
+      simple_archiver_priority_heap_init_less_fn(prev_heap->less_fn);
+  } else if (prev_heap->gen_less_fn) {
+    cloned_heap = simple_archiver_priority_heap_init_less_generic_fn(
+        prev_heap->gen_less_fn);
+  } else if (prev_heap->gen_less_fn_ud && prev_heap->ud) {
+    cloned_heap = simple_archiver_priority_heap_init_less_generic_fn_ud(
+        prev_heap->gen_less_fn_ud, prev_heap->ud);
+  } else {
+    return NULL;
+  }
 
   for (uint64_t idx = 1; idx < size; ++idx) {
     const SDArchiverPHNode *node =

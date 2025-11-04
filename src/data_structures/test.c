@@ -30,6 +30,7 @@
 #include "chunked_array.h"
 #include "list_array.h"
 #include "priority_heap.h"
+#include "../helpers.h"
 
 #define SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE 100
 
@@ -137,6 +138,18 @@ void *internal_pheap_clone_uint32_t(void *data) {
 
 int internal_pheap_less_generic(void *left, void *right) {
   return *((int*)left) < *((int*)right);
+}
+
+int internal_pheap_less_generic_ud(void *left, void *right, void *ud) {
+  if (simple_archiver_helper_string_ends(left, ud, 1)) {
+    if (simple_archiver_helper_string_ends(right, ud, 1)) {
+      return 0;
+    } else {
+      return 1;
+    }
+  } else {
+    return 0;
+  }
 }
 
 int main(void) {
@@ -1067,6 +1080,54 @@ int main(void) {
       if (data) {
         CHECK_TRUE(*data == idx);
         free(data);
+      }
+    }
+
+    simple_archiver_priority_heap_free(&priority_heap);
+
+    const char *suffix = "end";
+    priority_heap = simple_archiver_priority_heap_init_less_generic_fn_ud(
+        internal_pheap_less_generic_ud, (void*)suffix);
+
+    simple_archiver_priority_heap_insert(
+        priority_heap,
+        0,
+        "a.start",
+        simple_archiver_helper_datastructure_cleanup_nop);
+    simple_archiver_priority_heap_insert(
+        priority_heap,
+        0,
+        "a.end",
+        simple_archiver_helper_datastructure_cleanup_nop);
+    simple_archiver_priority_heap_insert(
+        priority_heap,
+        0,
+        "b.start",
+        simple_archiver_helper_datastructure_cleanup_nop);
+    simple_archiver_priority_heap_insert(
+        priority_heap,
+        0,
+        "b.end",
+        simple_archiver_helper_datastructure_cleanup_nop);
+    simple_archiver_priority_heap_insert(
+        priority_heap,
+        0,
+        "c.start",
+        simple_archiver_helper_datastructure_cleanup_nop);
+    simple_archiver_priority_heap_insert(
+        priority_heap,
+        0,
+        "c.end",
+        simple_archiver_helper_datastructure_cleanup_nop);
+
+    int_fast8_t end_count = 0;
+
+    while (simple_archiver_priority_heap_size(priority_heap) != 0) {
+      const char *s = simple_archiver_priority_heap_pop(priority_heap);
+      if (simple_archiver_helper_string_ends(s, suffix, 1)) {
+        CHECK_TRUE(end_count++ <= 2);
+      } else {
+        CHECK_TRUE(end_count++ >= 3);
       }
     }
 

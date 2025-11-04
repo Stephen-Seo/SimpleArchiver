@@ -135,6 +135,7 @@ add_executable(test_datastructures
     src/data_structures/list_array.c
     src/data_structures/priority_heap.c
     src/algorithms/linear_congruential_gen.c
+    src/helpers.c
 )
 
 add_executable(test_simplearchiver
