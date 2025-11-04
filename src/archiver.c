@@ -6146,6 +6146,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
   }
 
   // First create a "set" of absolute paths to given filenames.
+  fprintf(stderr, "INFO: Getting absolute path(s) from given path(s)...\n");
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
   void **ptr_array = malloc(sizeof(void *) * 2);
@@ -6158,6 +6159,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     return SDA_RET_STRUCT(SDAS_FAILED_TO_CREATE_MAP);
   }
   free(ptr_array);
+  fprintf(stderr, "INFO: Done getting absolute path(s). Continuing...\n");
 
   // Get a list of symlinks and a list of files.
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -6194,6 +6196,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
 
+  fprintf(stderr, "INFO: Loading filenames/symlinks from given path(s)...\n");
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
                                     ptr_array)) {
@@ -6202,6 +6205,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(ptr_array);
+  fprintf(stderr, "INFO: Loaded. Continuing...\n");
 
   simple_archiver_hash_map_insert(
     write_state,
