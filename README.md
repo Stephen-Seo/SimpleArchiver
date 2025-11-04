@@ -73,8 +73,8 @@ API calls.
     --blacklist-ends-with <text> | --blacklist-ends-with=<text> : blacklist entries that ends with "<text>", specify multiple times to deny multiple entries ending with different "<text>" entries.
     --wb-case-insensitive : Makes white/black-list checking case insensitive.
     --print-file-exts-preset : Prints the preset extensions to stderr and stops simplearchiver.
-    --use-not-compress-file-exts-preset : Adds preset extensions to collection of file extensions to choose to not compress
-    --add-not-compress-ext <ext> | --add-not-compress-ext=<ext> : Add a extension to choose to not compress (must be like ".thing")
+    --use-file-exts-preset : Adds preset extensions to collection of file extensions to choose to not compress
+    --add-file-ext <ext> | --add-file-ext=<ext> : Add a extension to choose to not compress (must be like ".thing")
     --set-ext-percent-threshold <percent> | --set-ext-percent-threshold=<percent> : Sets the threshold (between 0.0 to 1.0) to decide when to compress a v6 chunk
     --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract

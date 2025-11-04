@@ -351,10 +351,10 @@ void simple_archiver_print_usage(void) {
           "--print-file-exts-preset : Prints the preset extensions to stderr "
           "and stops simplearchiver.\n");
   fprintf(stderr,
-          "--use-not-compress-file-exts-preset : Adds preset extensions to "
+          "--use-file-exts-preset : Adds preset extensions to "
           "collection of file extensions to choose to not compress\n");
   fprintf(stderr,
-          "--add-not-compress-ext <ext> | --add-not-compress-ext=<ext> : Add a "
+          "--add-file-ext <ext> | --add-file-ext=<ext> : Add a "
           "extension to choose to not compress (must be like \".thing\")\n");
   fprintf(stderr,
           "--set-ext-percent-threshold <percent> | --set-ext-percent-threshold="
@@ -1419,7 +1419,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
         fprintf(stderr, "\n");
         exit(0);
-      } else if (strcmp(argv[0], "--use-not-compress-file-exts-preset") == 0) {
+      } else if (strcmp(argv[0], "--use-file-exts-preset") == 0) {
         for (char **ext = SDSA_NOT_TO_COMPRESS_FILE_EXTS;
             *ext != NULL;
             ++ext) {
@@ -1439,20 +1439,20 @@ int simple_archiver_parse_args(int argc, const char **argv,
             free(str);
           }
         }
-      } else if (strcmp(argv[0], "--add-not-compress-ext") == 0
-          || strncmp(argv[0], "--add-not-compress-ext=", 23) == 0) {
+      } else if (strcmp(argv[0], "--add-file-ext") == 0
+          || strncmp(argv[0], "--add-file-ext=", 15) == 0) {
         int_fast8_t is_separate =
-          strcmp(argv[0], "--add-not-compress-ext") == 0 ? 1 : 0;
+          strcmp(argv[0], "--add-file-ext") == 0 ? 1 : 0;
         const char *str;
         if (is_separate && argc < 2) {
           fprintf(stderr,
-                  "ERROR: --add-not-compress-ext expects an argument!\n");
+                  "ERROR: --add-file-ext expects an argument!\n");
           simple_archiver_print_usage();
           return 1;
         } else if (is_separate) {
           str = argv[1];
         } else {
-          str = argv[0] + 23;
+          str = argv[0] + 15;
         }
         char *to_lower = simple_archiver_helper_to_lower(str);
         if (!simple_archiver_hash_map_get(
@@ -1502,8 +1502,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
         } else if (out->v6_compress_percent_threshold == 0.0) {
           fprintf(stderr,
                   "ERROR: Threshold percentage set to 0! (If this is desired, "
-                  "just don't use \"--use-not-compress-file-exts-preset\" or "
-                  "\"--add-not-compress-ext\")\n");
+                  "just don't use \"--use-file-exts-preset\" or "
+                  "\"--add-file-ext\")\n");
           return 1;
         } else if (out->v6_compress_percent_threshold < 0.0
             || out->v6_compress_percent_threshold > 1.0) {

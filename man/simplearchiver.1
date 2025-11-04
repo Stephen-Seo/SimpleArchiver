@@ -255,14 +255,14 @@ characters).
 Prints to stderr the preset used by
 \fB\-\-use\-not\-compress\-file\-exts\-preset\fR.
 .TP
-.BR --use-not-compress-file-exts-preset
+.BR --use-file-exts-preset
 Enables a preset of known file extensions to be checked against when archiving
 with compression for file format version 6 (and onward). In other words, each
 file extension in the preset is added to a set that will be checked against
 when checking each file in a chunk. Note that file extension checking is case
 insensitive.
 .TP
-.BR --add-not-compress-ext " " \fIext\fR " | " --add-not-compress-ext=\fIext\fR
+.BR --add-file-ext " " \fIext\fR " | " --add-file-ext=\fIext\fR
 Adds an extension to the set of known file extensions to be checked against
 when archiving with compression for file format version 6 (and onward). Note
 that file extension checking is case insensitive.
@@ -325,9 +325,9 @@ symbolic links as is when creating an archive.
 .TP
 .BR "Conditional Chunk Compression Introduced in File Format Version 6"
 By default, \fBsimplearchiver\fR always compresses every chunk if comrpession
-is enabled. Two options \fB\-\-use\-not\-compress\-file\-exts\-preset\fR and
-\fB\-\-add\-not\-compress\-ext\fR add file extensions to a set that is intially
-empty when the program starts. Using these flags opts-in to conditionally not
+is enabled. Two options \fB\-\-use\-file\-exts\-preset\fR and
+\fB\-\-add\-file\-ext\fR add file extensions to a set that is intially empty
+when the program starts. Using these flags opts-in to conditionally not
 compressing some chunks based on a heuristic (percentage of compressible files
 compared to a percentage threshold) even if a compressor is specfied. Note that
 checking file extensions is case-insensitive. A percentage threshold is used to
