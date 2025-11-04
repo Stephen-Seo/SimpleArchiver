@@ -267,12 +267,6 @@ Adds an extension to the set of known file extensions to be checked against
 when archiving with compression for file format version 6 (and onward). Note
 that file extension checking is case insensitive.
 .TP
-.BR --set-ext-percent-threshold " " \fIpercent\fR " | " --set-ext-percent-threshold=\fIpercent\fR
-Sets the threshold (between 0.0 and 1.0) to decide when to compress a v6 chunk.
-Note that the default threshold is a low percentage.  The percentage is
-calculated per chunk as will_compress_filesize / total_filesizes, and if the
-percentage is lower than the threshold, then the chunk is NOT compressed.
-.TP
 .BR --version
 Prints the current version of \fBsimplearchiver\fR.
 .TP
@@ -324,22 +318,14 @@ symbolic links as is when creating an archive.
 
 .TP
 .BR "Conditional Chunk Compression Introduced in File Format Version 6"
-By default, \fBsimplearchiver\fR always compresses every chunk if comrpession
-is enabled. Two options \fB\-\-use\-file\-exts\-preset\fR and
-\fB\-\-add\-file\-ext\fR add file extensions to a set that is intially empty
-when the program starts. Using these flags opts-in to conditionally not
-compressing some chunks based on a heuristic (percentage of compressible files
-compared to a percentage threshold) even if a compressor is specfied. Note that
-checking file extensions is case-insensitive. A percentage threshold is used to
-determine when to compress a chunk and is set to a low percentage by default.
-This threshold can be changed with the option
-\fB\-\-set\-ext\-percent\-threshold\fR.  When creating an archive with a
-specified compressor, this set is checked against with every file in the chunk.
-A percentage is calculated which is the file-sizes of files that do not match
-an extension in the set divided by all the file-sizes. When that percentage
-exceeds the threshold, then the chunk WILL be compressed. Otherwise, a
-percentage less than the threshold WILL NOT be compressed. For example, the
-threshold is 0.2 (20%) and the percentage was calculated as 0.7 (70%) that
-corresponds to 70% of the file-size representing files that are compressible
-(their file extensions are not in the set). This results in the chunk being
-compressed because the calculated percentage of 0.7 is greater than 0.2.
+By default, \fBsimplearchiver\fR will always compress every chunk if a
+compressor (and decompressor) is specified. Two options
+\fB\-\-use\-file\-exts\-preset\fR and \fB\-\-add\-file\-ext\fR add file
+extensions to a set that is intially empty when the program starts. Using these
+flags opts-in to not compressing every file that has a matching file extension.
+This is done by placing every file that matches a "non-compressible-extension"
+into the first chunk that is set to not be compressed, even if a compressor is
+specified. Note that this does not affect files that do not match the set of
+file extensions of files to not compress. If these options are not used or if no
+file matches any of the set file extensions, then the default behavior is used,
+which is to compress every chunk if a compressor is specified.

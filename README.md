@@ -75,7 +75,6 @@ API calls.
     --print-file-exts-preset : Prints the preset extensions to stderr and stops simplearchiver.
     --use-file-exts-preset : Adds preset extensions to collection of file extensions to choose to not compress
     --add-file-ext <ext> | --add-file-ext=<ext> : Add a extension to choose to not compress (must be like ".thing")
-    --set-ext-percent-threshold <percent> | --set-ext-percent-threshold=<percent> : Sets the threshold (between 0.0 to 1.0) to decide when to compress a v6 chunk
     --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
