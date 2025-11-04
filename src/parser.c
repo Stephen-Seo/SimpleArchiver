@@ -1657,8 +1657,20 @@ int simple_archiver_parse_args(int argc, const char **argv,
               break;
             }
           }
-          dir_path = strdup(file_path);
-          simple_archiver_list_add(out->working_dirs, dir_path, NULL);
+          if (file_path[0] == '/') {
+            dir_path = realpath(file_path, NULL);
+            for (size_t idx = 0; dir_path[idx] != 0; ++idx) {
+              if (dir_path[idx] == '/' && idx > 0) {
+                char *outer = strdup(dir_path);
+                outer[idx] = 0;
+                simple_archiver_list_add(out->working_dirs, outer, NULL);
+              }
+            }
+            simple_archiver_list_add(out->working_dirs, dir_path, NULL);
+          } else {
+            dir_path = strdup(file_path);
+            simple_archiver_list_add(out->working_dirs, dir_path, NULL);
+          }
         }
 
         __attribute__((cleanup(simple_archiver_list_free)))
