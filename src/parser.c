@@ -378,6 +378,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.compressor = NULL;
   parsed.decompressor = NULL;
   parsed.working_files = simple_archiver_hash_map_init();
+  parsed.working_dirs = simple_archiver_list_init();
   parsed.just_w_files = simple_archiver_hash_map_init();
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
@@ -1639,6 +1640,22 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
       } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
         // Is a directory.
+        char *dir_path = strdup(file_path);
+        for (size_t idx = strlen(dir_path); idx-- > 0;) {
+          if (idx == strlen(dir_path)) {
+            continue;
+          } else if (dir_path[idx] == '/') {
+            dir_path[idx] = 0;
+          } else {
+            break;
+          }
+        }
+        if (strcmp(dir_path, ".") != 0) {
+          simple_archiver_list_add(out->working_dirs, dir_path, NULL);
+        } else {
+          free(dir_path);
+        }
+
         __attribute__((cleanup(simple_archiver_list_free)))
         SDArchiverLinkedList *dir_list = simple_archiver_list_init();
         simple_archiver_list_add(
@@ -1794,6 +1811,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
                 }
               } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
                 // Is a directory.
+                simple_archiver_list_add(out->working_dirs,
+                                         strdup(combined_path),
+                                         NULL);
                 simple_archiver_list_add_front(dir_list, combined_path, NULL);
               } else {
                 fprintf(stderr,
@@ -1901,6 +1921,9 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   }
   if (parsed->working_files) {
     simple_archiver_hash_map_free(&parsed->working_files);
+  }
+  if (parsed->working_dirs) {
+    simple_archiver_list_free(&parsed->working_dirs);
   }
   if (parsed->just_w_files) {
     simple_archiver_hash_map_free(&parsed->just_w_files);

@@ -76,6 +76,8 @@ typedef struct SDArchiverParsed {
   char *decompressor;
   /// The key is a positional argument, the value is a SDArchiverFileInfo.
   SDArchiverHashMap *working_files;
+  /// The key and value is a directory path (without trailing '/').
+  SDArchiverLinkedList *working_dirs;
   /// The key and value are always the positional argument(s).
   SDArchiverHashMap *just_w_files;
   /// Determines where to place temporary files. If NULL, temporary files are
