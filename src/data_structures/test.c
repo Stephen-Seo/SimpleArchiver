@@ -1060,7 +1060,9 @@ int main(void) {
 
     simple_archiver_priority_heap_free(&priority_heap);
 
-    priority_heap = simple_archiver_priority_heap_init_less_generic_fn(internal_pheap_less_generic);
+    priority_heap =
+      simple_archiver_priority_heap_init_less_generic_fn(
+        internal_pheap_less_generic);
 
     for (int idx = 0; idx < 10; idx += 2) {
       int *data = malloc(sizeof(int));
