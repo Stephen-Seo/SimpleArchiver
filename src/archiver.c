@@ -6513,16 +6513,33 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
 
   if (state->parsed->write_version >= 6) {
     // Directories.
+    fprintf(stderr, "Archiving Directories\n");
     u64 = state->parsed->working_dirs->count;
     simple_archiver_helper_64_bit_be(&u64);
     if (fwrite(&u64, 8, 1, out_f) != 1) {
       return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
 
+    // Change cwd if user specified.
+    __attribute__((cleanup(
+        simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
+    if (state->parsed->user_cwd) {
+      original_cwd = realpath(".", NULL);
+      if (chdir(state->parsed->user_cwd)) {
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      }
+    }
+
+    uint64_t dir_count = 0;
     for (SDArchiverLLNode *next = state->parsed->working_dirs->head->next;
          next != state->parsed->working_dirs->tail;
          next = next->next) {
       const char *dir_path = next->data;
+      fprintf(stderr,
+              "  DIR: %6" PRIu64 " of %6" PRIu64 ": %s\n",
+              ++dir_count,
+              state->parsed->working_dirs->count,
+              dir_path);
       u32 = (uint32_t)strlen(dir_path);
       simple_archiver_helper_32_bit_be(&u32);
       if (fwrite(&u32, 4, 1, out_f) != 1) {
@@ -12666,7 +12683,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       dir_path[dir_path_size] = 0;
-      fprintf(stderr, "  %s\n", dir_path);
 
       const int_fast8_t arg_allowed =
         state->parsed->just_w_files->count == 0
@@ -12678,6 +12694,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       const uint_fast8_t lists_allowed =
         simple_archiver_helper_string_allowed_lists(
           dir_path, (state->parsed->flags & 0x20000) ? 1 : 0, state->parsed);
+
+      if (!do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr,
+                "  DIR: %6" PRIu64 " of %6" PRIu64 ": %s\n",
+                dir_idx + 1,
+                dir_count,
+                dir_path);
+      }
 
       uint8_t pbits[2];
       if (fread(pbits, 1, 2, in_f) != 2) {
@@ -12792,7 +12816,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       }
 
       if (do_extract && arg_allowed && lists_allowed) {
-        fprintf(stderr, "Creating dir \"%s\"\n", dir_path);
+        fprintf(stderr, "  DIR: %s\n", dir_path);
         // Use UID derived from Username by default.
         if ((state->parsed->flags & 0x4000) == 0 && username) {
           uint32_t *username_uid = simple_archiver_hash_map_get(
