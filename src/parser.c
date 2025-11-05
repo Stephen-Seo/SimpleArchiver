@@ -1486,6 +1486,12 @@ int simple_archiver_parse_args(int argc, const char **argv,
         return 1;
       }
     } else {
+      if (strlen(argv[0]) == 0) {
+        fprintf(stderr,
+                "ERROR: Invalid argument!\n");
+        return 1;
+      }
+
       size_t arg_idx =
           simple_archiver_parser_internal_get_first_non_current_idx(argv[0]);
       size_t arg_length = strlen(argv[0] + arg_idx) + 1;
@@ -1496,6 +1502,11 @@ int simple_archiver_parse_args(int argc, const char **argv,
         fprintf(stderr,
                 "ERROR: Path contains \"..\"! Use \"--allow-double-dot\" if "
                 "this is intended!\n");
+        return 1;
+      } else if (arg_ptr[0] == '/') {
+        fprintf(stderr,
+                "ERROR: Positional arguments must not be absolute paths!\n"
+                "  Use \"-C <dir>\", \".\" instead!\n");
         return 1;
       }
 
