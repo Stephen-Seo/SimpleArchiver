@@ -1067,7 +1067,7 @@ int_fast8_t simple_archiver_helper_contains_double_dot_path(const char *str) {
 }
 
 char *simple_archiver_helper_remove_single_dot_path(const char *str) {
-  size_t len = strlen(str);
+  size_t len = strlen(str) + 1;
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *buf = malloc(len);
   memset(buf, 0, len);

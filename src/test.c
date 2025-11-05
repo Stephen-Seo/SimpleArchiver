@@ -1053,6 +1053,16 @@ TEST_HELPERS_PREFIX_END:
         "///one//././two/.//.//.//././///three/././//././///./four/.//.//.//.");
     CHECK_TRUE(strcmp(ret, "/one/two/three/four") == 0);
     free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "/one/two/three/four");
+    CHECK_TRUE(strcmp(ret, "/one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "one/two/three/four");
+    CHECK_TRUE(strcmp(ret, "one/two/three/four") == 0);
+    free(ret);
   }
 
   printf("Checks checked: %" PRId32 "\n", checks_checked);
