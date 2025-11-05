@@ -128,10 +128,11 @@ int main(void) {
 
     parsed = simple_archiver_create_parsed();
     const char **args2 = (const char *[]){"parser", "-x", "-f", "the_filename",
+                         "--allow-double-dot",
                          "././/././//./.derp", "././//./_doop",
                          "./../../.prev_dir_file", NULL};
     simple_archiver_parse_args(
-        7,
+        8,
         args2,
         &parsed);
 
@@ -141,7 +142,7 @@ int main(void) {
                                             "../../.prev_dir_file",
                                             21));
     CHECK_TRUE(strcmp("the_filename", parsed.filename) == 0);
-    CHECK_TRUE(parsed.flags == 0x41);
+    CHECK_TRUE(parsed.flags == 0x100041);
 
     simple_archiver_free_parsed(&parsed);
 
@@ -997,6 +998,71 @@ TEST_HELPERS_PREFIX_END:
       "The String Is This.", "tHE", 1));
     CHECK_TRUE(simple_archiver_helper_string_ends(
       "The String Is This.", "tHIS.", 1));
+  }
+
+  // Test helper_to_lower
+  {
+    char *lower = simple_archiver_helper_to_lower(
+        "OneTwoThreeFourFiveAppleZebra");
+    CHECK_TRUE(strcmp(lower, "onetwothreefourfiveapplezebra") == 0);
+    free(lower);
+
+    lower = simple_archiver_helper_to_lower(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    CHECK_TRUE(strcmp(lower,
+                      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")
+                 == 0);
+    free(lower);
+  }
+
+  // Test contains_double_dot_path
+  {
+    CHECK_TRUE(simple_archiver_helper_contains_double_dot_path("../one/two"));
+    CHECK_TRUE(!simple_archiver_helper_contains_double_dot_path("/one/two"));
+    CHECK_TRUE(simple_archiver_helper_contains_double_dot_path("/one/two/.."));
+    CHECK_TRUE(simple_archiver_helper_contains_double_dot_path("/one/../two"));
+  }
+
+  // Test remove_single_dot_path
+  {
+    char *ret = simple_archiver_helper_remove_single_dot_path("one/./two");
+    CHECK_TRUE(strcmp(ret, "one/two") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "one/./two/./three/./././four");
+    CHECK_TRUE(strcmp(ret, "one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "./one/./././two///././//././//././///three/././//././////./four/.");
+    CHECK_TRUE(strcmp(ret, "one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "///one//./././two/.//././/././/././///three/././//././////./four////");
+    CHECK_TRUE(strcmp(ret, "/one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "///one//././two/.//.//.//././///three/././//././////./four////.//.//");
+    CHECK_TRUE(strcmp(ret, "/one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "///one//././two/.//.//.//././///three/././//././///./four/.//.//.//.");
+    CHECK_TRUE(strcmp(ret, "/one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "/one/two/three/four");
+    CHECK_TRUE(strcmp(ret, "/one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "one/two/three/four");
+    CHECK_TRUE(strcmp(ret, "one/two/three/four") == 0);
+    free(ret);
   }
 
   printf("Checks checked: %" PRId32 "\n", checks_checked);

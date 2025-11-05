@@ -162,4 +162,14 @@ char *simple_archiver_helper_combine_strs(const char *prefix,
 // stderr)
 int simple_archiver_helper_set_signal_action(int signal, void(*handler)(int));
 
+// Returned non-null C-string must be free'd.
+char *simple_archiver_helper_to_lower(const char *str);
+
+// Returns non-zero if str contains "^../", "/..$", or "/../"
+int_fast8_t simple_archiver_helper_contains_double_dot_path(const char *str);
+
+// Removes "^./", "/.$", "/./", and "//..."
+// If returns non-NULL, must be free'd.
+char *simple_archiver_helper_remove_single_dot_path(const char *str);
+
 #endif

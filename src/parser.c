@@ -42,6 +42,49 @@
 #include "parser_internal.h"
 #include "version.h"
 
+char *SDSA_NOT_TO_COMPRESS_FILE_EXTS[] = {
+  ".simplearchive",
+  ".sa",
+  ".gz",
+  ".xz",
+  ".zst",
+  ".bz2",
+  ".lz",
+  ".lz4",
+  ".lzma",
+  ".lzo",
+  ".br",
+  ".tgz",
+  ".tbz2",
+  ".tlz",
+  ".txz",
+  ".zip",
+  ".zipx",
+  ".7z",
+  ".apk",
+  ".jar",
+  ".dmg",
+  ".ogg",
+  ".mp3",
+  ".flac",
+  ".alac",
+  ".aac",
+  ".jpg",
+  ".jpeg",
+  ".mjpeg",
+  ".png",
+  ".tiff",
+  ".webp",
+  ".webm",
+  ".mp4",
+  ".mkv",
+  ".av1",
+  ".avi",
+  ".iso",
+  ".img",
+  NULL
+};
+
 /// Gets the first non "./"-like character in the filename.
 size_t simple_archiver_parser_internal_get_first_non_current_idx(
     const char *filename) {
@@ -94,16 +137,14 @@ size_t simple_archiver_parser_internal_get_first_non_current_idx(
 }
 
 void simple_archiver_parser_internal_remove_end_slash(char *filename) {
-  size_t len = strlen(filename);
-  size_t idx;
-  for (idx = len; idx-- > 0;) {
-    if (filename[idx] != '/') {
-      ++idx;
+  for (size_t idx = strlen(filename); idx-- > 0;) {
+    if (idx == strlen(filename)) {
+      continue;
+    } else if (filename[idx] == '/' && idx > 0) {
+      filename[idx] = 0;
+    } else {
       break;
     }
-  }
-  if (idx < len && idx > 0) {
-    filename[idx] = 0;
   }
 }
 
@@ -302,6 +343,17 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--wb-case-insensitive : Makes white/black-list checking case "
           "insensitive.\n");
+  fprintf(stderr,
+          "--print-file-exts-preset : Prints the preset extensions to stderr "
+          "and stops simplearchiver.\n");
+  fprintf(stderr,
+          "--use-file-exts-preset : Adds preset extensions to "
+          "collection of file extensions to choose to not compress\n");
+  fprintf(stderr,
+          "--add-file-ext <ext> | --add-file-ext=<ext> : Add a "
+          "extension to choose to not compress (must be like \".thing\")\n");
+  fprintf(stderr,
+          "--allow-double-dot : Allows positional args to have \"..\"\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -326,10 +378,11 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.compressor = NULL;
   parsed.decompressor = NULL;
   parsed.working_files = simple_archiver_hash_map_init();
+  parsed.working_dirs = simple_archiver_list_init();
   parsed.just_w_files = simple_archiver_hash_map_init();
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
-  parsed.write_version = 5;
+  parsed.write_version = 6;
   parsed.minimum_chunk_size = 268435456;
   parsed.uid = 0;
   parsed.gid = 0;
@@ -354,6 +407,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.blacklist_contains_all = NULL;
   parsed.blacklist_begins = NULL;
   parsed.blacklist_ends = NULL;
+  parsed.not_to_compress_file_extensions = simple_archiver_hash_map_init();
 
   return parsed;
 }
@@ -592,9 +646,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           fprintf(stderr, "ERROR: --write-version cannot be negative!\n");
           simple_archiver_print_usage();
           return 1;
-        } else if (version > 5) {
+        } else if (version > 6) {
           fprintf(stderr,
-                  "ERROR: --write-version must be 0, 1, 2, 3, 4, or 5!\n");
+                  "ERROR: --write-version must be 0, 1, 2, 3, 4, 5, or 6!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1350,6 +1404,74 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
       } else if (strcmp(argv[0], "--wb-case-insensitive") == 0) {
         out->flags |= 0x20000;
+      } else if (strcmp(argv[0], "--print-file-exts-preset") == 0) {
+        for (char **ext = SDSA_NOT_TO_COMPRESS_FILE_EXTS;
+            *ext != NULL;
+            ++ext) {
+          fprintf(stderr, "%s ", *ext);
+        }
+        fprintf(stderr, "\n");
+        exit(0);
+      } else if (strcmp(argv[0], "--use-file-exts-preset") == 0) {
+        for (char **ext = SDSA_NOT_TO_COMPRESS_FILE_EXTS;
+            *ext != NULL;
+            ++ext) {
+          char *str = simple_archiver_helper_to_lower(*ext);
+          if (!simple_archiver_hash_map_get(
+                out->not_to_compress_file_extensions,
+                str,
+                strlen(str))) {
+            simple_archiver_hash_map_insert(
+                out->not_to_compress_file_extensions,
+                (void*)1,
+                str,
+                strlen(str),
+                simple_archiver_helper_datastructure_cleanup_nop,
+                NULL);
+          } else {
+            free(str);
+          }
+        }
+      } else if (strcmp(argv[0], "--add-file-ext") == 0
+          || strncmp(argv[0], "--add-file-ext=", 15) == 0) {
+        int_fast8_t is_separate =
+          strcmp(argv[0], "--add-file-ext") == 0 ? 1 : 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --add-file-ext expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 15;
+        }
+        char *to_lower = simple_archiver_helper_to_lower(str);
+        if (!simple_archiver_hash_map_get(
+              out->not_to_compress_file_extensions,
+              to_lower,
+              strlen(to_lower))) {
+          simple_archiver_hash_map_insert(
+              out->not_to_compress_file_extensions,
+              (void*)1,
+              to_lower,
+              strlen(to_lower),
+              simple_archiver_helper_datastructure_cleanup_nop,
+              NULL);
+        } else {
+          fprintf(stderr,
+                  "WARNING: File extension \"%s\" already added.\n",
+                  str);
+          free(to_lower);
+        }
+
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
+      } else if (strcmp(argv[0], "--allow-double-dot") == 0) {
+        out->flags |= 0x100000;
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);
@@ -1368,6 +1490,15 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_parser_internal_get_first_non_current_idx(argv[0]);
       size_t arg_length = strlen(argv[0] + arg_idx) + 1;
       const char *arg_ptr = argv[0] + arg_idx;
+
+      if ((out->flags & 0x100000) == 0
+          && simple_archiver_helper_contains_double_dot_path(arg_ptr)) {
+        fprintf(stderr,
+                "ERROR: Path contains \"..\"! Use \"--allow-double-dot\" if "
+                "this is intended!\n");
+        return 1;
+      }
+
       simple_archiver_hash_map_insert(
         out->just_w_files,
         (void*)arg_ptr,
@@ -1520,6 +1651,33 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
       } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
         // Is a directory.
+        char *dir_path = realpath(file_path, NULL);
+        char *temp_user_cwd_realpath = realpath(".", NULL);
+        if (strcmp(dir_path, temp_user_cwd_realpath) == 0) {
+          free(dir_path);
+          free(temp_user_cwd_realpath);
+        } else {
+          free(dir_path);
+          free(temp_user_cwd_realpath);
+
+          simple_archiver_parser_internal_remove_end_slash(file_path);
+
+          if (file_path[0] == '/') {
+            dir_path = realpath(file_path, NULL);
+            for (size_t idx = 0; dir_path[idx] != 0; ++idx) {
+              if (dir_path[idx] == '/' && idx > 0) {
+                char *outer = strdup(dir_path);
+                outer[idx] = 0;
+                simple_archiver_list_add(out->working_dirs, outer, NULL);
+              }
+            }
+            simple_archiver_list_add(out->working_dirs, dir_path, NULL);
+          } else {
+            dir_path = strdup(file_path);
+            simple_archiver_list_add(out->working_dirs, dir_path, NULL);
+          }
+        }
+
         __attribute__((cleanup(simple_archiver_list_free)))
         SDArchiverLinkedList *dir_list = simple_archiver_list_init();
         simple_archiver_list_add(
@@ -1532,6 +1690,14 @@ int simple_archiver_parse_args(int argc, const char **argv,
             break;
           }
           DIR *dir = opendir(next);
+          if (!dir) {
+            if (simple_archiver_list_remove(dir_list,
+                                            list_remove_same_str_fn,
+                                            next) == 0) {
+              break;
+            }
+            continue;
+          }
           struct dirent *dir_entry;
           uint_fast8_t is_dir_empty = 1;
           do {
@@ -1675,6 +1841,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
                 }
               } else if ((st.st_mode & S_IFMT) == S_IFDIR) {
                 // Is a directory.
+                simple_archiver_list_add(out->working_dirs,
+                                         strdup(combined_path),
+                                         NULL);
                 simple_archiver_list_add_front(dir_list, combined_path, NULL);
               } else {
                 fprintf(stderr,
@@ -1783,6 +1952,9 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   if (parsed->working_files) {
     simple_archiver_hash_map_free(&parsed->working_files);
   }
+  if (parsed->working_dirs) {
+    simple_archiver_list_free(&parsed->working_dirs);
+  }
   if (parsed->just_w_files) {
     simple_archiver_hash_map_free(&parsed->just_w_files);
   }
@@ -1846,6 +2018,9 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   }
   if (parsed->blacklist_ends) {
     simple_archiver_list_free(&parsed->blacklist_ends);
+  }
+  if (parsed->not_to_compress_file_extensions) {
+    simple_archiver_hash_map_free(&parsed->not_to_compress_file_extensions);
   }
 }
 

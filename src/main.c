@@ -99,10 +99,20 @@ int main(int argc, const char **argv) {
     }
   }
 
+#ifndef NDEBUG
   if (parsed.working_files->count > 0) {
     fprintf(stderr, "Filenames:\n");
     simple_archiver_hash_map_iter(parsed.working_files, print_map_fn, NULL);
   }
+  if (parsed.working_dirs->count > 0 && parsed.write_version >= 6) {
+    fprintf(stderr, "Directories:\n");
+    for (SDArchiverLLNode *node = parsed.working_dirs->head->next;
+         node != parsed.working_dirs->tail;
+         node = node->next) {
+      fprintf(stderr, "  %s\n", (const char*)node->data);
+    }
+  }
+#endif
 
   if ((parsed.flags & 3) == 0) {
     // Is creating archive.

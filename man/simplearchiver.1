@@ -251,6 +251,25 @@ blocked/blacklisted.
 Makes any whitelist/blacklist option case-insensitive (applies only to ASCII
 characters).
 .TP
+.BR --print-file-exts-preset
+Prints to stderr the preset used by
+\fB\-\-use\-not\-compress\-file\-exts\-preset\fR.
+.TP
+.BR --use-file-exts-preset
+Enables a preset of known file extensions to be checked against when archiving
+with compression for file format version 6 (and onward). In other words, each
+file extension in the preset is added to a set that will be checked against
+when checking each file in a chunk. Note that file extension checking is case
+insensitive.
+.TP
+.BR --add-file-ext " " \fIext\fR " | " --add-file-ext=\fIext\fR
+Adds an extension to the set of known file extensions to be checked against
+when archiving with compression for file format version 6 (and onward). Note
+that file extension checking is case insensitive.
+.TP
+.BR --allow-double-dot
+Allows positional arguments to contain ".." in them.
+.TP
 .BR --version
 Prints the current version of \fBsimplearchiver\fR.
 .TP
@@ -299,3 +318,17 @@ extraction. Also note that absolute paths can be prevented from being stored on
 archive creation with \fB\-\-no\-abs\-symlink\fR. Note that specifying both
 \fB\-\-no\-safe\-links\fR and \fB\-\-preserve\-symlinks\fR will store all
 symbolic links as is when creating an archive.
+
+.TP
+.BR "Conditional Chunk Compression Introduced in File Format Version 6"
+By default, \fBsimplearchiver\fR will always compress every chunk if a
+compressor (and decompressor) is specified. Two options
+\fB\-\-use\-file\-exts\-preset\fR and \fB\-\-add\-file\-ext\fR add file
+extensions to a set that is intially empty when the program starts. Using these
+flags opts-in to not compressing every file that has a matching file extension.
+This is done by placing every file that matches a "non-compressible-extension"
+into the first chunk that is set to not be compressed, even if a compressor is
+specified. Note that this does not affect files that do not match the set of
+file extensions of files to not compress. If these options are not used or if no
+file matches any of the set file extensions, then the default behavior is used,
+which is to compress every chunk if a compressor is specified.

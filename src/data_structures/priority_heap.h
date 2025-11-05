@@ -39,6 +39,8 @@ typedef struct SDArchiverPHeap {
   SDArchiverChunkedArr node_array;
   int (*less_fn)(int64_t, int64_t);
   int (*gen_less_fn)(void*, void*);
+  int (*gen_less_fn_ud)(void*, void*, void*);
+  void *ud;
 } SDArchiverPHeap;
 
 void internal_simple_archiver_cleanup_priority_heap_node(void *);
@@ -53,6 +55,9 @@ SDArchiverPHeap *simple_archiver_priority_heap_init_less_fn(
 /// Uses a compare fn on the data instead of a "priority key".
 SDArchiverPHeap *simple_archiver_priority_heap_init_less_generic_fn(
     int (*less_fn)(void*, void*));
+/// Uses a compare fn on the data instead of a "priority key" with userdata.
+SDArchiverPHeap *simple_archiver_priority_heap_init_less_generic_fn_ud(
+    int (*less_fn)(void*, void*, void*), void *ud);
 
 /// It is recommended to use the double-pointer version of priority-heap free
 /// as that will ensure the variable holding the pointer will end up pointing

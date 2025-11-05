@@ -8,6 +8,25 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 2.0
+
+Added new File Format Version 6.
+
+This new file format supports conditionally compressed chunks when using
+compression. By default, all chunks are compressed.
+
+One can use `--use-file-exts-preset` to enable a preset of known file extensions
+of files to not compress. One can also use `--add-file-ext` to add a file
+extension to not compress when using v6. These options cause all files that
+match the extensions to be placed in the first chunk, which will be set to not
+be compressed. All other chunks will be compressed with the expected files as
+normal.
+
+All directories in the archive path will be saved (instead of just "leaf"
+directories as in the previous file format versions). Their permissions and
+ownership will be stored, but as usual, only root (UID 0) can set ownership when
+extracting.
+
 ## Version 1.38
 
 Fix bug in writing uncompressed file format v5 chunks where "SA" was prepended

@@ -81,6 +81,8 @@ typedef struct SDArchiverStateRetStruct {
 #define SDA_PSTATE_CMP_SIZE_KEY_SIZE 24
 #define SDA_PSTATE_ACT_SIZE_KEY "SDA_Actual_Size_Key"
 #define SDA_PSTATE_ACT_SIZE_KEY_SIZE 20
+#define SDA_PSTATE_NOT_CMP_SIZE_KEY "SDA_NotCompressed_Size_Key"
+#define SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE 27
 
 /// Returned pointer must not be freed.
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error);
@@ -113,7 +115,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   SDArchiverState *state,
   SDArchiverHashMap *write_state);
 
-SDArchiverStateRetStruct simple_archiver_write_v4v5(
+SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
   FILE *out_f,
   SDArchiverState *state,
   SDArchiverHashMap *write_state);
@@ -153,7 +155,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   SDArchiverHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
-SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
   FILE *in_f,
   int_fast8_t do_extract,
   const SDArchiverState *state,

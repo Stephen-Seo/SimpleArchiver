@@ -37,8 +37,11 @@
 #include <signal.h>
 
 // Local includes.
+#include "data_structures/hash_map.h"
+#include "data_structures/linked_list.h"
 #include "data_structures/priority_heap.h"
 #include "helpers.h"
+#include "parser.h"
 #include "users.h"
 
 #define FILE_COUNTS_OUTPUT_FORMAT_STR_0 \
@@ -1990,7 +1993,7 @@ void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
   }
 }
 
-int internal_write_dir_entries_v2_v3_v4_v5(void *data, void *ud) {
+int internal_write_dir_entries_v2_v3_v4_v5_v6(void *data, void *ud) {
   const char *dir = data;
   void **ptrs = ud;
   FILE *out_f = ptrs[0];
@@ -2152,9 +2155,7 @@ int internal_write_dir_entries_v2_v3_v4_v5(void *data, void *ud) {
     return 1;
   }
 
-  if (state->parsed->write_version == 3
-      || state->parsed->write_version == 4
-      || state->parsed->write_version == 5) {
+  if (state->parsed->write_version >= 3) {
     u32 = stat_buf.st_uid;
     if (state->parsed->flags & 0x400) {
       u32 = state->parsed->uid;
@@ -2315,65 +2316,220 @@ int simple_archiver_internal_prune_filenames_v0(
 }
 
 void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
-  uint64_t *temp =
+  uint64_t *cmp_size =
     simple_archiver_hash_map_get(parse_state,
                                  SDA_PSTATE_CMP_SIZE_KEY,
                                  SDA_PSTATE_CMP_SIZE_KEY_SIZE);
-  if (temp && *temp != 0) {
-    fprintf(stderr, "Compressed size is %" PRIu64, *temp);
-    if (*temp > 1024) {
-      uint64_t hundredths = (100 * (*temp % 1024)) / 1024;
+  if (cmp_size && *cmp_size!= 0) {
+    fprintf(stderr, "Compressed (archived) size is %" PRIu64, *cmp_size);
+    if (*cmp_size > 1024) {
+      uint64_t hundredths = (100 * (*cmp_size % 1024)) / 1024;
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " KiB",
-              *temp / 1024,
+              *cmp_size / 1024,
               hundredths);
     }
-    if (*temp > 1024 * 1024) {
-      uint64_t hundredths = (100 * (*temp % (1024 * 1024))) / (1024 * 1024);
+    if (*cmp_size > 1024 * 1024) {
+      uint64_t hundredths = (100 * (*cmp_size % (1024 * 1024))) / (1024 * 1024);
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " MiB",
-              *temp / (1024 * 1024),
+              *cmp_size / (1024 * 1024),
               hundredths);
     }
-    if (*temp > 1024 * 1024 * 1024) {
+    if (*cmp_size > 1024 * 1024 * 1024) {
       uint64_t hundredths =
-        (100 * (*temp % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+        (100 * (*cmp_size % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " GiB",
-              *temp / (1024 * 1024 * 1024),
+              *cmp_size / (1024 * 1024 * 1024),
               hundredths);
     }
     fprintf(stderr, "\n");
   }
-  temp = simple_archiver_hash_map_get(parse_state,
-                                      SDA_PSTATE_ACT_SIZE_KEY,
-                                      SDA_PSTATE_ACT_SIZE_KEY_SIZE);
-  if (temp && *temp != 0) {
-    fprintf(stderr, "Actual size is %" PRIu64, *temp);
-    if (*temp > 1024) {
-      uint64_t hundredths = (100 * (*temp % 1024)) / 1024;
+  uint64_t *act_size =
+    simple_archiver_hash_map_get(
+      parse_state,
+      SDA_PSTATE_ACT_SIZE_KEY,
+      SDA_PSTATE_ACT_SIZE_KEY_SIZE);
+  if (act_size && *act_size != 0) {
+    fprintf(stderr, "Actual size is %" PRIu64, *act_size);
+    if (*act_size > 1024) {
+      uint64_t hundredths = (100 * (*act_size % 1024)) / 1024;
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " KiB",
-              *temp / 1024,
+              *act_size / 1024,
               hundredths);
     }
-    if (*temp > 1024 * 1024) {
-      uint64_t hundredths = (100 * (*temp % (1024 * 1024))) / (1024 * 1024);
+    if (*act_size > 1024 * 1024) {
+      uint64_t hundredths = (100 * (*act_size % (1024 * 1024))) / (1024 * 1024);
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " MiB",
-              *temp / (1024 * 1024),
+              *act_size / (1024 * 1024),
               hundredths);
     }
-    if (*temp > 1024 * 1024 * 1024) {
+    if (*act_size > 1024 * 1024 * 1024) {
       uint64_t hundredths =
-        (100 * (*temp % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+        (100 * (*act_size % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
       fprintf(stderr,
               ", %" PRIu64 ".%02" PRIu64 " GiB",
-              *temp / (1024 * 1024 * 1024),
+              *act_size / (1024 * 1024 * 1024),
               hundredths);
     }
     fprintf(stderr, "\n");
   }
+
+  uint64_t *ncmp_size =
+    simple_archiver_hash_map_get(
+      parse_state,
+      SDA_PSTATE_NOT_CMP_SIZE_KEY,
+      SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE);
+  if (ncmp_size && *ncmp_size != 0
+      && cmp_size && *cmp_size != 0
+      && act_size && *act_size != 0) {
+    const uint64_t cmp_wo_n_size = *cmp_size - *ncmp_size;
+    const uint64_t act_wo_n_size = *act_size - *ncmp_size;
+    fprintf(
+      stderr,
+      "Without non-cmp: Compressed (archived) size is %" PRIu64,
+      cmp_wo_n_size);
+    if (cmp_wo_n_size > 1024) {
+      uint64_t hundredths = (100 * (cmp_wo_n_size % 1024)) / 1024;
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " KiB",
+              cmp_wo_n_size / 1024,
+              hundredths);
+    }
+    if (cmp_wo_n_size > 1024 * 1024) {
+      uint64_t hundredths =
+        (100 * (cmp_wo_n_size % (1024 * 1024))) / (1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " MiB",
+              cmp_wo_n_size / (1024 * 1024),
+              hundredths);
+    }
+    if (cmp_wo_n_size > 1024 * 1024 * 1024) {
+      uint64_t hundredths =
+        (100 * (cmp_wo_n_size % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " GiB",
+              cmp_wo_n_size / (1024 * 1024 * 1024),
+              hundredths);
+    }
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Without non-cmp: Actual size is %" PRIu64, act_wo_n_size);
+    if (act_wo_n_size > 1024) {
+      uint64_t hundredths = (100 * (act_wo_n_size % 1024)) / 1024;
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " KiB",
+              act_wo_n_size / 1024,
+              hundredths);
+    }
+    if (act_wo_n_size > 1024 * 1024) {
+      uint64_t hundredths =
+        (100 * (act_wo_n_size % (1024 * 1024))) / (1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " MiB",
+              act_wo_n_size / (1024 * 1024),
+              hundredths);
+    }
+    if (act_wo_n_size > 1024 * 1024 * 1024) {
+      uint64_t hundredths =
+        (100 * (act_wo_n_size % (1024 * 1024 * 1024))) / (1024 * 1024 * 1024);
+      fprintf(stderr,
+              ", %" PRIu64 ".%02" PRIu64 " GiB",
+              act_wo_n_size / (1024 * 1024 * 1024),
+              hundredths);
+    }
+    fprintf(stderr, "\n");
+  }
+}
+
+int internal_pheap_file_ext_less_fn(void *a, void *b, void *ud) {
+  SDArchiverHashMap *exts = ud;
+  SDArchiverInternalFileInfo *file_a = a;
+  SDArchiverInternalFileInfo *file_b = b;
+
+  char *a_ext = NULL;
+  char *b_ext = NULL;
+
+  for (size_t idx = strlen(file_a->filename); idx-- > 0;) {
+    if (file_a->filename[idx] == '.') {
+      a_ext = file_a->filename + idx;
+      break;
+    }
+  }
+  for (size_t idx = strlen(file_b->filename); idx-- > 0;) {
+    if (file_b->filename[idx] == '.') {
+      b_ext = file_b->filename + idx;
+      break;
+    }
+  }
+
+  if (!a_ext && !b_ext) {
+    return 0;
+  } else if (a_ext && !b_ext) {
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *a_ext_lower = simple_archiver_helper_to_lower(a_ext);
+    if (simple_archiver_hash_map_get(exts, a_ext_lower, strlen(a_ext_lower))) {
+      return 1;
+    } else {
+      return 0;
+    }
+  } else if (!a_ext && b_ext) {
+    return 0;
+  } else {
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *a_ext_lower = simple_archiver_helper_to_lower(a_ext);
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *b_ext_lower = simple_archiver_helper_to_lower(b_ext);
+
+    if (simple_archiver_hash_map_get(exts, a_ext_lower, strlen(a_ext_lower))) {
+      if (simple_archiver_hash_map_get(
+          exts, b_ext_lower, strlen(b_ext_lower))) {
+        return 0;
+      } else {
+        return 1;
+      }
+    } else {
+      return 0;
+    }
+  }
+}
+
+int internal_add_list_items_to_list(void *data, void *ud) {
+  SDArchiverLinkedList *other_list = ud;
+  SDArchiverInternalFileInfo *file = data;
+
+  SDArchiverInternalFileInfo *copy = malloc(sizeof(SDArchiverInternalFileInfo));
+  if (file->filename) {
+    copy->filename = strdup(file->filename);
+  } else {
+    copy->filename = NULL;
+  }
+  if (file->prefixed_filename) {
+    copy->prefixed_filename = strdup(file->prefixed_filename);
+  } else {
+    copy->prefixed_filename = NULL;
+  }
+  memcpy(copy->bit_flags, file->bit_flags, 4);
+  copy->uid = file->uid;
+  copy->gid = file->gid;
+  if (file->username) {
+    copy->username = strdup(file->username);
+  } else {
+    copy->username = NULL;
+  }
+  if (file->groupname) {
+    copy->groupname = strdup(file->groupname);
+  } else {
+    copy->groupname = NULL;
+  }
+  copy->file_size = file->file_size;
+  copy->other_flags = file->other_flags;
+
+  simple_archiver_list_add(other_list, copy, free_internal_file_info);
+
+  return 0;
 }
 
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
@@ -2504,9 +2660,9 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     }
     case 4:
     {
-      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5(out_f,
-                                                                state,
-                                                                write_state);
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6(out_f,
+                                                                  state,
+                                                                  write_state);
       if (ret.ret == SDAS_SUCCESS) {
         internal_simple_archiver_parse_stats(write_state);
       }
@@ -2514,9 +2670,19 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     }
     case 5:
     {
-      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5(out_f,
-                                                                state,
-                                                                write_state);
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6(out_f,
+                                                                  state,
+                                                                  write_state);
+      if (ret.ret == SDAS_SUCCESS) {
+        internal_simple_archiver_parse_stats(write_state);
+      }
+      return ret;
+    }
+    case 6:
+    {
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6(out_f,
+                                                                  state,
+                                                                  write_state);
       if (ret.ret == SDAS_SUCCESS) {
         internal_simple_archiver_parse_stats(write_state);
       }
@@ -4757,7 +4923,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4_v5,
+                               internal_write_dir_entries_v2_v3_v4_v5_v6,
                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
@@ -6025,7 +6191,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4_v5,
+                               internal_write_dir_entries_v2_v3_v4_v5_v6,
                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
@@ -6035,17 +6201,20 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-SDArchiverStateRetStruct simple_archiver_write_v4v5(
+SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
     FILE *out_f,
     SDArchiverState *state,
     SDArchiverHashMap *write_state) {
-  if (state->parsed->write_version == 5) {
+  if (state->parsed->write_version == 6) {
+    fprintf(stderr, "Writing archive of file format 6\n");
+  } else if (state->parsed->write_version == 5) {
     fprintf(stderr, "Writing archive of file format 5\n");
   } else {
     fprintf(stderr, "Writing archive of file format 4\n");
   }
 
   // First create a "set" of absolute paths to given filenames.
+  fprintf(stderr, "INFO: Getting absolute path(s) from given path(s)...\n");
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
   void **ptr_array = malloc(sizeof(void *) * 2);
@@ -6058,17 +6227,24 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
     return SDA_RET_STRUCT(SDAS_FAILED_TO_CREATE_MAP);
   }
   free(ptr_array);
+  fprintf(stderr, "INFO: Done getting absolute path(s). Continuing...\n");
 
   // Get a list of symlinks and a list of files.
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *symlinks_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_list_free)))
+  SDArchiverLinkedList *non_comp_files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *dirs_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_priority_heap_free)))
   SDArchiverPHeap *files_pheap = NULL;
-  if (state->parsed->flags & 0x80000) {
+  if (state->parsed->write_version >= 6) {
+    files_pheap = simple_archiver_priority_heap_init_less_generic_fn_ud(
+        internal_pheap_file_ext_less_fn,
+        state->parsed->not_to_compress_file_extensions);
+  } else if (state->parsed->flags & 0x80000) {
     files_pheap = simple_archiver_priority_heap_init_less_generic_fn(
         internal_strcmp_less_fn);
   } else if (state->parsed->flags & 0x40) {
@@ -6088,6 +6264,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
 
+  fprintf(stderr, "INFO: Loading filenames/symlinks from given path(s)...\n");
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
                                     ptr_array)) {
@@ -6096,6 +6273,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
     return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(ptr_array);
+  fprintf(stderr, "INFO: Loaded. Continuing...\n");
 
   simple_archiver_hash_map_insert(
     write_state,
@@ -6105,17 +6283,145 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
     NULL,
     simple_archiver_helper_datastructure_cleanup_nop);
 
+  int_fast8_t has_non_compressible_chunk = 0;
   if (files_pheap) {
-    while (simple_archiver_priority_heap_size(files_pheap) > 0) {
-      simple_archiver_list_add(files_list,
-                               simple_archiver_priority_heap_pop(files_pheap),
-                               free_internal_file_info);
+    if (state->parsed->write_version >= 6) {
+      __attribute__((cleanup(simple_archiver_priority_heap_free)))
+      SDArchiverPHeap *name_pheap =
+        simple_archiver_priority_heap_init_less_generic_fn(
+          internal_strcmp_less_fn);
+
+      // Put not-to-compress into name-sorting-heap
+      while (simple_archiver_priority_heap_size(files_pheap) != 0) {
+        if (is_sig_int_occurred) {
+          fprintf(stderr, "Interrupt, stop populating priority heap...\n");
+          return SDA_RET_STRUCT(SDAS_SIGINT);
+        }
+        SDArchiverInternalFileInfo *popped =
+          simple_archiver_priority_heap_pop(files_pheap);
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *ext = NULL;
+        for (size_t idx = strlen(popped->filename); idx-- > 0;) {
+          if (popped->filename[idx] == '.') {
+            ext = simple_archiver_helper_to_lower(popped->filename + idx);
+            break;
+          }
+        }
+        if (ext
+            && simple_archiver_hash_map_get(
+                  state->parsed->not_to_compress_file_extensions,
+                  ext,
+                  strlen(ext))) {
+          has_non_compressible_chunk = 1;
+          simple_archiver_priority_heap_insert(
+              name_pheap,
+              0,
+              popped,
+              free_internal_file_info);
+        } else {
+          simple_archiver_priority_heap_insert(
+              files_pheap,
+              0,
+              popped,
+              free_internal_file_info);
+          break;
+        }
+      }
+
+      // Add name-sorted not-compressible to list
+      while (simple_archiver_priority_heap_size(name_pheap) != 0) {
+        if (is_sig_int_occurred) {
+          fprintf(stderr, "Interrupt, stop populating priority heap...\n");
+          return SDA_RET_STRUCT(SDAS_SIGINT);
+        }
+        simple_archiver_list_add(
+          non_comp_files_list,
+          simple_archiver_priority_heap_pop(name_pheap),
+          free_internal_file_info);
+      }
+
+      // Put rest of data in selected heap type and list afterwards
+      if (state->parsed->flags & 0x80000) {
+        __attribute__((cleanup(simple_archiver_priority_heap_free)))
+        SDArchiverPHeap *pheap =
+          simple_archiver_priority_heap_init_less_generic_fn(
+            internal_strcmp_less_fn);
+        while (simple_archiver_priority_heap_size(files_pheap) != 0) {
+          if (is_sig_int_occurred) {
+            fprintf(stderr, "Interrupt, stop populating priority heap...\n");
+            return SDA_RET_STRUCT(SDAS_SIGINT);
+          }
+          simple_archiver_priority_heap_insert(
+              pheap,
+              0,
+              simple_archiver_priority_heap_pop(files_pheap),
+              free_internal_file_info);
+        }
+        while (simple_archiver_priority_heap_size(pheap) != 0) {
+          if (is_sig_int_occurred) {
+            fprintf(stderr, "Interrupt, stop populating priority heap...\n");
+            return SDA_RET_STRUCT(SDAS_SIGINT);
+          }
+          simple_archiver_list_add(
+              files_list,
+              simple_archiver_priority_heap_pop(pheap),
+              free_internal_file_info);
+        }
+      } else if (state->parsed->flags & 0x40) {
+        __attribute__((cleanup(simple_archiver_priority_heap_free)))
+        SDArchiverPHeap *pheap =
+          simple_archiver_priority_heap_init_less_fn(
+            greater_fn);
+        while (simple_archiver_priority_heap_size(files_pheap) != 0) {
+          if (is_sig_int_occurred) {
+            fprintf(stderr, "Interrupt, stop populating priority heap...\n");
+            return SDA_RET_STRUCT(SDAS_SIGINT);
+          }
+          simple_archiver_priority_heap_insert(
+              pheap,
+              0,
+              simple_archiver_priority_heap_pop(files_pheap),
+              free_internal_file_info);
+        }
+        while (simple_archiver_priority_heap_size(pheap) != 0) {
+          if (is_sig_int_occurred) {
+            fprintf(stderr, "Interrupt, stop populating priority heap...\n");
+            return SDA_RET_STRUCT(SDAS_SIGINT);
+          }
+          simple_archiver_list_add(
+              files_list,
+              simple_archiver_priority_heap_pop(pheap),
+              free_internal_file_info);
+        }
+      } else {
+        while (simple_archiver_priority_heap_size(files_pheap) != 0) {
+          if (is_sig_int_occurred) {
+            fprintf(stderr, "Interrupt, stop populating priority heap...\n");
+            return SDA_RET_STRUCT(SDAS_SIGINT);
+          }
+          simple_archiver_list_add(
+              files_list,
+              simple_archiver_priority_heap_pop(files_pheap),
+              free_internal_file_info);
+        }
+      }
+    } else {
+      while (simple_archiver_priority_heap_size(files_pheap) > 0) {
+        if (is_sig_int_occurred) {
+          fprintf(stderr, "Interrupt, stop populating priority heap...\n");
+          return SDA_RET_STRUCT(SDAS_SIGINT);
+        }
+        simple_archiver_list_add(files_list,
+                                 simple_archiver_priority_heap_pop(files_pheap),
+                                 free_internal_file_info);
+      }
     }
     simple_archiver_priority_heap_free(&files_pheap);
   }
 
   if (symlinks_list->count
       + files_list->count
+      + non_comp_files_list->count
       + dirs_list->count != from_files_count) {
     fprintf(stderr,
             "ERROR: Count mismatch between files and symlinks and files from "
@@ -6128,7 +6434,14 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   }
 
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
-  uint16_t u16 = state->parsed->write_version == 5 ? 5 : 4;
+  uint16_t u16;
+  if (state->parsed->write_version == 6) {
+    u16 = 6;
+  } else if (state->parsed->write_version == 5) {
+    u16 = 5;
+  } else {
+    u16 = 4;
+  }
 
   simple_archiver_helper_16_bit_be(&u16);
 
@@ -6196,7 +6509,251 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   }
 
   uint32_t u32;
-  uint64_t u64 = symlinks_list->count;
+  uint64_t u64;
+
+  if (state->parsed->write_version >= 6) {
+    // Directories.
+    fprintf(stderr, "Archiving Directories\n");
+    u64 = state->parsed->working_dirs->count;
+    simple_archiver_helper_64_bit_be(&u64);
+    if (fwrite(&u64, 8, 1, out_f) != 1) {
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+    }
+
+    // Change cwd if user specified.
+    __attribute__((cleanup(
+        simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
+    if (state->parsed->user_cwd) {
+      original_cwd = realpath(".", NULL);
+      if (chdir(state->parsed->user_cwd)) {
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      }
+    }
+
+    uint64_t dir_count = 0;
+    for (SDArchiverLLNode *next = state->parsed->working_dirs->head->next;
+         next != state->parsed->working_dirs->tail;
+         next = next->next) {
+      const char *dir_path = next->data;
+      fprintf(stderr,
+              "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
+              ++dir_count,
+              state->parsed->working_dirs->count,
+              dir_path);
+      u32 = (uint32_t)strlen(dir_path);
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(&u32, 4, 1, out_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(dir_path, 1, u32 + 1, out_f) != u32 + 1) {
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      struct stat stat_buf;
+      memset(&stat_buf, 0, sizeof(struct stat));
+      int stat_fd = open(dir_path, O_RDONLY | O_DIRECTORY);
+      if (stat_fd == -1) {
+        fprintf(stderr, "ERROR: Failed to get stat of \"%s\"!\n", dir_path);
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      }
+      int ret = fstat(stat_fd, &stat_buf);
+      close(stat_fd);
+      if (ret != 0) {
+        fprintf(stderr, "ERROR: Failed to fstat \"%s\"!\n", dir_path);
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      }
+
+      uint8_t pbits[2] = {0, 0};
+      if (state && state->parsed->flags & 0x20000) {
+        pbits[0] = state->parsed->empty_dir_permissions & 0xFF;
+        pbits[1] = (state->parsed->empty_dir_permissions >> 8) & 0xFF;
+      } else {
+        if ((stat_buf.st_mode & S_IRUSR) != 0) {
+          pbits[0] |= 1;
+        }
+        if ((stat_buf.st_mode & S_IWUSR) != 0) {
+          pbits[0] |= 2;
+        }
+        if ((stat_buf.st_mode & S_IXUSR) != 0) {
+          pbits[0] |= 4;
+        }
+        if ((stat_buf.st_mode & S_IRGRP) != 0) {
+          pbits[0] |= 8;
+        }
+        if ((stat_buf.st_mode & S_IWGRP) != 0) {
+          pbits[0] |= 0x10;
+        }
+        if ((stat_buf.st_mode & S_IXGRP) != 0) {
+          pbits[0] |= 0x20;
+        }
+        if ((stat_buf.st_mode & S_IROTH) != 0) {
+          pbits[0] |= 0x40;
+        }
+        if ((stat_buf.st_mode & S_IWOTH) != 0) {
+          pbits[0] |= 0x80;
+        }
+        if ((stat_buf.st_mode & S_IXOTH) != 0) {
+          pbits[1] |= 1;
+        }
+      }
+
+      if (fwrite(pbits, 1, 2, out_f) != 2) {
+        fprintf(stderr,
+                "ERROR: Failed to write permission bits for \"%s\"!\n",
+                dir_path);
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      u32 = stat_buf.st_uid;
+      if (state->parsed->flags & 0x400) {
+        u32 = state->parsed->uid;
+      } else {
+        uint32_t mapped_uid;
+        if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            u32,
+                                            &mapped_uid,
+                                            NULL) == 0) {
+          u32 = mapped_uid;
+        }
+      }
+
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(&u32, 4, 1, out_f) != 1) {
+        fprintf(stderr, "ERROR: Failed to write UID for \"%s\"!\n", dir_path);
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      u32 = stat_buf.st_gid;
+      if (state->parsed->flags & 0x800) {
+        u32 = state->parsed->gid;
+      } else {
+        uint32_t mapped_gid;
+        if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            u32,
+                                            &mapped_gid,
+                                            NULL) == 0) {
+          u32 = mapped_gid;
+        }
+      }
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(&u32, 4, 1, out_f) != 1) {
+        fprintf(stderr, "ERROR: Failed to write GID for \"%s\"!\n", dir_path);
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      u32 = stat_buf.st_uid;
+      if (state->parsed->flags & 0x400) {
+        u32 = state->parsed->uid;
+      }
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *to_cleanup_user = NULL;
+      const char *username = simple_archiver_hash_map_get(
+        state->parsed->users_infos.UidToUname, &u32, sizeof(uint32_t));
+      if (username) {
+        if ((state->parsed->flags & 0x400) == 0) {
+          uint32_t out_uid;
+          const char *mapped_user = NULL;
+          if (simple_archiver_get_user_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               username,
+                                               &out_uid,
+                                               &mapped_user) == 0
+              && mapped_user) {
+            username = mapped_user;
+            to_cleanup_user = (char *)mapped_user;
+          }
+        }
+        unsigned long length = strlen(username);
+        if (length > 0xFFFF) {
+          fprintf(stderr,
+                  "ERROR: Username is too long for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        }
+        u16 = (uint16_t)length;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          fprintf(
+            stderr,
+            "ERROR: Failed to write username length for dir \"%s\"!\n",
+            dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        } else if (fwrite(username, 1, length + 1, out_f) != length + 1) {
+          fprintf(stderr,
+                  "ERROR: Failed to write username for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      } else {
+        u16 = 0;
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          fprintf(
+            stderr,
+            "ERROR: Failed to write 0 bytes for username for dir \"%s\"\n!",
+            dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      }
+
+      u32 = stat_buf.st_gid;
+      if (state->parsed->flags & 0x800) {
+        u32 = state->parsed->gid;
+      }
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *to_cleanup_group = NULL;
+      const char *groupname = simple_archiver_hash_map_get(
+        state->parsed->users_infos.GidToGname, &u32, sizeof(uint32_t));
+      if (groupname) {
+        if ((state->parsed->flags & 0x800) == 0) {
+          uint32_t out_gid;
+          const char *mapped_group = NULL;
+          if (simple_archiver_get_group_mapping(state->parsed->mappings,
+                                                state->parsed->users_infos,
+                                                groupname,
+                                                &out_gid,
+                                                &mapped_group) == 0
+              && mapped_group) {
+            groupname = mapped_group;
+            to_cleanup_group = (char *)mapped_group;
+          }
+        }
+        unsigned long length = strlen(groupname);
+        if (length > 0xFFFF) {
+          fprintf(stderr,
+                  "ERROR: Groupname is too long for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        }
+        u16 = (uint16_t)length;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          fprintf(stderr,
+                  "ERROR: Failed to write Groupname length for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        } else if (fwrite(groupname, 1, length + 1, out_f) != length + 1) {
+          fprintf(stderr,
+                  "ERROR: Failed to write Groupname for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      } else {
+        u16 = 0;
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          fprintf(
+            stderr,
+            "ERROR: Failed to write 0 bytes for Groupname for dir \"%s\"\n!",
+            dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      }
+    }
+  }
+
+  u64 = symlinks_list->count;
   simple_archiver_helper_64_bit_be(&u64);
   if (fwrite(&u64, 8, 1, out_f) != 1) {
     return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
@@ -6631,6 +7188,30 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *chunk_counts = simple_archiver_list_init();
 
+  if (state->parsed->write_version >= 6) {
+    uint64_t current_size = 0;
+    uint64_t current_count = 0;
+    uint64_t max = 0xFFFFFFFFFFFFFFFF;
+    void **ptrs = malloc(sizeof(void *) * 4);
+    ptrs[0] = (void *)&max;
+    ptrs[1] = &current_size;
+    ptrs[2] = &current_count;
+    ptrs[3] = chunk_counts;
+    if (simple_archiver_list_get(non_comp_files_list,
+                                 files_to_chunk_count,
+                                 ptrs)) {
+      free(ptrs);
+      fprintf(stderr, "ERROR: Internal error calculating chunk counts!\n");
+      return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+    }
+    free(ptrs);
+    if ((chunk_counts->count == 0 || current_size > 0) && current_count > 0) {
+      uint64_t *count = malloc(sizeof(uint64_t));
+      *count = current_count;
+      simple_archiver_list_add(chunk_counts, count, NULL);
+    }
+  }
+
   {
     uint64_t current_size = 0;
     uint64_t current_count = 0;
@@ -6659,12 +7240,21 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
          node != chunk_counts->tail; node = node->next) {
       count += *((uint64_t *)node->data);
     }
-    if (count != files_list->count) {
+    if (count != files_list->count + non_comp_files_list->count) {
       fprintf(stderr,
               "ERROR: Internal error calculating chunk counts (invalid number "
               "of files)!\n");
       return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
     }
+  }
+
+  if (state->parsed->write_version >= 6) {
+    // Combine "non_comp_files_list" with "files_list"
+    simple_archiver_list_get(
+        files_list, internal_add_list_items_to_list, non_comp_files_list);
+    simple_archiver_list_free(&files_list);
+    files_list = non_comp_files_list;
+    non_comp_files_list = NULL;
   }
 
   // Write number of chunks.
@@ -6675,10 +7265,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   }
 
   __attribute__((cleanup(simple_archiver_helper_cleanup_malloced))) void
-      *non_compressing_chunk_size = NULL;
-  if (!state->parsed->compressor || !state->parsed->decompressor) {
-    non_compressing_chunk_size = malloc(sizeof(uint64_t));
-  }
+      *non_compressing_chunk_size = malloc(sizeof(uint64_t));
   uint64_t *non_c_chunk_size = non_compressing_chunk_size;
 
   __attribute__((cleanup(cleanup_uint64_t_ptr)))
@@ -6688,13 +7275,14 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   SDArchiverLLNode *file_node = files_list->head;
   uint64_t chunk_count = 0;
   int_fast8_t v5_to_write_header;
+  int_fast8_t is_first_chunk = 1;
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail;
        chunk_c_node = chunk_c_node->next) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
-    v5_to_write_header = state->parsed->write_version == 5 ? 1 : 0;
+    v5_to_write_header = state->parsed->write_version >= 5 ? 1 : 0;
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             ++chunk_count,
@@ -6709,6 +7297,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
     if (fwrite(&u64, 8, 1, out_f) != 1) {
       return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
     }
+
     SDArchiverLLNode *saved_node = file_node;
     for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
          ++file_idx) {
@@ -6721,6 +7310,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
         *non_c_chunk_size += file_info_struct->file_size;
       }
       const size_t filename_len = strlen(file_info_struct->filename);
+
       if (state->parsed->prefix) {
         const size_t total_length = filename_len + prefix_length;
         if (total_length >= 0xFFFF) {
@@ -6882,9 +7472,46 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
       }
     }
 
+    // File format version 6: two-byte bit-flags.
+    // Default, compressed bit is set, but is overwritten when using v6.
+    int_fast8_t compressed_bit_set = 1;
+    if (state->parsed->write_version >= 6) {
+      if (is_first_chunk) {
+        uint64_t *temp = malloc(sizeof(uint64_t));
+        memcpy(temp, non_c_chunk_size, sizeof(uint64_t));
+        simple_archiver_hash_map_insert(
+          write_state,
+          temp,
+          SDA_PSTATE_NOT_CMP_SIZE_KEY,
+          SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
+          NULL,
+          simple_archiver_helper_datastructure_cleanup_nop);
+      }
+
+      compressed_bit_set = is_first_chunk && has_non_compressible_chunk ? 0 : 1;
+      is_first_chunk = 0;
+
+      uint8_t v6_byte_flags[2];
+      v6_byte_flags[0] = 0;
+      v6_byte_flags[0] |= compressed_bit_set ? 1 : 0;
+      v6_byte_flags[1] = 0;
+      if (fwrite(v6_byte_flags, 1, 2, out_f) != 2) {
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      fprintf(
+          stderr,
+          "%s",
+          compressed_bit_set
+            ? ""
+            : "V6 First Chunk with all non-compressing extensions\n");
+    }
+
     file_node = saved_node;
 
-    if (state->parsed->compressor && state->parsed->decompressor) {
+    if (state->parsed->compressor
+        && state->parsed->decompressor
+        && (state->parsed->write_version <= 5 || compressed_bit_set)) {
       // Is compressing.
       __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
       char *temp_filename = NULL;
@@ -6995,7 +7622,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                "  FILE %7" PRIu64 " of %7" PRIu64 ": %s\n",
                 file_idx + 1,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
@@ -7183,6 +7810,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
       if (!non_c_chunk_size) {
         return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
+      if (state->parsed->write_version >= 6) {
+        // Sum uncompressed chunk size with total "compressed size".
+        *files_compressed_size += *non_c_chunk_size;
+      }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
       if (v5_to_write_header) {
@@ -7210,7 +7841,9 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
             fopen(file_info_struct->filename, "rb");
         while (!feof(fd)) {
-          if (ferror(fd)) {
+          if (is_sig_int_occurred) {
+            return SDA_RET_STRUCT(SDAS_SIGINT);
+          } else if (ferror(fd)) {
             fprintf(stderr, "ERROR: Writing to chunk, file read error!\n");
             return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
           }
@@ -7239,6 +7872,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
+  if (state->parsed->write_version >= 6) {
+    return SDA_RET_STRUCT(SDAS_SUCCESS);
+  }
+
   // Write directory entries.
   u64 = dirs_list->count;
   if (u64 != 0) {
@@ -7256,7 +7893,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5(
   void_ptrs[1] = state;
 
   if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4_v5,
+                               internal_write_dir_entries_v2_v3_v4_v5_v6,
                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
@@ -7333,19 +7970,28 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
   } else if (u16 == 4) {
     fprintf(stderr, "File format version 4\n");
     state->parsed->write_version = 4;
-    ret_struct = simple_archiver_parse_archive_version_4_5(in_f,
-                                                           do_extract,
-                                                           state,
-                                                           parse_state);
+    ret_struct = simple_archiver_parse_archive_version_4_5_6(in_f,
+                                                             do_extract,
+                                                             state,
+                                                             parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else if (u16 == 5) {
     fprintf(stderr, "File format version 5\n");
     state->parsed->write_version = 5;
-    ret_struct = simple_archiver_parse_archive_version_4_5(in_f,
-                                                           do_extract,
-                                                           state,
-                                                           parse_state);
+    ret_struct = simple_archiver_parse_archive_version_4_5_6(in_f,
+                                                             do_extract,
+                                                             state,
+                                                             parse_state);
+    internal_simple_archiver_parse_stats(parse_state);
+    return ret_struct;
+  } else if (u16 == 6) {
+    fprintf(stderr, "File format version 6\n");
+    state->parsed->write_version = 6;
+    ret_struct = simple_archiver_parse_archive_version_4_5_6(in_f,
+                                                             do_extract,
+                                                             state,
+                                                             parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else {
@@ -9249,13 +9895,29 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
     if (chunk_size > 1024) {
-      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+      uint64_t hundredths = (chunk_size % 1024) * 100 / 1024;
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " KiB",
+        chunk_size / 1024,
+        hundredths);
     }
     if (chunk_size > 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+      uint64_t hundredths = (chunk_size % (1024 * 1024)) * 100 / (1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " MiB",
+        chunk_size / (1024 * 1024),
+        hundredths);
     }
     if (chunk_size > 1024 * 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+      uint64_t hundredths =
+        (chunk_size % (1024 * 1024 * 1024)) * 100 / (1024 * 1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " GiB",
+        chunk_size / (1024 * 1024 * 1024),
+        hundredths);
     }
     fprintf(stderr, "\n");
 
@@ -11062,13 +11724,29 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
     if (chunk_size > 1024) {
-      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+      uint64_t hundredths = (chunk_size % 1024) * 100 / 1024;
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " KiB",
+        chunk_size / 1024,
+        hundredths);
     }
     if (chunk_size > 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+      uint64_t hundredths = (chunk_size % (1024 * 1024)) * 100 / (1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " MiB",
+        chunk_size / (1024 * 1024),
+        hundredths);
     }
     if (chunk_size > 1024 * 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+      uint64_t hundredths =
+        (chunk_size % (1024 * 1024 * 1024)) * 100 / (1024 * 1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " GiB",
+        chunk_size / (1024 * 1024 * 1024),
+        hundredths);
     }
     fprintf(stderr, "\n");
 
@@ -11899,7 +12577,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     FILE *in_f,
     int_fast8_t do_extract,
     const SDArchiverState *state,
@@ -11981,6 +12659,270 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
 
   if (is_sig_int_occurred) {
     return SDA_RET_STRUCT(SDAS_SIGINT);
+  }
+
+  if (state->parsed->write_version >= 6) {
+    // Directories.
+    fprintf(stderr, "DIRECTORIES\n");
+    if (fread(&u64, 8, 1, in_f) != 1) {
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+    simple_archiver_helper_64_bit_be(&u64);
+    const uint64_t dir_count = u64;
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_path_dir = realpath(".", NULL);
+
+    for (uint64_t dir_idx = 0; dir_idx < dir_count; ++dir_idx) {
+      if (fread(&u32, 4, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_32_bit_be(&u32);
+      const uint32_t dir_path_size = u32;
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *dir_path = malloc(dir_path_size + 1);
+      if (fread(dir_path, 1, dir_path_size + 1, in_f) != dir_path_size + 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      dir_path[dir_path_size] = 0;
+
+      const int_fast8_t arg_allowed =
+        state->parsed->just_w_files->count == 0
+        || simple_archiver_hash_map_get(
+             state->parsed->just_w_files, dir_path, dir_path_size + 1) != NULL
+        ? 1
+        : 0;
+
+      const uint_fast8_t lists_allowed =
+        simple_archiver_helper_string_allowed_lists(
+          dir_path, (state->parsed->flags & 0x20000) ? 1 : 0, state->parsed);
+
+      if (!do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr,
+                "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
+                dir_idx + 1,
+                dir_count,
+                dir_path);
+      }
+
+      uint8_t pbits[2];
+      if (fread(pbits, 1, 2, in_f) != 2) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      if (!do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr, "    Permissions: ");
+        fprintf(stderr, "%s", (pbits[0] & 1)    ? "r" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 2)    ? "w" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 4)    ? "x" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 8)    ? "r" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 0x10) ? "w" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 0x20) ? "x" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 0x40) ? "r" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 0x80) ? "w" : "-");
+        fprintf(stderr, "%s", (pbits[1] & 1)    ? "x" : "-");
+        fprintf(stderr, "\n");
+      }
+
+      uint32_t uid;
+      if (fread(&uid, 4, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_32_bit_be(&uid);
+      uint32_t gid;
+      if (fread(&gid, 4, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_32_bit_be(&gid);
+      if (!do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr,
+                "    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                uid,
+                gid);
+      }
+
+      if (fread(&u16, 2, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *username = NULL;
+      if (u16 != 0) {
+        username = malloc(u16 + 1);
+        if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
+        username[u16] = 0;
+      }
+
+      if (fread(&u16, 2, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *groupname = NULL;
+      if (u16 != 0) {
+        groupname = malloc(u16 + 1);
+        if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
+        groupname[u16] = 0;
+      }
+      if (!do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr,
+                "    Username: %s\n    Groupname: %s\n",
+                username,
+                groupname);
+      }
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_uid = NULL;
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_user_uid = NULL;
+      if (do_extract && state) {
+        uint32_t out_uid;
+        if (simple_archiver_get_uid_mapping(
+              state->parsed->mappings,
+              state->parsed->users_infos,
+              uid,
+              &out_uid,
+              NULL) == 0) {
+          remapped_uid = malloc(sizeof(uint32_t));
+          *remapped_uid = out_uid;
+        }
+        if (username
+            && simple_archiver_get_user_mapping(
+              state->parsed->mappings,
+              state->parsed->users_infos,
+              username,
+              &out_uid,
+              NULL) == 0) {
+          remapped_user_uid = malloc(sizeof(uint32_t));
+          *remapped_user_uid = out_uid;
+        }
+      }
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_gid = NULL;
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_group_gid = NULL;
+      if (do_extract && state) {
+        uint32_t out_gid;
+        if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            gid,
+                                            &out_gid,
+                                            NULL) == 0) {
+          remapped_gid = malloc(sizeof(uint32_t));
+          *remapped_gid = out_gid;
+        }
+        if (groupname
+            && simple_archiver_get_group_mapping(state->parsed->mappings,
+                                                 state->parsed->users_infos,
+                                                 groupname,
+                                                 &out_gid,
+                                                 NULL) == 0) {
+          remapped_group_gid = malloc(sizeof(uint32_t));
+          *remapped_group_gid = out_gid;
+        }
+      }
+
+      if (do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr, "  DIR: %s\n", dir_path);
+        // Use UID derived from Username by default.
+        if ((state->parsed->flags & 0x4000) == 0 && username) {
+          uint32_t *username_uid = simple_archiver_hash_map_get(
+            state->parsed->users_infos.UnameToUid,
+            username,
+            strlen(username) + 1);
+          if (username_uid) {
+            uid = *username_uid;
+          }
+        }
+        // Apply UID/Username remapping.
+        if (state->parsed->flags & 0x4000) {
+          // Prefer UID first.
+          if (remapped_uid) {
+            uid = *remapped_uid;
+          } else if (remapped_user_uid) {
+            uid = *remapped_user_uid;
+          }
+        } else {
+          // Prefer Username first.
+          if (remapped_user_uid) {
+            uid = *remapped_user_uid;
+          } else if (remapped_uid) {
+            uid = *remapped_uid;
+          }
+        }
+        // Use GID derived from Group by default.
+        if ((state->parsed->flags & 0x8000) == 0 && groupname) {
+          uint32_t *group_gid = simple_archiver_hash_map_get(
+            state->parsed->users_infos.GnameToGid,
+            groupname,
+            strlen(groupname) + 1);
+          if (group_gid) {
+            gid = *group_gid;
+          }
+        }
+        // Apply GID/Groupname remapping.
+        if (state->parsed->flags & 0x8000) {
+          // Prefer GID first.
+          if (remapped_gid) {
+            gid = *remapped_gid;
+          } else if (remapped_group_gid) {
+            gid = *remapped_group_gid;
+          }
+        } else {
+          // Prefer Groupname first.
+          if (remapped_group_gid) {
+            gid = *remapped_group_gid;
+          } else if (remapped_gid) {
+            gid = *remapped_gid;
+          }
+        }
+      }
+
+      __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
+      SAHelperStringParts parts =
+        simple_archiver_helper_string_parts_init();
+
+      simple_archiver_helper_string_parts_add(parts, abs_path_dir);
+      if (abs_path_dir[strlen(abs_path_dir) - 1] != '/') {
+        simple_archiver_helper_string_parts_add(parts, "/");
+      }
+
+      if (state && state->parsed->prefix) {
+        simple_archiver_helper_string_parts_add(parts, state->parsed->prefix);
+      }
+
+      simple_archiver_helper_string_parts_add(parts, dir_path);
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *abs_dir_path =
+        simple_archiver_helper_string_parts_combine(parts);
+
+      simple_archiver_helper_string_parts_add(parts, "/UNUSED");
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *abs_dir_path_with_suffix =
+        simple_archiver_helper_string_parts_combine(parts);
+
+      if (do_extract && arg_allowed && lists_allowed) {
+        int ret =
+          simple_archiver_helper_make_dirs_perms(
+            abs_dir_path_with_suffix,
+            state && (state->parsed->flags & 0x2000)
+              ? simple_archiver_internal_permissions_to_mode_t(
+                  state->parsed->dir_permissions)
+              : simple_archiver_internal_bits_to_mode_t(pbits),
+            (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
+            (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
+        if (ret != 0) {
+          fprintf(stderr, "ERROR: Failed to create directory! (%d)\n", ret);
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        }
+      }
+    }
   }
 
   int_fast8_t not_tested_once = (state->parsed->flags & 0x3) == 2 ? 1 : 0;
@@ -12625,11 +13567,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
   const uint64_t chunk_count = u64;
   int_fast8_t skip_chunk;
   int_fast8_t v5_to_skip;
+  uint64_t not_compressed_size = 0;
   for (uint64_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
-    v5_to_skip = state->parsed->write_version == 5 ? 1 : 0;
+    v5_to_skip = state->parsed->write_version >= 5 ? 1 : 0;
     fprintf(stderr,
             "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
             chunk_idx + 1,
@@ -12931,6 +13874,17 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       file_info = NULL;
     }
 
+    // File Format 6: two-bytes bit-flags
+    int_fast8_t compressed_bit_set = 1;
+    if (state->parsed->write_version >= 6) {
+      uint8_t v6_flags_bytes[2];
+
+      if (fread(v6_flags_bytes, 1, 2, in_f) != 2) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      compressed_bit_set = (v6_flags_bytes[0] & 1) ? 1 : 0;
+    }
+
     if (fread(&u64, 1, 8, in_f) != 8) {
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
@@ -12939,20 +13893,40 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
     const uint64_t chunk_size = u64;
     uint64_t chunk_remaining = chunk_size;
     uint64_t chunk_idx = 0;
-    if (is_compressed) {
+    if (is_compressed && compressed_bit_set) {
       compressed_size += u64;
       fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
+    } else if (is_compressed) {
+      compressed_size += u64;
+      not_compressed_size += u64;
+      fprintf(stderr, "  chunk size (not compressed) %" PRIu64, chunk_size);
     } else {
       fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
     }
     if (chunk_size > 1024) {
-      fprintf(stderr, ", %" PRIu64 " KiB", chunk_size / 1024);
+      uint64_t hundredths = (chunk_size % 1024) * 100 / 1024;
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " KiB",
+        chunk_size / 1024,
+        hundredths);
     }
     if (chunk_size > 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " MiB", chunk_size / (1024 * 1024));
+      uint64_t hundredths = (chunk_size % (1024 * 1024)) * 100 / (1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " MiB",
+        chunk_size / (1024 * 1024),
+        hundredths);
     }
     if (chunk_size > 1024 * 1024 * 1024) {
-      fprintf(stderr, ", %" PRIu64 " GiB", chunk_size / (1024 * 1024 * 1024));
+      uint64_t hundredths =
+        (chunk_size % (1024 * 1024 * 1024)) * 100 / (1024 * 1024 * 1024);
+      fprintf(
+        stderr,
+        ", %" PRIu64 ".%02" PRIu64 " GiB",
+        chunk_size / (1024 * 1024 * 1024),
+        hundredths);
     }
     fprintf(stderr, "\n");
 
@@ -12974,7 +13948,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
       }
-    } else if (is_compressed) {
+    } else if (is_compressed && compressed_bit_set) {
       // Start the decompressing process and read into files.
 
       // Handle SIGPIPE.
@@ -13221,7 +14195,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           } else {
             fprintf(stderr, "    Groupname not in archive\n");
           }
-          if (is_compressed) {
+          if (is_compressed && compressed_bit_set) {
             fprintf(stderr,
                     "    File size (uncompressed): %" PRIu64 "\n",
                     file_info->file_size);
@@ -13476,7 +14450,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
           } else {
             fprintf(stderr, "    Groupname not in archive\n");
           }
-          if (is_compressed) {
+          if (is_compressed && compressed_bit_set) {
             fprintf(stderr,
                     "    File size (uncompressed): %" PRIu64 "\n",
                     file_info->file_size);
@@ -13513,6 +14487,43 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
 
   if (do_extract && links_list && files_map) {
     simple_archiver_safe_links_enforce(links_list, files_map);
+  }
+
+  if (state->parsed->write_version >= 6) {
+    if (compressed_size != 0) {
+      uint64_t *temp = malloc(sizeof(uint64_t));
+      memcpy(temp, &compressed_size, sizeof(uint64_t));
+      simple_archiver_hash_map_insert(
+        parsed_state,
+        temp,
+        SDA_PSTATE_CMP_SIZE_KEY,
+        SDA_PSTATE_CMP_SIZE_KEY_SIZE,
+        NULL,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    }
+    if (actual_size != 0) {
+      uint64_t *temp = malloc(sizeof(uint64_t));
+      memcpy(temp, &actual_size, sizeof(uint64_t));
+      simple_archiver_hash_map_insert(
+        parsed_state,
+        temp,
+        SDA_PSTATE_ACT_SIZE_KEY,
+        SDA_PSTATE_ACT_SIZE_KEY_SIZE,
+        NULL,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    }
+    if (not_compressed_size != 0) {
+      uint64_t *temp = malloc(sizeof(uint64_t));
+      memcpy(temp, &not_compressed_size, sizeof(uint64_t));
+      simple_archiver_hash_map_insert(
+        parsed_state,
+        temp,
+        SDA_PSTATE_NOT_CMP_SIZE_KEY,
+        SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
+        NULL,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    }
+    return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
 
   if (fread(&u64, 8, 1, in_f) != 1) {
@@ -13846,6 +14857,17 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5(
       temp,
       SDA_PSTATE_ACT_SIZE_KEY,
       SDA_PSTATE_ACT_SIZE_KEY_SIZE,
+      NULL,
+      simple_archiver_helper_datastructure_cleanup_nop);
+  }
+  if (not_compressed_size != 0) {
+    uint64_t *temp = malloc(sizeof(uint64_t));
+    memcpy(temp, &not_compressed_size, sizeof(uint64_t));
+    simple_archiver_hash_map_insert(
+      parsed_state,
+      temp,
+      SDA_PSTATE_NOT_CMP_SIZE_KEY,
+      SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
       NULL,
       simple_archiver_helper_datastructure_cleanup_nop);
   }

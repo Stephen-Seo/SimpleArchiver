@@ -72,6 +72,10 @@ API calls.
     --blacklist-begins-with <text> | --blacklist-begins-with=<text> : blacklist entries that starts with "<text>", specify multiple times to deny multiple entries starting with different "<text>" entries.
     --blacklist-ends-with <text> | --blacklist-ends-with=<text> : blacklist entries that ends with "<text>", specify multiple times to deny multiple entries ending with different "<text>" entries.
     --wb-case-insensitive : Makes white/black-list checking case insensitive.
+    --print-file-exts-preset : Prints the preset extensions to stderr and stops simplearchiver.
+    --use-file-exts-preset : Adds preset extensions to collection of file extensions to choose to not compress
+    --add-file-ext <ext> | --add-file-ext=<ext> : Add a extension to choose to not compress (must be like ".thing")
+    --allow-double-dot : Allows positional args to have ".."
     --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
@@ -132,6 +136,11 @@ as the first value, then it will affect only the UID/GID fro files/links/dirs in
 the archive. For previous file format versions (version 2 and 1), either name or
 numeric id will have an effect since these older file format versions only store
 UID/GID.
+
+## Additional Info
+
+Check the man page (or
+[the html generated page](https://stephen-seo.github.io/SimpleArchiver/)).
 
 ## LICENSE Information
 

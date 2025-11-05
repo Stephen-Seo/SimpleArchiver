@@ -27,6 +27,8 @@
 #include "data_structures/hash_map.h"
 #include "users.h"
 
+extern char *SDSA_NOT_TO_COMPRESS_FILE_EXTS[];
+
 typedef struct SDA_UGMapping {
   SDArchiverHashMap *UidToUname;
   SDArchiverHashMap *UnameToUid;
@@ -63,6 +65,7 @@ typedef struct SDArchiverParsed {
   ///   case-insensitive.
   /// 0b xxxx x1xx xxxx xxxx xxxx xxxx - Force use tmpfile.
   /// 0b xxxx 1xxx xxxx xxxx xxxx xxxx - Sort files by name before archiving.
+  /// 0b xxx1 xxxx xxxx xxxx xxxx xxxx - Enable positional args with ".." .
   uint32_t flags;
   /// Null-terminated string.
   char *filename;
@@ -74,6 +77,8 @@ typedef struct SDArchiverParsed {
   char *decompressor;
   /// The key is a positional argument, the value is a SDArchiverFileInfo.
   SDArchiverHashMap *working_files;
+  /// The key and value is a directory path (without trailing '/').
+  SDArchiverLinkedList *working_dirs;
   /// The key and value are always the positional argument(s).
   SDArchiverHashMap *just_w_files;
   /// Determines where to place temporary files. If NULL, temporary files are
@@ -112,6 +117,7 @@ typedef struct SDArchiverParsed {
   SDArchiverLinkedList *blacklist_contains_all;
   SDArchiverLinkedList *blacklist_begins;
   SDArchiverLinkedList *blacklist_ends;
+  SDArchiverHashMap *not_to_compress_file_extensions;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 1.38)
+set(SimpleArchiver_VERSION 2.0)
 
 set(SimpleArchiver_SOURCES
     src/main.c
@@ -135,6 +135,7 @@ add_executable(test_datastructures
     src/data_structures/list_array.c
     src/data_structures/priority_heap.c
     src/algorithms/linear_congruential_gen.c
+    src/helpers.c
 )
 
 add_executable(test_simplearchiver
