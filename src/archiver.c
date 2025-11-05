@@ -6690,9 +6690,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          fprintf(stderr,
-                  "ERROR: Failed to write 0 bytes for username for dir \"%s\"\n!",
-                  dir_path);
+          fprintf(
+            stderr,
+            "ERROR: Failed to write 0 bytes for username for dir \"%s\"\n!",
+            dir_path);
           return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
@@ -6742,9 +6743,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       } else {
         u16 = 0;
         if (fwrite(&u16, 2, 1, out_f) != 1) {
-          fprintf(stderr,
-                  "ERROR: Failed to write 0 bytes for Groupname for dir \"%s\"\n!",
-                  dir_path);
+          fprintf(
+            stderr,
+            "ERROR: Failed to write 0 bytes for Groupname for dir \"%s\"\n!",
+            dir_path);
           return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
       }
@@ -12732,7 +12734,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       }
       simple_archiver_helper_32_bit_be(&gid);
       if (!do_extract && arg_allowed && lists_allowed) {
-        fprintf(stderr, "    UID: %" PRIu32 ", GID: %" PRIu32 "\n", uid, gid);
+        fprintf(stderr,
+                "    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                uid,
+                gid);
       }
 
       if (fread(&u16, 2, 1, in_f) != 1) {
@@ -12761,6 +12766,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         groupname[u16] = 0;
+      }
+      if (!do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr,
+                "    Username: %s\n    Groupname: %s\n",
+                username,
+                groupname);
       }
 
       __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
