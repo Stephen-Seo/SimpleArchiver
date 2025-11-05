@@ -1023,3 +1023,128 @@ char *simple_archiver_helper_to_lower(const char *str) {
 
   return new;
 }
+
+typedef enum Internal_DDState {
+  DDSTATE_INIT,
+  DDSTATE_HAS_FIRST_SLASH,
+  DDSTATE_HAS_FIRST_DOT,
+  DDSTATE_HAS_SECOND_DOT,
+  DDSTATE_HAS_SECOND_SLASH
+} Internal_DDState;
+
+int_fast8_t simple_archiver_helper_contains_double_dot_path(const char *str) {
+  const size_t len = strlen(str);
+  if (len >= 3) {
+    if (str[0] == '.' && str[1] == '.' && str[2] == '/') {
+      return 1;
+    } else if (str[len - 1] == '.'
+        && str[len - 2] == '.'
+        && str[len - 3] == '/') {
+      return 1;
+    }
+  }
+
+  Internal_DDState state = DDSTATE_INIT;
+  for (size_t idx = 0; idx < len; ++idx) {
+    if (state == DDSTATE_INIT && str[idx] == '/') {
+      state = DDSTATE_HAS_FIRST_SLASH;
+    } else if (state == DDSTATE_HAS_FIRST_SLASH && str[idx] == '.') {
+      state = DDSTATE_HAS_FIRST_DOT;
+    } else if (state == DDSTATE_HAS_FIRST_DOT && str[idx] == '.') {
+      state = DDSTATE_HAS_SECOND_DOT;
+    } else if (state == DDSTATE_HAS_SECOND_DOT && str[idx] == '/') {
+      return 1;
+    } else {
+      if (str[idx] == '/') {
+        state = DDSTATE_HAS_FIRST_SLASH;
+      } else {
+        state = DDSTATE_INIT;
+      }
+    }
+  }
+
+  return 0;
+}
+
+char *simple_archiver_helper_remove_single_dot_path(const char *str) {
+  size_t len = strlen(str);
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *buf = malloc(len);
+  memset(buf, 0, len);
+  size_t buf_idx = 0;
+
+  size_t start_idx = 0;
+  if (len > 2 && str[0] == '.' && str[1] == '/') {
+    start_idx = 2;
+    while (str[start_idx] == '/' && start_idx < len) {
+      ++start_idx;
+    }
+    if (start_idx == len) {
+      return NULL;
+    }
+  }
+
+  __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
+  SAHelperStringParts parts = simple_archiver_helper_string_parts_init();
+
+  // Remove all '/./'
+  Internal_DDState state = DDSTATE_INIT;
+  for (size_t idx = start_idx; idx < len; ++idx) {
+    buf[buf_idx++] = str[idx];
+    if (state == DDSTATE_INIT && str[idx] == '/') {
+      state = DDSTATE_HAS_FIRST_SLASH;
+    } else if (state == DDSTATE_HAS_FIRST_SLASH && str[idx] == '.') {
+      state = DDSTATE_HAS_FIRST_DOT;
+    } else if (state == DDSTATE_HAS_FIRST_DOT && str[idx] == '/') {
+      state = DDSTATE_HAS_FIRST_SLASH;
+      buf[buf_idx - 2] = 0;
+      if (strlen(buf) > 0) {
+        simple_archiver_helper_string_parts_add(parts, buf);
+      }
+      memset(buf, 0, len);
+      buf_idx = 0;
+    } else {
+      if (str[idx] == '/') {
+        state = DDSTATE_HAS_FIRST_SLASH;
+      } else {
+        state = DDSTATE_INIT;
+      }
+    }
+  }
+
+  if (strlen(buf) > 0) {
+    simple_archiver_helper_string_parts_add(parts, buf);
+  }
+
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *combined = simple_archiver_helper_string_parts_combine(parts);
+
+  // Remove consecutive '/'
+  len = strlen(combined) + 1;
+  memcpy(buf, combined, len);
+  memset(combined, 0, len);
+  char *next_buf = combined;
+  buf_idx = 0;
+  uint32_t slash_count = 0;
+  for (size_t idx = 0; idx < len - 1; ++idx) {
+    if (buf[idx] == '/') {
+      ++slash_count;
+    } else {
+      if (slash_count > 0) {
+        next_buf[buf_idx++] = '/';
+      }
+      slash_count = 0;
+      next_buf[buf_idx++] = buf[idx];
+    }
+  }
+
+  len = strlen(next_buf);
+  if (len > 2 && next_buf[len - 1] == '.' && next_buf[len - 2] == '/') {
+    next_buf[len - 2] = 0;
+  } else if (len == 2 && next_buf[len - 1] == '.' && next_buf[len - 2] == '/') {
+    next_buf[0] = '/';
+    next_buf[1] = 0;
+  }
+
+  return strdup(next_buf);
+}

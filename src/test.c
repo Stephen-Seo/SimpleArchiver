@@ -1014,6 +1014,46 @@ TEST_HELPERS_PREFIX_END:
     free(lower);
   }
 
+  // Test contains_double_dot_path
+  {
+    CHECK_TRUE(simple_archiver_helper_contains_double_dot_path("../one/two"));
+    CHECK_TRUE(!simple_archiver_helper_contains_double_dot_path("/one/two"));
+    CHECK_TRUE(simple_archiver_helper_contains_double_dot_path("/one/two/.."));
+    CHECK_TRUE(simple_archiver_helper_contains_double_dot_path("/one/../two"));
+  }
+
+  // Test remove_single_dot_path
+  {
+    char *ret = simple_archiver_helper_remove_single_dot_path("one/./two");
+    CHECK_TRUE(strcmp(ret, "one/two") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "one/./two/./three/./././four");
+    CHECK_TRUE(strcmp(ret, "one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "./one/./././two///././//././//././///three/././//././////./four/.");
+    CHECK_TRUE(strcmp(ret, "one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "///one//./././two/.//././/././/././///three/././//././////./four////");
+    CHECK_TRUE(strcmp(ret, "/one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "///one//././two/.//.//.//././///three/././//././////./four////.//.//");
+    CHECK_TRUE(strcmp(ret, "/one/two/three/four") == 0);
+    free(ret);
+
+    ret = simple_archiver_helper_remove_single_dot_path(
+        "///one//././two/.//.//.//././///three/././//././///./four/.//.//.//.");
+    CHECK_TRUE(strcmp(ret, "/one/two/three/four") == 0);
+    free(ret);
+  }
+
   printf("Checks checked: %" PRId32 "\n", checks_checked);
   printf("Checks passed:  %" PRId32 "\n", checks_passed);
   return checks_passed == checks_checked ? 0 : 1;

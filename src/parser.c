@@ -137,16 +137,14 @@ size_t simple_archiver_parser_internal_get_first_non_current_idx(
 }
 
 void simple_archiver_parser_internal_remove_end_slash(char *filename) {
-  size_t len = strlen(filename);
-  size_t idx;
-  for (idx = len; idx-- > 0;) {
-    if (filename[idx] != '/') {
-      ++idx;
+  for (size_t idx = strlen(filename); idx-- > 0;) {
+    if (idx == strlen(filename)) {
+      continue;
+    } else if (filename[idx] == '/' && idx > 0) {
+      filename[idx] = 0;
+    } else {
       break;
     }
-  }
-  if (idx < len && idx > 0) {
-    filename[idx] = 0;
   }
 }
 
@@ -1648,15 +1646,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
         } else {
           free(dir_path);
           free(temp_user_cwd_realpath);
-          for (size_t idx = strlen(file_path); idx-- > 0;) {
-            if (idx == strlen(file_path)) {
-              continue;
-            } else if (file_path[idx] == '/' && idx > 0) {
-              file_path[idx] = 0;
-            } else {
-              break;
-            }
-          }
+
+          simple_archiver_parser_internal_remove_end_slash(file_path);
+
           if (file_path[0] == '/') {
             dir_path = realpath(file_path, NULL);
             for (size_t idx = 0; dir_path[idx] != 0; ++idx) {
