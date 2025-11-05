@@ -12412,6 +12412,254 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
+  if (state->parsed->write_version >= 6) {
+    // Directories.
+    fprintf(stderr, "DIRECTORIES\n");
+    if (fread(&u64, 8, 1, in_f) != 1) {
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+    simple_archiver_helper_64_bit_be(&u64);
+    const uint64_t dir_count = u64;
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+    char *abs_path_dir = realpath(".", NULL);
+
+    for (uint64_t dir_idx = 0; dir_idx < dir_count; ++dir_idx) {
+      if (fread(&u32, 4, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_32_bit_be(&u32);
+      const uint32_t dir_path_size = u32;
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *dir_path = malloc(dir_path_size + 1);
+      if (fread(dir_path, 1, dir_path_size + 1, in_f) != dir_path_size + 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      dir_path[dir_path_size] = 0;
+      fprintf(stderr, "  %s\n", dir_path);
+
+      const int_fast8_t arg_allowed =
+        state->parsed->just_w_files->count == 0
+        || simple_archiver_hash_map_get(
+             state->parsed->just_w_files, dir_path, dir_path_size + 1) != NULL
+        ? 1
+        : 0;
+
+      const uint_fast8_t lists_allowed =
+        simple_archiver_helper_string_allowed_lists(
+          dir_path, (state->parsed->flags & 0x20000) ? 1 : 0, state->parsed);
+
+      uint8_t pbits[2];
+      if (fread(pbits, 1, 2, in_f) != 2) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      if (!do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr, "    Permissions: ");
+        fprintf(stderr, "%s", (pbits[0] & 1)    ? "r" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 2)    ? "w" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 4)    ? "x" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 8)    ? "r" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 0x10) ? "w" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 0x20) ? "x" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 0x40) ? "r" : "-");
+        fprintf(stderr, "%s", (pbits[0] & 0x80) ? "w" : "-");
+        fprintf(stderr, "%s", (pbits[1] & 1)    ? "x" : "-");
+        fprintf(stderr, "\n");
+      }
+
+      uint32_t uid;
+      if (fread(&uid, 4, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_32_bit_be(&uid);
+      uint32_t gid;
+      if (fread(&gid, 4, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_32_bit_be(&gid);
+      if (!do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr, "    UID: %" PRIu32 ", GID: %" PRIu32 "\n", uid, gid);
+      }
+
+      if (fread(&u16, 2, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *username = NULL;
+      if (u16 != 0) {
+        username = malloc(u16 + 1);
+        if (fread(username, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
+        username[u16] = 0;
+      }
+
+      if (fread(&u16, 2, 1, in_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_16_bit_be(&u16);
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *groupname = NULL;
+      if (u16 != 0) {
+        groupname = malloc(u16 + 1);
+        if (fread(groupname, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
+        groupname[u16] = 0;
+      }
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_uid = NULL;
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_user_uid = NULL;
+      if (do_extract && state) {
+        uint32_t out_uid;
+        if (simple_archiver_get_uid_mapping(
+              state->parsed->mappings,
+              state->parsed->users_infos,
+              uid,
+              &out_uid,
+              NULL) == 0) {
+          remapped_uid = malloc(sizeof(uint32_t));
+          *remapped_uid = out_uid;
+        }
+        if (username
+            && simple_archiver_get_user_mapping(
+              state->parsed->mappings,
+              state->parsed->users_infos,
+              username,
+              &out_uid,
+              NULL) == 0) {
+          remapped_user_uid = malloc(sizeof(uint32_t));
+          *remapped_user_uid = out_uid;
+        }
+      }
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_gid = NULL;
+      __attribute__((cleanup(simple_archiver_helper_cleanup_uint32)))
+      uint32_t *remapped_group_gid = NULL;
+      if (do_extract && state) {
+        uint32_t out_gid;
+        if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            gid,
+                                            &out_gid,
+                                            NULL) == 0) {
+          remapped_gid = malloc(sizeof(uint32_t));
+          *remapped_gid = out_gid;
+        }
+        if (groupname
+            && simple_archiver_get_group_mapping(state->parsed->mappings,
+                                                 state->parsed->users_infos,
+                                                 groupname,
+                                                 &out_gid,
+                                                 NULL) == 0) {
+          remapped_group_gid = malloc(sizeof(uint32_t));
+          *remapped_group_gid = out_gid;
+        }
+      }
+
+      if (do_extract && arg_allowed && lists_allowed) {
+        fprintf(stderr, "Creating dir \"%s\"\n", dir_path);
+        // Use UID derived from Username by default.
+        if ((state->parsed->flags & 0x4000) == 0 && username) {
+          uint32_t *username_uid = simple_archiver_hash_map_get(
+            state->parsed->users_infos.UnameToUid,
+            username,
+            strlen(username) + 1);
+          if (username_uid) {
+            uid = *username_uid;
+          }
+        }
+        // Apply UID/Username remapping.
+        if (state->parsed->flags & 0x4000) {
+          // Prefer UID first.
+          if (remapped_uid) {
+            uid = *remapped_uid;
+          } else if (remapped_user_uid) {
+            uid = *remapped_user_uid;
+          }
+        } else {
+          // Prefer Username first.
+          if (remapped_user_uid) {
+            uid = *remapped_user_uid;
+          } else if (remapped_uid) {
+            uid = *remapped_uid;
+          }
+        }
+        // Use GID derived from Group by default.
+        if ((state->parsed->flags & 0x8000) == 0 && groupname) {
+          uint32_t *group_gid = simple_archiver_hash_map_get(
+            state->parsed->users_infos.GnameToGid,
+            groupname,
+            strlen(groupname) + 1);
+          if (group_gid) {
+            gid = *group_gid;
+          }
+        }
+        // Apply GID/Groupname remapping.
+        if (state->parsed->flags & 0x8000) {
+          // Prefer GID first.
+          if (remapped_gid) {
+            gid = *remapped_gid;
+          } else if (remapped_group_gid) {
+            gid = *remapped_group_gid;
+          }
+        } else {
+          // Prefer Groupname first.
+          if (remapped_group_gid) {
+            gid = *remapped_group_gid;
+          } else if (remapped_gid) {
+            gid = *remapped_gid;
+          }
+        }
+      }
+
+      __attribute__((cleanup(simple_archiver_helper_string_parts_free)))
+      SAHelperStringParts parts =
+        simple_archiver_helper_string_parts_init();
+
+      simple_archiver_helper_string_parts_add(parts, abs_path_dir);
+      if (abs_path_dir[strlen(abs_path_dir) - 1] != '/') {
+        simple_archiver_helper_string_parts_add(parts, "/");
+      }
+
+      if (state && state->parsed->prefix) {
+        simple_archiver_helper_string_parts_add(parts, state->parsed->prefix);
+      }
+
+      simple_archiver_helper_string_parts_add(parts, dir_path);
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *abs_dir_path =
+        simple_archiver_helper_string_parts_combine(parts);
+
+      simple_archiver_helper_string_parts_add(parts, "/UNUSED");
+
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *abs_dir_path_with_suffix =
+        simple_archiver_helper_string_parts_combine(parts);
+
+      if (do_extract && arg_allowed && lists_allowed) {
+        int ret =
+          simple_archiver_helper_make_dirs_perms(
+            abs_dir_path_with_suffix,
+            state && (state->parsed->flags & 0x2000)
+              ? simple_archiver_internal_permissions_to_mode_t(
+                  state->parsed->dir_permissions)
+              : simple_archiver_internal_bits_to_mode_t(pbits),
+            (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
+            (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
+        if (ret != 0) {
+          fprintf(stderr, "ERROR: Failed to create directory! (%d)\n", ret);
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        }
+      }
+    }
+  }
+
   int_fast8_t not_tested_once = (state->parsed->flags & 0x3) == 2 ? 1 : 0;
 
   const size_t prefix_length = state && state->parsed->prefix
@@ -13974,6 +14222,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
 
   if (do_extract && links_list && files_map) {
     simple_archiver_safe_links_enforce(links_list, files_map);
+  }
+
+  if (state->parsed->write_version >= 6) {
+    return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
 
   if (fread(&u64, 8, 1, in_f) != 1) {
