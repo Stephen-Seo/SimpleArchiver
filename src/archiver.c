@@ -41,6 +41,7 @@
 #include "data_structures/linked_list.h"
 #include "data_structures/priority_heap.h"
 #include "helpers.h"
+#include "parser.h"
 #include "users.h"
 
 #define FILE_COUNTS_OUTPUT_FORMAT_STR_0 \
@@ -6508,7 +6509,232 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
   }
 
   uint32_t u32;
-  uint64_t u64 = symlinks_list->count;
+  uint64_t u64;
+
+  if (state->parsed->write_version >= 6) {
+    // Directories.
+    u64 = state->parsed->working_dirs->count;
+    simple_archiver_helper_64_bit_be(&u64);
+    if (fwrite(&u64, 8, 1, out_f) != 1) {
+      return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+    }
+
+    for (SDArchiverLLNode *next = state->parsed->working_dirs->head->next;
+         next != state->parsed->working_dirs->tail;
+         next = next->next) {
+      const char *dir_path = next->data;
+      u32 = (uint32_t)strlen(dir_path);
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(&u32, 4, 1, out_f) != 1) {
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(dir_path, 1, u32 + 1, out_f) != u32 + 1) {
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      struct stat stat_buf;
+      memset(&stat_buf, 0, sizeof(struct stat));
+      int stat_fd = open(dir_path, O_RDONLY | O_DIRECTORY);
+      if (stat_fd == -1) {
+        fprintf(stderr, "ERROR: Failed to get stat of \"%s\"!\n", dir_path);
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      }
+      int ret = fstat(stat_fd, &stat_buf);
+      close(stat_fd);
+      if (ret != 0) {
+        fprintf(stderr, "ERROR: Failed to fstat \"%s\"!\n", dir_path);
+        return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+      }
+
+      uint8_t pbits[2] = {0, 0};
+      if (state && state->parsed->flags & 0x20000) {
+        pbits[0] = state->parsed->empty_dir_permissions & 0xFF;
+        pbits[1] = (state->parsed->empty_dir_permissions >> 8) & 0xFF;
+      } else {
+        if ((stat_buf.st_mode & S_IRUSR) != 0) {
+          pbits[0] |= 1;
+        }
+        if ((stat_buf.st_mode & S_IWUSR) != 0) {
+          pbits[0] |= 2;
+        }
+        if ((stat_buf.st_mode & S_IXUSR) != 0) {
+          pbits[0] |= 4;
+        }
+        if ((stat_buf.st_mode & S_IRGRP) != 0) {
+          pbits[0] |= 8;
+        }
+        if ((stat_buf.st_mode & S_IWGRP) != 0) {
+          pbits[0] |= 0x10;
+        }
+        if ((stat_buf.st_mode & S_IXGRP) != 0) {
+          pbits[0] |= 0x20;
+        }
+        if ((stat_buf.st_mode & S_IROTH) != 0) {
+          pbits[0] |= 0x40;
+        }
+        if ((stat_buf.st_mode & S_IWOTH) != 0) {
+          pbits[0] |= 0x80;
+        }
+        if ((stat_buf.st_mode & S_IXOTH) != 0) {
+          pbits[1] |= 1;
+        }
+      }
+
+      if (fwrite(pbits, 1, 2, out_f) != 2) {
+        fprintf(stderr,
+                "ERROR: Failed to write permission bits for \"%s\"!\n",
+                dir_path);
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      u32 = stat_buf.st_uid;
+      if (state->parsed->flags & 0x400) {
+        u32 = state->parsed->uid;
+      } else {
+        uint32_t mapped_uid;
+        if (simple_archiver_get_uid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            u32,
+                                            &mapped_uid,
+                                            NULL) == 0) {
+          u32 = mapped_uid;
+        }
+      }
+
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(&u32, 4, 1, out_f) != 1) {
+        fprintf(stderr, "ERROR: Failed to write UID for \"%s\"!\n", dir_path);
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      u32 = stat_buf.st_gid;
+      if (state->parsed->flags & 0x800) {
+        u32 = state->parsed->gid;
+      } else {
+        uint32_t mapped_gid;
+        if (simple_archiver_get_gid_mapping(state->parsed->mappings,
+                                            state->parsed->users_infos,
+                                            u32,
+                                            &mapped_gid,
+                                            NULL) == 0) {
+          u32 = mapped_gid;
+        }
+      }
+      simple_archiver_helper_32_bit_be(&u32);
+      if (fwrite(&u32, 4, 1, out_f) != 1) {
+        fprintf(stderr, "ERROR: Failed to write GID for \"%s\"!\n", dir_path);
+        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+      }
+
+      u32 = stat_buf.st_uid;
+      if (state->parsed->flags & 0x400) {
+        u32 = state->parsed->uid;
+      }
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *to_cleanup_user = NULL;
+      const char *username = simple_archiver_hash_map_get(
+        state->parsed->users_infos.UidToUname, &u32, sizeof(uint32_t));
+      if (username) {
+        if ((state->parsed->flags & 0x400) == 0) {
+          uint32_t out_uid;
+          const char *mapped_user = NULL;
+          if (simple_archiver_get_user_mapping(state->parsed->mappings,
+                                               state->parsed->users_infos,
+                                               username,
+                                               &out_uid,
+                                               &mapped_user) == 0
+              && mapped_user) {
+            username = mapped_user;
+            to_cleanup_user = (char *)mapped_user;
+          }
+        }
+        unsigned long length = strlen(username);
+        if (length > 0xFFFF) {
+          fprintf(stderr,
+                  "ERROR: Username is too long for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        }
+        u16 = (uint16_t)length;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          fprintf(
+            stderr,
+            "ERROR: Failed to write username length for dir \"%s\"!\n",
+            dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        } else if (fwrite(username, 1, length + 1, out_f) != length + 1) {
+          fprintf(stderr,
+                  "ERROR: Failed to write username for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      } else {
+        u16 = 0;
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          fprintf(stderr,
+                  "ERROR: Failed to write 0 bytes for username for dir \"%s\"\n!",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      }
+
+      u32 = stat_buf.st_gid;
+      if (state->parsed->flags & 0x800) {
+        u32 = state->parsed->gid;
+      }
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *to_cleanup_group = NULL;
+      const char *groupname = simple_archiver_hash_map_get(
+        state->parsed->users_infos.GidToGname, &u32, sizeof(uint32_t));
+      if (groupname) {
+        if ((state->parsed->flags & 0x800) == 0) {
+          uint32_t out_gid;
+          const char *mapped_group = NULL;
+          if (simple_archiver_get_group_mapping(state->parsed->mappings,
+                                                state->parsed->users_infos,
+                                                groupname,
+                                                &out_gid,
+                                                &mapped_group) == 0
+              && mapped_group) {
+            groupname = mapped_group;
+            to_cleanup_group = (char *)mapped_group;
+          }
+        }
+        unsigned long length = strlen(groupname);
+        if (length > 0xFFFF) {
+          fprintf(stderr,
+                  "ERROR: Groupname is too long for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+        }
+        u16 = (uint16_t)length;
+        simple_archiver_helper_16_bit_be(&u16);
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          fprintf(stderr,
+                  "ERROR: Failed to write Groupname length for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        } else if (fwrite(groupname, 1, length + 1, out_f) != length + 1) {
+          fprintf(stderr,
+                  "ERROR: Failed to write Groupname for dir \"%s\"!\n",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      } else {
+        u16 = 0;
+        if (fwrite(&u16, 2, 1, out_f) != 1) {
+          fprintf(stderr,
+                  "ERROR: Failed to write 0 bytes for Groupname for dir \"%s\"\n!",
+                  dir_path);
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      }
+    }
+  }
+
+  u64 = symlinks_list->count;
   simple_archiver_helper_64_bit_be(&u64);
   if (fwrite(&u64, 8, 1, out_f) != 1) {
     return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
@@ -7625,6 +7851,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       SDA_PSTATE_CMP_SIZE_KEY_SIZE,
       NULL,
       simple_archiver_helper_datastructure_cleanup_nop);
+  }
+
+  if (state->parsed->write_version >= 6) {
+    return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
 
   // Write directory entries.
