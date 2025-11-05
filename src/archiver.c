@@ -14490,6 +14490,39 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
   }
 
   if (state->parsed->write_version >= 6) {
+    if (compressed_size != 0) {
+      uint64_t *temp = malloc(sizeof(uint64_t));
+      memcpy(temp, &compressed_size, sizeof(uint64_t));
+      simple_archiver_hash_map_insert(
+        parsed_state,
+        temp,
+        SDA_PSTATE_CMP_SIZE_KEY,
+        SDA_PSTATE_CMP_SIZE_KEY_SIZE,
+        NULL,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    }
+    if (actual_size != 0) {
+      uint64_t *temp = malloc(sizeof(uint64_t));
+      memcpy(temp, &actual_size, sizeof(uint64_t));
+      simple_archiver_hash_map_insert(
+        parsed_state,
+        temp,
+        SDA_PSTATE_ACT_SIZE_KEY,
+        SDA_PSTATE_ACT_SIZE_KEY_SIZE,
+        NULL,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    }
+    if (not_compressed_size != 0) {
+      uint64_t *temp = malloc(sizeof(uint64_t));
+      memcpy(temp, &not_compressed_size, sizeof(uint64_t));
+      simple_archiver_hash_map_insert(
+        parsed_state,
+        temp,
+        SDA_PSTATE_NOT_CMP_SIZE_KEY,
+        SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
+        NULL,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    }
     return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
 
