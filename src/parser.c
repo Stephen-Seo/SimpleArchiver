@@ -352,6 +352,8 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--add-file-ext <ext> | --add-file-ext=<ext> : Add a "
           "extension to choose to not compress (must be like \".thing\")\n");
+  fprintf(stderr,
+          "--allow-double-dot : Allows positional args to have \"..\"\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -1468,6 +1470,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           --argc;
           ++argv;
         }
+      } else if (strcmp(argv[0], "--allow-double-dot") == 0) {
+        out->flags |= 0x100000;
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);
@@ -1486,6 +1490,15 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_parser_internal_get_first_non_current_idx(argv[0]);
       size_t arg_length = strlen(argv[0] + arg_idx) + 1;
       const char *arg_ptr = argv[0] + arg_idx;
+
+      if ((out->flags & 0x100000) == 0
+          && simple_archiver_helper_contains_double_dot_path(arg_ptr)) {
+        fprintf(stderr,
+                "ERROR: Path contains \"..\"! Use \"--allow-double-dot\" if "
+                "this is intended!\n");
+        return 1;
+      }
+
       simple_archiver_hash_map_insert(
         out->just_w_files,
         (void*)arg_ptr,
