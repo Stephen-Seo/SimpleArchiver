@@ -8,6 +8,13 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 2.1
+
+Add some validation to positional arguments.
+
+In other words, ensure paths to archive are in a valid format. This means that
+absolute paths to files are not allowed. Use `-C <dir>`, `.` instead.
+
 ## Version 2.0
 
 Added new File Format Version 6.
