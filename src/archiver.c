@@ -6536,7 +6536,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
          next = next->next) {
       const char *dir_path = next->data;
       fprintf(stderr,
-              "  DIR: %6" PRIu64 " of %6" PRIu64 ": %s\n",
+              "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
               ++dir_count,
               state->parsed->working_dirs->count,
               dir_path);
@@ -7622,7 +7622,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                "  FILE %7" PRIu64 " of %7" PRIu64 ": %s\n",
                 file_idx + 1,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
@@ -12699,7 +12699,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
 
       if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr,
-                "  DIR: %6" PRIu64 " of %6" PRIu64 ": %s\n",
+                "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
                 dir_idx + 1,
                 dir_count,
                 dir_path);
