@@ -128,10 +128,11 @@ int main(void) {
 
     parsed = simple_archiver_create_parsed();
     const char **args2 = (const char *[]){"parser", "-x", "-f", "the_filename",
+                         "--allow-double-dot",
                          "././/././//./.derp", "././//./_doop",
                          "./../../.prev_dir_file", NULL};
     simple_archiver_parse_args(
-        7,
+        8,
         args2,
         &parsed);
 
@@ -141,7 +142,7 @@ int main(void) {
                                             "../../.prev_dir_file",
                                             21));
     CHECK_TRUE(strcmp("the_filename", parsed.filename) == 0);
-    CHECK_TRUE(parsed.flags == 0x41);
+    CHECK_TRUE(parsed.flags == 0x100041);
 
     simple_archiver_free_parsed(&parsed);
 
