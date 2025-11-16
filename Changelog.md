@@ -2,6 +2,23 @@
 
 ## Upcoming Changes
 
+Fix extracting dirs in file format v6 by extracting them all regardless of
+white/blacklists or positional args, and using opt-in "--v6-remove-empty-dirs"
+to remove them on extraction. A reserved bit in file format 6 is used to keep
+track of dirs already empty on archive creation so that on extract, these dirs
+are not removed. Prior to this change, all directories are treated as "empty" so
+that they will not be removed when using "--v6-remove-empty-dirs" for backwards
+compatability.
+
+To clarify:  
+"--v6-remove-empty-dirs" removes dirs that are empty after extraction but does
+not remove dirs that were empty during archive creation. All archives created
+before the existence of this option are treated as "empty during archive
+creation".
+
+Fix v5/v6 archive extraction skipping chunks causing parsing offset mismatch. In
+other words, this should fix skipping chunks via white/blacklists for v5 and v6.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
