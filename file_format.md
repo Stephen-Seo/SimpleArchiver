@@ -696,7 +696,8 @@ directory:
         8. The eighth bit is "other write permission".
     2. The second byte:
         1. The first bit is "other execute permission".
-        2. The remaining bits are reserved for future use.
+        2. This bit is set if it is a non-empty dir.
+        3. The remaining bits are reserved for future use.
 4. 4 bytes 32-bit unsigned integer in big-endian UID of this directory.
 5. 4 bytes 32-bit unsigned integer in big-endian GID of this directory.
 6. 2 bytes 16-bit unsigned integer in big-endian length of "user name" which

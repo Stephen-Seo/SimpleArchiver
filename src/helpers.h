@@ -172,4 +172,7 @@ int_fast8_t simple_archiver_helper_contains_double_dot_path(const char *str);
 // If returns non-NULL, must be free'd.
 char *simple_archiver_helper_remove_single_dot_path(const char *str);
 
+// Returns positive non-zero if empty. Returns negative on error.
+int simple_archiver_helper_is_dir_empty(const char *dir);
+
 #endif
