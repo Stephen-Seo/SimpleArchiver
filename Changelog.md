@@ -2,6 +2,14 @@
 
 ## Upcoming Changes
 
+## Alternate Changes
+
+(Alternate Changes are changes that are not in `main` or `dev`.)
+
+Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 2.2
+
 Fix extracting dirs in file format v6 by extracting them all regardless of
 white/blacklists or positional args, and using opt-in "--v6-remove-empty-dirs"
 to remove them on extraction. A reserved bit in file format 6 is used to keep
@@ -19,11 +27,21 @@ creation".
 Fix v5/v6 archive extraction skipping chunks causing parsing offset mismatch. In
 other words, this should fix skipping chunks via white/blacklists for v5 and v6.
 
-## Alternate Changes
-
-(Alternate Changes are changes that are not in `main` or `dev`.)
-
-Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+Note that there was suspicion (by me, Stephen) that file format v5 may have
+broken things, but after checking the code, the addition of the 2 byte prefix
+"SA" to all chunks was implemented as it should. The only breakage was found in
+the code handling "skipped chunks". A chunk (during extraction or checking) is
+skipped only if white/blacklists are used, and that it was determined that a
+chunk contained only "skipped" items due to the white/blacklist. Existing code
+since the introduction to file format version 5 appears to have had this bug
+where "skipped chunks" did not account for these two bytes. This has been
+notably fixed as of version 2.2 of simplearchiver. (The implementation of
+skipped chunks was to simply read all of the chunk from the archive without
+saving it elsewhere to progress the "position" of the read into the archive;
+simplearchiver is designed to be streamable (no seeking allowed).
+Interestingly, uncompressing compressed chunks did not have this problem as
+they already accounted for the 2 bytes, but extracting non-compressed chunks
+had this problem.)
 
 ## Version 2.1
 

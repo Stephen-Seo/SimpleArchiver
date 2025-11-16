@@ -697,6 +697,8 @@ directory:
     2. The second byte:
         1. The first bit is "other execute permission".
         2. This bit is set if it is a non-empty dir.
+            - Note that this bit was not used starting at version 2.0.
+            - Note that this bit was designated as of version 2.2
         3. The remaining bits are reserved for future use.
 4. 4 bytes 32-bit unsigned integer in big-endian UID of this directory.
 5. 4 bytes 32-bit unsigned integer in big-endian GID of this directory.
