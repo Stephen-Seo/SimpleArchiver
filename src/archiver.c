@@ -2532,6 +2532,10 @@ int internal_add_list_items_to_list(void *data, void *ud) {
   return 0;
 }
 
+int greater_strlen_fn(void *a, void *b) {
+  return strlen(a) > strlen(b);
+}
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -6567,7 +6571,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       uint8_t pbits[2] = {0, 0};
       if (state && state->parsed->flags & 0x20000) {
         pbits[0] = state->parsed->empty_dir_permissions & 0xFF;
-        pbits[1] = (state->parsed->empty_dir_permissions >> 8) & 0xFF;
+        pbits[1] = (state->parsed->empty_dir_permissions >> 8) & 0x1;
       } else {
         if ((stat_buf.st_mode & S_IRUSR) != 0) {
           pbits[0] |= 1;
@@ -6596,6 +6600,18 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
         if ((stat_buf.st_mode & S_IXOTH) != 0) {
           pbits[1] |= 1;
         }
+      }
+      // Set bit 0x20 (second byte, second bit) if dir not empty.
+      {
+        int is_dir_empty = simple_archiver_helper_is_dir_empty(dir_path);
+        if (is_dir_empty < 0) {
+          fprintf(stderr,
+                  "WARNING: Failed to check if dir \"%s\" is empty! Treating "
+                  "as empty (will not be removed by --v6-remove-empty-dirs).\n",
+                  dir_path);
+          is_dir_empty = 1;
+        }
+        pbits[1] |= is_dir_empty ? 0 : 2;
       }
 
       if (fwrite(pbits, 1, 2, out_f) != 2) {
@@ -12661,6 +12677,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     return SDA_RET_STRUCT(SDAS_SIGINT);
   }
 
+  __attribute__((cleanup(simple_archiver_priority_heap_free)))
+  SDArchiverPHeap *dir_heap =
+    simple_archiver_priority_heap_init_less_generic_fn(greater_strlen_fn);
+
   if (state->parsed->write_version >= 6) {
     // Directories.
     fprintf(stderr, "DIRECTORIES\n");
@@ -12686,30 +12706,17 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       }
       dir_path[dir_path_size] = 0;
 
-      const int_fast8_t arg_allowed =
-        state->parsed->just_w_files->count == 0
-        || simple_archiver_hash_map_get(
-             state->parsed->just_w_files, dir_path, dir_path_size + 1) != NULL
-        ? 1
-        : 0;
-
-      const uint_fast8_t lists_allowed =
-        simple_archiver_helper_string_allowed_lists(
-          dir_path, (state->parsed->flags & 0x20000) ? 1 : 0, state->parsed);
-
-      if (!do_extract && arg_allowed && lists_allowed) {
-        fprintf(stderr,
-                "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
-                dir_idx + 1,
-                dir_count,
-                dir_path);
-      }
+      fprintf(stderr,
+              "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
+              dir_idx + 1,
+              dir_count,
+              dir_path);
 
       uint8_t pbits[2];
       if (fread(pbits, 1, 2, in_f) != 2) {
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract) {
         fprintf(stderr, "    Permissions: ");
         fprintf(stderr, "%s", (pbits[0] & 1)    ? "r" : "-");
         fprintf(stderr, "%s", (pbits[0] & 2)    ? "w" : "-");
@@ -12723,6 +12730,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         fprintf(stderr, "\n");
       }
 
+      if ((state->parsed->flags & 0x200000) != 0 && (pbits[1] & 2) != 0) {
+        simple_archiver_priority_heap_insert(
+            dir_heap,
+            1,
+            strdup(dir_path),
+            NULL);
+      }
+
       uint32_t uid;
       if (fread(&uid, 4, 1, in_f) != 1) {
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -12733,7 +12748,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_32_bit_be(&gid);
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract) {
         fprintf(stderr,
                 "    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
                 uid,
@@ -12767,7 +12782,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         }
         groupname[u16] = 0;
       }
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract) {
         fprintf(stderr,
                 "    Username: %s\n    Groupname: %s\n",
                 username,
@@ -12826,8 +12841,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         }
       }
 
-      if (do_extract && arg_allowed && lists_allowed) {
-        fprintf(stderr, "  DIR: %s\n", dir_path);
+      if (do_extract) {
         // Use UID derived from Username by default.
         if ((state->parsed->flags & 0x4000) == 0 && username) {
           uint32_t *username_uid = simple_archiver_hash_map_get(
@@ -12907,7 +12921,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       char *abs_dir_path_with_suffix =
         simple_archiver_helper_string_parts_combine(parts);
 
-      if (do_extract && arg_allowed && lists_allowed) {
+      if (do_extract) {
         int ret =
           simple_archiver_helper_make_dirs_perms(
             abs_dir_path_with_suffix,
@@ -13937,12 +13951,17 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     uint64_t file_idx = 0;
 
     if (skip_chunk) {
+      uint64_t chunk_read_amt = chunk_remaining;
+      if (state->parsed->write_version >= 5
+          && (!is_compressed || !compressed_bit_set)) {
+        chunk_read_amt += 2;
+      }
       fprintf(stderr, "Skipping chunk...\n");
       SDArchiverStateReturns ret = read_buf_full_from_fd(
         in_f,
         (char *)buf,
         SIMPLE_ARCHIVER_BUFFER_SIZE,
-        chunk_remaining,
+        chunk_read_amt,
         NULL,
         NULL);
       if (ret != SDAS_SUCCESS) {
@@ -14490,6 +14509,43 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
   }
 
   if (state->parsed->write_version >= 6) {
+    if (do_extract && (state->parsed->flags & 0x200000) != 0) {
+      fprintf(stderr,
+              "NOTICE: --v6-remove-empty-dirs specified, removing now empty "
+              "dirs (and wasn't empty when archived)...\n");
+      // Check remove empty dirs
+      while (simple_archiver_priority_heap_size(dir_heap) != 0) {
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *dir = simple_archiver_priority_heap_pop(dir_heap);
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *result_dir = NULL;
+        if (state->parsed->prefix) {
+          result_dir = simple_archiver_helper_combine_strs(
+              state->parsed->prefix, dir);
+        } else {
+          result_dir = strdup(dir);
+        }
+        int dir_empty_ret = simple_archiver_helper_is_dir_empty(result_dir);
+        if (dir_empty_ret < 0) {
+          fprintf(stderr,
+                  "WARNING: is dir empty check on \"%s\" failed (errno %d)!\n",
+                  result_dir,
+                  errno);
+        } else if (dir_empty_ret > 0) {
+          int rmdir_ret = rmdir(result_dir);
+          if (rmdir_ret < 0) {
+            fprintf(stderr,
+                    "WARNING: rmdir(\"%s\") failed (errno %d)",
+                    result_dir,
+                    errno);
+          } else {
+            fprintf(stderr, "NOTICE: Removed empty dir \"%s\"!\n", result_dir);
+          }
+        }
+      }
+    }
+
+    // stat print before stop parsing
     if (compressed_size != 0) {
       uint64_t *temp = malloc(sizeof(uint64_t));
       memcpy(temp, &compressed_size, sizeof(uint64_t));

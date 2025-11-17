@@ -28,6 +28,7 @@
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC ||          \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <libgen.h>
 #include <sys/stat.h>
@@ -1147,4 +1148,25 @@ char *simple_archiver_helper_remove_single_dot_path(const char *str) {
   }
 
   return strdup(next_buf);
+}
+
+int simple_archiver_helper_is_dir_empty(const char *dir) {
+    DIR *opened_dir = opendir(dir);
+    if (!opened_dir) {
+      return -1;
+    }
+    struct dirent *dir_entry = readdir(opened_dir);
+    while (dir_entry != NULL) {
+      if (strcmp(dir_entry->d_name, ".") == 0
+          || strcmp(dir_entry->d_name, "..") == 0) {
+        dir_entry = readdir(opened_dir);
+        continue;
+      } else {
+        closedir(opened_dir);
+        return 0;
+      }
+      dir_entry = readdir(opened_dir);
+    }
+    closedir(opened_dir);
+    return 1;
 }
