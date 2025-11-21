@@ -8,6 +8,14 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 2.3
+
+Update man page with new option `--v6-remove-empty-dirs`.
+
+Fix erronous file size stats printing when using file format 6 and creating an
+archive with compression when there are no files matching extensions set by
+`--use-file-exts-preset` or `--add-file-ext <ext>`.
+
 ## Version 2.2
 
 Fix extracting dirs in file format v6 by extracting them all regardless of
