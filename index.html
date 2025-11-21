@@ -376,6 +376,16 @@ onward). Note that file extension checking is case insensitive.</p>
 <dd>
 <p>Allows positional arguments to contain ".." in them.</p>
 </dd>
+<dt><strong>--v6-remove-empty-dirs</strong></dt>
+<dd>
+<p>When using file format version 6 and extracting an archive, this
+options tells <strong>simplearchiver</strong> to remove unnecessary
+empty directories. Note that file version format 6 adds support for
+storing all directories in the given paths when archiving with metadata
+for each one (such as permissions). This is handy for cases where
+white/blacklists are used and it is desired to remove directories that
+are empty as a result of using white/blacklists during extraction.</p>
+</dd>
 <dt><strong>--version</strong></dt>
 <dd>
 <p>Prints the current version of <strong>simplearchiver</strong>.</p>
