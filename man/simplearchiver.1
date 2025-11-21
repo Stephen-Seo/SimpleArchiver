@@ -269,6 +269,15 @@ that file extension checking is case insensitive.
 .BR --allow-double-dot
 Allows positional arguments to contain ".." in them.
 .TP
+.BR --v6-remove-empty-dirs
+When using file format version 6 and extracting an archive, this options tells
+\fBsimplearchiver\fR to remove unnecessary empty directories. Note that file
+version format 6 adds support for storing all directories in the given paths
+when archiving with metadata for each one (such as permissions). This is handy
+for cases where white/blacklists are used and it is desired to remove
+directories that are empty as a result of using white/blacklists during
+extraction.
+.TP
 .BR --version
 Prints the current version of \fBsimplearchiver\fR.
 .TP
