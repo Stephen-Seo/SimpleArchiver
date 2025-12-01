@@ -68,7 +68,6 @@ char *SDSA_NOT_TO_COMPRESS_FILE_EXTS[] = {
   ".mp3",
   ".flac",
   ".alac",
-  ".wav",
   ".aac",
   ".jpg",
   ".jpeg",
