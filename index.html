@@ -51,7 +51,10 @@ checked with "test archive file" mode, or extracted from with "extract
 archive file" mode. Note that in "create archive file" mode, the file
 will not be overwritten if it already exists unless if
 <strong>--overwrite-create</strong> is specified. Note that this is not
-affected by <strong>-C</strong> <em>directory</em>.</p>
+affected by <strong>-C</strong> <em>directory</em>. If
+"<strong>-</strong>" is specified as the filename, then standard-output
+will be used as the file when in "create mode", and standard-input will
+be used as the file when in "test mode" or "extract mode".</p>
 </dd>
 <dt><strong>-C</strong> <strong><em>directory</em></strong></dt>
 <dd>
