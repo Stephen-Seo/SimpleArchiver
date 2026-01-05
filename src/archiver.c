@@ -12766,7 +12766,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         fprintf(stderr, "\n");
       }
 
-      if ((state->parsed->flags & 0x200000) != 0 && (pbits[1] & 2) != 0) {
+      if ((state->parsed->flags & 0x200000) != 0
+          && ((pbits[1] & 2) != 0 || (state->parsed->flags & 0x400000))) {
         simple_archiver_priority_heap_insert(
             dir_heap,
             1,
