@@ -281,6 +281,12 @@ for cases where white/blacklists are used and it is desired to remove
 directories that are empty as a result of using white/blacklists during
 extraction.
 .TP
+.BR --v6-remove-leaf-dirs
+When using \fB\-\-v6\-remove\-empty\-dirs\fR with this option, all empty dirs
+are removed regardless of whether or not they were empty leaf dirs during
+archival. Thus, if there exists a tree of directories with no files after file
+extraction, then they will be removed.
+.TP
 .BR --version
 Prints the current version of \fBsimplearchiver\fR.
 .TP
