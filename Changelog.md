@@ -8,6 +8,16 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 2.4
+
+Fix bug where extracting a directory in fv6 is read-only and simplearchiver
+fails to extract a file to the inside of the read-only directory by setting
+permissions after files have been extracted. (The directory is initially set to
+700 (or u+rwx and not for group or other), then set to the necessary permissions
+later.)
+
+Add option `--v6-remove-leaf-dirs`.
+
 ## Version 2.3
 
 Update man page with new option `--v6-remove-empty-dirs`.

@@ -77,6 +77,7 @@ API calls.
     --add-file-ext <ext> | --add-file-ext=<ext> : Add a extension to choose to not compress (must be like ".thing")
     --allow-double-dot : Allows positional args to have ".."
     --v6-remove-empty-dirs : Remove dirs that are empty after extraction (but were not empty when archived)
+    --v6-remove-leaf-dirs : Also remove leaf dirs even if they normally would be kept
     --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.

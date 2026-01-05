@@ -68,6 +68,7 @@ typedef struct SDArchiverParsed {
   /// 0b xxx1 xxxx xxxx xxxx xxxx xxxx - Enable positional args with ".." .
   /// 0b xx1x xxxx xxxx xxxx xxxx xxxx - v6-extract remove empty dirs that are
   ///   not supposed to be empty
+  /// 0b x1xx xxxx xxxx xxxx xxxx xxxx - also remove leaf dirs
   uint32_t flags;
   /// Null-terminated string.
   char *filename;
