@@ -2,6 +2,14 @@
 
 ## Upcoming Changes
 
+## Alternate Changes
+
+(Alternate Changes are changes that are not in `main` or `dev`.)
+
+Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 2.4
+
 Fix bug where extracting a directory in fv6 is read-only and simplearchiver
 fails to extract a file to the inside of the read-only directory by setting
 permissions after files have been extracted. (The directory is initially set to
@@ -9,12 +17,6 @@ permissions after files have been extracted. (The directory is initially set to
 later.)
 
 Add option `--v6-remove-leaf-dirs`.
-
-## Alternate Changes
-
-(Alternate Changes are changes that are not in `main` or `dev`.)
-
-Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
 ## Version 2.3
 
