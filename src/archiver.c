@@ -88,6 +88,31 @@ typedef struct SDArchiverInternalFileInfo {
   int_fast8_t other_flags;
 } SDArchiverInternalFileInfo;
 
+typedef struct SDArchiverInternalDirInfo {
+  char *dirname;
+  mode_t permissions;
+} SDArchiverInternalDirInfo;
+
+void internal_cleanup_dirinfo_fn(void *data) {
+  SDArchiverInternalDirInfo *dinfo = data;
+  if (dinfo) {
+    if (dinfo->dirname) {
+      free(dinfo->dirname);
+    }
+    free(dinfo);
+  }
+}
+
+void internal_cleanup_dirinfo_fn_cleanup(SDArchiverInternalDirInfo **dinfo) {
+  if (*dinfo) {
+    if ((*dinfo)->dirname) {
+      free((*dinfo)->dirname);
+    }
+    free(*dinfo);
+    *dinfo = NULL;
+  }
+}
+
 void free_internal_to_write(void *data) {
   SDArchiverInternalToWrite *to_write = data;
   free(to_write->buf);
@@ -2534,6 +2559,12 @@ int internal_add_list_items_to_list(void *data, void *ud) {
 
 int greater_strlen_fn(void *a, void *b) {
   return strlen(a) > strlen(b);
+}
+
+int greater_dirnamelen_fn(void *a, void *b) {
+  const SDArchiverInternalDirInfo *ad = a;
+  const SDArchiverInternalDirInfo *bd = b;
+  return strlen(ad->dirname) > strlen(bd->dirname);
 }
 
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
@@ -12682,6 +12713,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
   SDArchiverPHeap *dir_heap =
     simple_archiver_priority_heap_init_less_generic_fn(greater_strlen_fn);
 
+  __attribute__((cleanup(simple_archiver_priority_heap_free)))
+  SDArchiverPHeap *dir_heap_post_process =
+    simple_archiver_priority_heap_init_less_generic_fn(greater_dirnamelen_fn);
+
   if (state->parsed->write_version >= 6) {
     // Directories.
     fprintf(stderr, "DIRECTORIES\n");
@@ -12737,6 +12772,20 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
             1,
             strdup(dir_path),
             NULL);
+      }
+
+      if (do_extract) {
+        SDArchiverInternalDirInfo *dinfo =
+          malloc(sizeof(SDArchiverInternalDirInfo));
+        dinfo->dirname = strdup(dir_path);
+        dinfo->permissions = state && (state->parsed->flags & 0x2000)
+              ? simple_archiver_internal_permissions_to_mode_t(
+                  state->parsed->dir_permissions)
+              : simple_archiver_internal_bits_to_mode_t(pbits);
+        simple_archiver_priority_heap_insert(dir_heap_post_process,
+                                             1,
+                                             dinfo,
+                                             internal_cleanup_dirinfo_fn);
       }
 
       uint32_t uid;
@@ -12926,10 +12975,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         int ret =
           simple_archiver_helper_make_dirs_perms(
             abs_dir_path_with_suffix,
-            state && (state->parsed->flags & 0x2000)
-              ? simple_archiver_internal_permissions_to_mode_t(
-                  state->parsed->dir_permissions)
-              : simple_archiver_internal_bits_to_mode_t(pbits),
+            S_IRWXU,
             (state->parsed->flags & 0x400) ? state->parsed->uid : uid,
             (state->parsed->flags & 0x800) ? state->parsed->gid : gid);
         if (ret != 0) {
@@ -14541,6 +14587,38 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
                     errno);
           } else {
             fprintf(stderr, "NOTICE: Removed empty dir \"%s\"!\n", result_dir);
+          }
+        }
+      }
+    }
+
+    if (do_extract) {
+      // Set dir permissions.
+      while (simple_archiver_priority_heap_size(dir_heap_post_process) != 0) {
+        __attribute__((cleanup(internal_cleanup_dirinfo_fn_cleanup)))
+        SDArchiverInternalDirInfo *dinfo =
+          simple_archiver_priority_heap_pop(dir_heap_post_process);
+        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+        char *dir_path = NULL;
+        if (state->parsed->prefix) {
+          SAHelperStringParts parts =
+            simple_archiver_helper_string_parts_init();
+          simple_archiver_helper_string_parts_add(parts, state->parsed->prefix);
+          simple_archiver_helper_string_parts_add(parts, dinfo->dirname);
+          dir_path = simple_archiver_helper_string_parts_combine(parts);
+          simple_archiver_helper_string_parts_free(&parts);
+        } else {
+          dir_path = strdup(dinfo->dirname);
+        }
+        // Check if dir exists first.
+        int dirfd = open(dir_path, O_RDONLY | O_DIRECTORY);
+        if (dirfd >= 0) {
+          close(dirfd);
+          int ret = chmod(dir_path, dinfo->permissions);
+          if (ret != 0) {
+            fprintf(stderr,
+                    "WARNING: Failed to set permissions for dir \"%s\"!\n",
+                    dir_path);
           }
         }
       }
