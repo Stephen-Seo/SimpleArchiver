@@ -8,6 +8,8 @@ permissions after files have been extracted. (The directory is initially set to
 700 (or u+rwx and not for group or other), then set to the necessary permissions
 later.)
 
+Add option `--v6-remove-leaf-dirs`.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
