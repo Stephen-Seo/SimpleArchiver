@@ -8,6 +8,14 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 2.5
+
+Fix bug where default file sorting method (sort by size) was broken for the
+current file format (default file format version 6). (Note that if a
+"first-chunk-with-no-compression" exists, then that first-chunk is always
+sorted by name. All other chunks are sorted based on settings (file-size by
+default).)
+
 ## Version 2.4
 
 Fix bug where extracting a directory in fv6 is read-only and simplearchiver

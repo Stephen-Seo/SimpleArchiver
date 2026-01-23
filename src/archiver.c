@@ -6412,10 +6412,12 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
             fprintf(stderr, "Interrupt, stop populating priority heap...\n");
             return SDA_RET_STRUCT(SDAS_SIGINT);
           }
+          SDArchiverInternalFileInfo *file_info =
+            simple_archiver_priority_heap_pop(files_pheap);
           simple_archiver_priority_heap_insert(
               pheap,
-              0,
-              simple_archiver_priority_heap_pop(files_pheap),
+              (int64_t)file_info->file_size,
+              file_info,
               free_internal_file_info);
         }
         while (simple_archiver_priority_heap_size(pheap) != 0) {
