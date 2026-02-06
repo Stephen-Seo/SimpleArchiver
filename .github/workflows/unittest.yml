@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get cmake/gcc
-        run: sudo apt-get -y install cmake gcc sed
+        run: sudo apt-get -y update && sudo apt-get -y install cmake gcc sed
       - name: Clone repo
         run: git clone --depth=1 --no-single-branch https://github.com/Stephen-Seo/SimpleArchiver.git
       - name: Checkout the branch

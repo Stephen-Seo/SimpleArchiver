@@ -11,7 +11,7 @@ jobs:
         contents: write
     steps:
       - name: Get pandoc
-        run: sudo apt-get -y install pandoc git
+        run: sudo apt-get -y update && sudo apt-get -y install pandoc git
       - name: Get Repository
         run: git clone --depth=1 --no-single-branch https://github.com/Stephen-Seo/SimpleArchiver.git SA
       - name: Checkout Current Branch
