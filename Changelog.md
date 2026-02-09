@@ -2,6 +2,9 @@
 
 ## Upcoming Changes
 
+Add `--force-prefix-dir-permissions`, which sets the permissions of dirs created
+with `--prefix`.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
