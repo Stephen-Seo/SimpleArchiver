@@ -63,6 +63,7 @@ API calls.
     --force-dir-permissions <3-octal-values> | --force-dir-permissions=<perms> : Force set permissions for directories on archive creation/extraction
       Must be three octal characters like "755" or "440"
     --force-empty-dir-permissions <3-octal-values> | --force-empty-dir-permissions=<perms> : Force set EMPTY dir permissions. Like "--force-dir-permissions", but for empty directories.
+    --force-prefix-dir-permissions <3-octal-values> | --force-prefix-dir-permissions=<perms> : Force set permissions for "--prefix=<dir>" dir(s) after extraction
     --whitelist-contains-any <text> | --whitelist-contains-any=<text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain any of the specified "<text>"s.
     --whitelist-contains-all <text> | --whitelist-contains-all=<text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain all of the specified "<text>"s.
     --whitelist-begins-with <text> | --whitelist-begins-with=<text> : Whitelist entries to start with "<text>", specify multiple times to allow different entries to start with different "<text>" entries.
