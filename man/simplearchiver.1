@@ -202,6 +202,11 @@ option will only take effect on extraction if the current effective user ID is
 effect intermediate directories that hold files/directories. See the previous
 option to force permissions on such directories.
 .TP
+.BR --force-prefix-dir-permissions " " \fI3-OctalValues\fR " | " --force-prefix-dir-permissions=\fI3-OctalValues\fR
+Force set permissions for directories created with \fB\-\-prefix\fR on archive
+extraction. For example, a valid value can be 755 or 750. Note that this option
+only has effect on prefix directories, not files/dirs within them.
+.TP
 .BR --whitelist-contains-any " " \fItext\fR " | " --whitelist-contains-any=\fItext\fR
 In any archival mode (create/test/extract), only allow files/directories that
 contain the specified text. Use this flag multiple times to add more text
