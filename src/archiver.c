@@ -2567,6 +2567,46 @@ int greater_dirnamelen_fn(void *a, void *b) {
   return strlen(ad->dirname) > strlen(bd->dirname);
 }
 
+SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
+    const SDArchiverState *state) {
+  // Assumes cwd is already changed to specified with "-C" (if "-C" is used").
+  if ((state->parsed->flags & 0x800000) == 0) {
+    // Flag is not set. Do not return error.
+    return SDA_RET_STRUCT(SDAS_SUCCESS);
+  } else if (!state->parsed->prefix) {
+    // Prefix is not set. Do not return error.
+    return SDA_RET_STRUCT(SDAS_SUCCESS);
+  }
+
+  const mode_t prefix_perms = simple_archiver_internal_permissions_to_mode_t(
+    state->parsed->prefix_dir_permissions);
+
+  size_t idx = 0;
+  const size_t len = strlen(state->parsed->prefix);
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *buf = malloc(len + 1);
+  size_t buf_idx = 0;
+  for (; idx < len; ++idx) {
+    if (state->parsed->prefix[idx] != '/') {
+      buf[buf_idx++] = state->parsed->prefix[idx];
+    } else if (buf_idx != 0) {
+      buf[buf_idx] = 0;
+
+      int chmod_ret = chmod(buf, prefix_perms);
+      if (chmod_ret != 0) {
+        fprintf(stderr,
+                "ERROR: Failed to set perfix-dir permissions, errno %d\n",
+                errno);
+        return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
+      }
+
+      buf[buf_idx++] = '/';
+    }
+  }
+
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
+}
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -2931,6 +2971,7 @@ SDArchiverStateRetStruct simple_archiver_write_v0(
   } else {
     free(files_compressed_size);
   }
+
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
@@ -9242,6 +9283,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
+  SDArchiverStateRetStruct prefix_chmod_ret =
+    prefix_dirs_to_forced_permissions(state);
+  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
+    return prefix_chmod_ret;
+  }
+
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
@@ -10470,6 +10517,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
+  SDArchiverStateRetStruct prefix_chmod_ret =
+    prefix_dirs_to_forced_permissions(state);
+  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
+    return prefix_chmod_ret;
+  }
+
   return SDA_RET_STRUCT(SDAS_SUCCESS
                         | (not_tested_once ? SDAS_NOT_TESTED_ONCE : 0));
 }
@@ -10737,6 +10790,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
   if (not_tested_once) {
     fprintf(stderr, "WARNING: test/check mode but nothing was selected; "
       "try a different positional argument?\n");
+  }
+
+  SDArchiverStateRetStruct prefix_chmod_ret =
+    prefix_dirs_to_forced_permissions(state);
+  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
+    return prefix_chmod_ret;
   }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
@@ -12622,6 +12681,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       SDA_PSTATE_ACT_SIZE_KEY_SIZE,
       NULL,
       simple_archiver_helper_datastructure_cleanup_nop);
+  }
+
+  SDArchiverStateRetStruct prefix_chmod_ret =
+    prefix_dirs_to_forced_permissions(state);
+  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
+    return prefix_chmod_ret;
   }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
@@ -14661,6 +14726,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         NULL,
         simple_archiver_helper_datastructure_cleanup_nop);
     }
+
+    SDArchiverStateRetStruct prefix_chmod_ret =
+      prefix_dirs_to_forced_permissions(state);
+    if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
+      return prefix_chmod_ret;
+    }
+
     return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
 
@@ -15008,6 +15080,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
       NULL,
       simple_archiver_helper_datastructure_cleanup_nop);
+  }
+
+  SDArchiverStateRetStruct prefix_chmod_ret =
+    prefix_dirs_to_forced_permissions(state);
+  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
+    return prefix_chmod_ret;
   }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);

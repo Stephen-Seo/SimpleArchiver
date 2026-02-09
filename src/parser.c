@@ -305,6 +305,10 @@ void simple_archiver_print_usage(void) {
           "permissions. Like \"--force-dir-permissions\", but for empty "
           "directories.\n");
   fprintf(stderr,
+          "--force-prefix-dir-permissions <3-octal-values> | "
+          "--force-prefix-dir-permissions=<perms> : Force set permissions for "
+          "\"--prefix=<dir>\" dir(s) after extraction\n");
+  fprintf(stderr,
           "--whitelist-contains-any <text> | --whitelist-contains-any=<text> : "
           "Whitelist entries to contain \"<text>\", specify multiple times to "
           "allow entries that contain any of the specified \"<text>\"s.\n");
@@ -395,6 +399,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.file_permissions = 0;
   parsed.dir_permissions = 0;
   parsed.empty_dir_permissions = 0;
+  parsed.prefix_dir_permissions = 0;
   parsed.users_infos = simple_archiver_users_get_system_info();
   parsed.mappings.UidToUname = simple_archiver_hash_map_init();
   parsed.mappings.UnameToUid = simple_archiver_hash_map_init();
@@ -1139,6 +1144,66 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->empty_dir_permissions |= (value & 1) ? 0x100 : 0;
 
         out->flags |= 0x10000;
+
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
+      } else if (strcmp(argv[0], "--force-prefix-dir-permissions") == 0
+                 || strncmp(argv[0], "--force-prefix-dir-permissions=", 31)
+                    == 0) {
+        int_fast8_t is_separate =
+          strcmp(argv[0], "--force-prefix-dir-permissions") == 0;
+        const char *str;
+        if (is_separate
+            && (argc < 2
+            || strlen(argv[1]) != 3
+            || (!(argv[1][0] >= '0' && argv[1][0] <= '7'))
+            || (!(argv[1][1] >= '0' && argv[1][1] <= '7'))
+            || (!(argv[1][2] >= '0' && argv[1][2] <= '7'))
+              )) {
+          fprintf(stderr,
+                  "ERROR: --force-prefix-dir-permissions expects 3 octal values"
+                  " (e.g. \"755\" or \"440\")!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 31;
+          if (strlen(str) != 3
+              || !(str[0] >= '0' && str[0] <= '7')
+              || !(str[1] >= '0' && str[1] <= '7')
+              || !(str[2] >= '0' && str[2] <= '7')) {
+            fprintf(stderr,
+                    "ERROR: --force-prefix-dir-permissions expects 3 octal "
+                    "values (e.g. \"755\" or \"440\")!\n");
+            simple_archiver_print_usage();
+            return 1;
+          }
+        }
+        if (strlen(str) == 0) {
+          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        uint_fast8_t value = (uint_fast8_t)(str[0] - '0');
+        out->prefix_dir_permissions |= (value & 4) ? 1 : 0;
+        out->prefix_dir_permissions |= (value & 2) ? 2 : 0;
+        out->prefix_dir_permissions |= (value & 1) ? 4 : 0;
+
+        value = (uint_fast8_t)(str[1] - '0');
+        out->prefix_dir_permissions |= (value & 4) ? 8 : 0;
+        out->prefix_dir_permissions |= (value & 2) ? 0x10 : 0;
+        out->prefix_dir_permissions |= (value & 1) ? 0x20 : 0;
+
+        value = (uint_fast8_t)(str[2] - '0');
+        out->prefix_dir_permissions |= (value & 4) ? 0x40 : 0;
+        out->prefix_dir_permissions |= (value & 2) ? 0x80 : 0;
+        out->prefix_dir_permissions |= (value & 1) ? 0x100 : 0;
+
+        out->flags |= 0x800000;
 
         if (is_separate) {
           --argc;
