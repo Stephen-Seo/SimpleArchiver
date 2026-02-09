@@ -2581,16 +2581,12 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
   const mode_t prefix_perms = simple_archiver_internal_permissions_to_mode_t(
     state->parsed->prefix_dir_permissions);
 
-  size_t idx = 0;
-  const size_t len = strlen(state->parsed->prefix);
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-  char *buf = malloc(len + 1);
-  size_t buf_idx = 0;
-  for (; idx < len; ++idx) {
-    if (state->parsed->prefix[idx] != '/') {
-      buf[buf_idx++] = state->parsed->prefix[idx];
-    } else if (buf_idx != 0) {
-      buf[buf_idx] = 0;
+  char *buf = strdup(state->parsed->prefix);
+
+  for (size_t idx = strlen(buf); idx-- > 0;) {
+    if (buf[idx] == '/') {
+      buf[idx] = 0;
 
       int chmod_ret = chmod(buf, prefix_perms);
       if (chmod_ret != 0) {
@@ -2599,8 +2595,6 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
                 errno);
         return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
       }
-
-      buf[buf_idx++] = '/';
     }
   }
 
