@@ -31,10 +31,14 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <libgen.h>
-#include <sys/capability.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <signal.h>
+#endif
+
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+#include <sys/capability.h>
 #endif
 
 void simple_archiver_helper_cleanup_FILE(FILE **fd) {
@@ -1179,11 +1183,14 @@ int simple_archiver_helper_is_admin(void) {
 
   int is_admin = 0;
 
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   cap_t cap_handle = cap_get_proc();
 
   is_admin = cap_get_bound(CAP_SYS_ADMIN) > 0 ? 1 : 0;
 
   cap_free(cap_handle);
+#endif
 
   return is_admin;
 }
