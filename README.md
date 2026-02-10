@@ -64,6 +64,10 @@ API calls.
       Must be three octal characters like "755" or "440"
     --force-empty-dir-permissions <3-octal-values> | --force-empty-dir-permissions=<perms> : Force set EMPTY dir permissions. Like "--force-dir-permissions", but for empty directories.
     --force-prefix-dir-permissions <3-octal-values> | --force-prefix-dir-permissions=<perms> : Force set permissions for "--prefix=<dir>" dir(s) after extraction
+    --set-prefix-dir-uid <uid> | --set-prefix-dir-uid=<uid> : Set uid onprefix dir(s) if current user is root
+    --set-prefix-dir-user <user> | --set-prefix-dir-user=<user> : Set user uid on prefix dir(s) if current user is root
+    --set-prefix-dir-gid <gid> | --set-prefix-dir-gid=<gid> : Set gid onprefix dir(s) if current user is root
+    --set-prefix-dir-group <group> | --set-prefix-dir-group=<group> : Set group gid on prefix dir(s) if current user is root
     --whitelist-contains-any <text> | --whitelist-contains-any=<text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain any of the specified "<text>"s.
     --whitelist-contains-all <text> | --whitelist-contains-all=<text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain all of the specified "<text>"s.
     --whitelist-begins-with <text> | --whitelist-begins-with=<text> : Whitelist entries to start with "<text>", specify multiple times to allow different entries to start with different "<text>" entries.
