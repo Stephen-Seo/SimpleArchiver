@@ -2583,11 +2583,13 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
 
   if (simple_archiver_helper_can_chown()) {
     // Only set uid/gid if has CAP_CHOWN and args to set them were used.
-    uint32_t uid = 0;
-    uint32_t gid = 0;
+    uint32_t uid = getuid();
+    uint32_t gid = getgid();
+    int_fast8_t will_use_chown = 0;
 
     if (state->parsed->flags & 0x1000000) {
       uid = state->parsed->prefix_user.uid;
+      will_use_chown = 1;
     } else if (state->parsed->flags & 0x2000000) {
       uint32_t *uid_mapped = NULL;
       uid_mapped = simple_archiver_hash_map_get(
@@ -2596,6 +2598,7 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
           strlen(state->parsed->prefix_user.username) + 1);
       if (uid_mapped) {
         uid = *uid_mapped;
+        will_use_chown = 1;
       } else {
         fprintf(stderr,
                 "WARNING: No mapping for username \"%s\" for setting prefix "
@@ -2606,6 +2609,7 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
 
     if (state->parsed->flags & 0x4000000) {
       gid = state->parsed->prefix_group.gid;
+      will_use_chown = 1;
     } else if (state->parsed->flags & 0x8000000) {
       uint32_t *gid_mapped = NULL;
       gid_mapped = simple_archiver_hash_map_get(
@@ -2614,6 +2618,7 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
           strlen(state->parsed->prefix_group.groupname) + 1);
       if (gid_mapped) {
         gid = *gid_mapped;
+        will_use_chown = 1;
       } else {
         fprintf(stderr,
                 "WARNING: No mapping found for groupname \"%s\" for setting "
@@ -2622,7 +2627,7 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
       }
     }
 
-    if (uid != 0 || gid != 0) {
+    if (will_use_chown) {
       for (size_t idx = strlen(buf); idx-- > 0;) {
         if (buf[idx] == '/') {
           buf[idx] = 0;
