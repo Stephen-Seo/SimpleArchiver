@@ -529,7 +529,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 9;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--prefix\" is an empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -568,7 +569,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 13;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--compressor\" is an empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -594,7 +596,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 15;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--decompressor\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -633,7 +637,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 17;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--temp-files-dir\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -660,7 +666,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 16;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--write-version\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -696,7 +704,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 17;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--chunk-min-size\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -792,7 +802,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 12;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--force-uid\" is an empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -828,7 +839,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 13;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--force-user\" is an empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -859,7 +871,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 12;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--force-gid\" is an empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -895,7 +908,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 14;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--force-group\" is an empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -932,7 +946,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 11;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--map-user\" is an empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -965,7 +980,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 12;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--map-group\" is an empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1015,7 +1031,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           }
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--force-file-permissions\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1074,7 +1092,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           }
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--force-dir-permissions\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1135,7 +1155,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           }
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--force-empty-dir-permissions\" is an "
+                  "empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1195,7 +1217,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           }
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--force-prefix-dir-permissions\" is an "
+                  "empty string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1429,7 +1453,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 25;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--whitelist-contains-all\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1462,7 +1488,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 24;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--whitelist-begins-with\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1495,7 +1523,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 22;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--whitelist-ends-with\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1528,7 +1558,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 25;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--blacklist-contains-any\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1561,7 +1593,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 25;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--blacklist-contains-all\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1594,7 +1628,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 24;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--blacklist-begins-with\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1627,7 +1663,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 22;
         }
         if (strlen(str) == 0) {
-          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          fprintf(stderr,
+                  "ERROR: Argument to \"--blacklist-ends-with\" is an empty "
+                  "string!\n");
           simple_archiver_print_usage();
           return 1;
         }
@@ -1680,8 +1718,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
           strcmp(argv[0], "--add-file-ext") == 0 ? 1 : 0;
         const char *str;
         if (is_separate && argc < 2) {
-          fprintf(stderr,
-                  "ERROR: --add-file-ext expects an argument!\n");
+          fprintf(stderr, "ERROR: --add-file-ext expects an argument!\n");
           simple_archiver_print_usage();
           return 1;
         } else if (is_separate) {
