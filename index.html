@@ -274,6 +274,43 @@ effective user ID is 0 (root). For example, a valid value can be 755 or
 files/directories. See the previous option to force permissions on such
 directories.</p>
 </dd>
+<dt><strong>--force-prefix-dir-permissions</strong>
+<strong><em>3-OctalValues</em></strong> |
+<strong>--force-prefix-dir-permissions=<em>3-OctalValues</em></strong></dt>
+<dd>
+<p>Force set permissions for directories created with
+<strong>--prefix</strong> on archive extraction. For example, a valid
+value can be 755 or 750. Note that this option only has effect on prefix
+directories, not files/dirs within them.</p>
+</dd>
+<dt><strong>--set-prefix-dir-uid</strong> <strong><em>uid</em></strong>
+| <strong>--set-prefix-dir-uid=<em>uid</em></strong></dt>
+<dd>
+<p>Sets the UID of prefix dir(s) (only if root or has CAP_CHOWN).
+Mutually exclusive with <strong>--set-prefix-dir-user</strong>.</p>
+</dd>
+<dt><strong>--set-prefix-dir-user</strong>
+<strong><em>user</em></strong> |
+<strong>--set-prefix-dir-user=<em>user</em></strong></dt>
+<dd>
+<p>Sets the UID of prefix dir(s) (only if root or has CAP_CHOWN) that
+should have the same UID has the specified user. Mutually exclusive with
+<strong>--set-prefix-dir-uid</strong>.</p>
+</dd>
+<dt><strong>--set-prefix-dir-gid</strong> <strong><em>gid</em></strong>
+| <strong>--set-prefix-dir-gid=<em>gid</em></strong></dt>
+<dd>
+<p>Sets the GID of prefix dir(s) (only if root or has CAP_CHOWN).
+Mutually exclusive with <strong>--set-prefix-dir-group</strong>.</p>
+</dd>
+<dt><strong>--set-prefix-dir-group</strong>
+<strong><em>group</em></strong> |
+<strong>--set-prefix-dir-group=<em>group</em></strong></dt>
+<dd>
+<p>Sets the GID of prefix dir(s) (only if root or has CAP_CHOWN) that
+should have the same GID has the specified group. Mutually exclusive
+with <strong>--set-prefix-dir-gid</strong>.</p>
+</dd>
 <dt><strong>--whitelist-contains-any</strong>
 <strong><em>text</em></strong> |
 <strong>--whitelist-contains-any=<em>text</em></strong></dt>
