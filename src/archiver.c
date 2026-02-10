@@ -2581,7 +2581,31 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *buf = strdup(state->parsed->prefix);
 
-  if (simple_archiver_helper_can_chown()) {
+  const mode_t prefix_perms = simple_archiver_internal_permissions_to_mode_t(
+    state->parsed->prefix_dir_permissions);
+
+  for (size_t idx = strlen(buf); idx-- > 0;) {
+    if (buf[idx] == '/') {
+      buf[idx] = 0;
+
+      int chmod_ret = chmod(buf, prefix_perms);
+      if (chmod_ret != 0) {
+        fprintf(stderr,
+                "ERROR: Failed to set perfix-dir permissions, errno %d\n",
+                errno);
+        return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
+      }
+
+      buf[idx] = '/';
+    }
+  }
+
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
+}
+
+SDArchiverStateRetStruct prefix_dirs_to_forced_ownership(
+    const SDArchiverState *state) {
+  if (state->parsed->prefix && simple_archiver_helper_can_chown()) {
     // Only set uid/gid if has CAP_CHOWN and args to set them were used.
     uint32_t uid = getuid();
     uint32_t gid = getgid();
@@ -2628,6 +2652,8 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
     }
 
     if (will_use_chown) {
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *buf = strdup(state->parsed->prefix);
       for (size_t idx = strlen(buf); idx-- > 0;) {
         if (buf[idx] == '/') {
           buf[idx] = 0;
@@ -2638,30 +2664,12 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
             fprintf(stderr,
                     "ERROR: Failed to set prefix-dir ownership, errno %d\n",
                     errno);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
 
           buf[idx] = '/';
         }
       }
-    }
-  }
-
-  const mode_t prefix_perms = simple_archiver_internal_permissions_to_mode_t(
-    state->parsed->prefix_dir_permissions);
-
-  for (size_t idx = strlen(buf); idx-- > 0;) {
-    if (buf[idx] == '/') {
-      buf[idx] = 0;
-
-      int chmod_ret = chmod(buf, prefix_perms);
-      if (chmod_ret != 0) {
-        fprintf(stderr,
-                "ERROR: Failed to set perfix-dir permissions, errno %d\n",
-                errno);
-        return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-      }
-
-      buf[idx] = '/';
     }
   }
 
@@ -9349,6 +9357,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
   if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
     return prefix_chmod_ret;
   }
+  SDArchiverStateRetStruct prefix_chown_ret =
+    prefix_dirs_to_forced_ownership(state);
+  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
+    return prefix_chown_ret;
+  }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -10583,6 +10596,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
   if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
     return prefix_chmod_ret;
   }
+  SDArchiverStateRetStruct prefix_chown_ret =
+    prefix_dirs_to_forced_ownership(state);
+  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
+    return prefix_chown_ret;
+  }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS
                         | (not_tested_once ? SDAS_NOT_TESTED_ONCE : 0));
@@ -10857,6 +10875,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
     prefix_dirs_to_forced_permissions(state);
   if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
     return prefix_chmod_ret;
+  }
+  SDArchiverStateRetStruct prefix_chown_ret =
+    prefix_dirs_to_forced_ownership(state);
+  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
+    return prefix_chown_ret;
   }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
@@ -12748,6 +12771,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     prefix_dirs_to_forced_permissions(state);
   if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
     return prefix_chmod_ret;
+  }
+  SDArchiverStateRetStruct prefix_chown_ret =
+    prefix_dirs_to_forced_ownership(state);
+  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
+    return prefix_chown_ret;
   }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
@@ -14793,6 +14821,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
       return prefix_chmod_ret;
     }
+    SDArchiverStateRetStruct prefix_chown_ret =
+      prefix_dirs_to_forced_ownership(state);
+    if (prefix_chown_ret.ret != SDAS_SUCCESS) {
+      return prefix_chown_ret;
+    }
 
     return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
@@ -15147,6 +15180,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     prefix_dirs_to_forced_permissions(state);
   if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
     return prefix_chmod_ret;
+  }
+  SDArchiverStateRetStruct prefix_chown_ret =
+    prefix_dirs_to_forced_ownership(state);
+  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
+    return prefix_chown_ret;
   }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
