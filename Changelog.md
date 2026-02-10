@@ -10,6 +10,10 @@ and `--set-prefix-dir-group`.
 
 Some refactoring of error logs/prints when arg parsing.
 
+Unix platforms now link against `libcap` to check for privileges to check if
+`chown` (changing ownership) can be used during extraction of files/dirs.  
+Useful for options like `--force-uid=<UID>` or `--set-prefix-dir-gid=<GID>`.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
