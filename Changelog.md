@@ -8,6 +8,11 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 2.6.1
+
+Add conditional compilation for checking for `CAP_CHOWN` which is provided by
+`libcap`.
+
 ## Version 2.6
 
 Add `--force-prefix-dir-permissions`, which sets the permissions of dirs created
