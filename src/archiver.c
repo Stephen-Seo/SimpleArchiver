@@ -2578,11 +2578,71 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
     return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
 
-  const mode_t prefix_perms = simple_archiver_internal_permissions_to_mode_t(
-    state->parsed->prefix_dir_permissions);
-
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *buf = strdup(state->parsed->prefix);
+
+  if (simple_archiver_helper_is_admin()) {
+    // Only set uid/gid if extracting as root.
+    uint32_t uid = 0;
+    uint32_t gid = 0;
+
+    if (state->parsed->flags & 0x1000000) {
+      uid = state->parsed->prefix_user.uid;
+    } else if (state->parsed->flags & 0x2000000) {
+      uint32_t *uid_mapped = NULL;
+      uid_mapped = simple_archiver_hash_map_get(
+          state->parsed->users_infos.UnameToUid,
+          state->parsed->prefix_user.username,
+          strlen(state->parsed->prefix_user.username) + 1);
+      if (uid_mapped) {
+        uid = *uid_mapped;
+      } else {
+        fprintf(stderr,
+                "WARNING: No mapping for username \"%s\" for setting prefix "
+                "dir user!\n",
+                state->parsed->prefix_user.username);
+      }
+    }
+
+    if (state->parsed->flags & 0x4000000) {
+      gid = state->parsed->prefix_group.gid;
+    } else if (state->parsed->flags & 0x8000000) {
+      uint32_t *gid_mapped = NULL;
+      gid_mapped = simple_archiver_hash_map_get(
+          state->parsed->users_infos.GnameToGid,
+          state->parsed->prefix_group.groupname,
+          strlen(state->parsed->prefix_group.groupname) + 1);
+      if (gid_mapped) {
+        gid = *gid_mapped;
+      } else {
+        fprintf(stderr,
+                "WARNING: No mapping found for groupname \"%s\" for setting "
+                "prefix dir group!\n",
+                state->parsed->prefix_group.groupname);
+      }
+    }
+
+    if (uid != 0 || gid != 0) {
+      for (size_t idx = strlen(buf); idx-- > 0;) {
+        if (buf[idx] == '/') {
+          buf[idx] = 0;
+
+          int chown_ret =
+            fchownat(AT_FDCWD, buf, uid, gid, AT_SYMLINK_NOFOLLOW);
+          if (chown_ret != 0) {
+            fprintf(stderr,
+                    "ERROR: Failed to set prefix-dir ownership, errno %d\n",
+                    errno);
+          }
+
+          buf[idx] = '/';
+        }
+      }
+    }
+  }
+
+  const mode_t prefix_perms = simple_archiver_internal_permissions_to_mode_t(
+    state->parsed->prefix_dir_permissions);
 
   for (size_t idx = strlen(buf); idx-- > 0;) {
     if (buf[idx] == '/') {
@@ -2595,6 +2655,8 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
                 errno);
         return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
       }
+
+      buf[idx] = '/';
     }
   }
 

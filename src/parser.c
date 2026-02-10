@@ -309,6 +309,18 @@ void simple_archiver_print_usage(void) {
           "--force-prefix-dir-permissions=<perms> : Force set permissions for "
           "\"--prefix=<dir>\" dir(s) after extraction\n");
   fprintf(stderr,
+          "--set-prefix-dir-uid <uid> | --set-prefix-dir-uid=<uid> : Set uid on"
+          "prefix dir(s) if current user is root\n");
+  fprintf(stderr,
+          "--set-prefix-dir-user <user> | --set-prefix-dir-user=<user> : Set "
+          "user uid on prefix dir(s) if current user is root\n");
+  fprintf(stderr,
+          "--set-prefix-dir-gid <gid> | --set-prefix-dir-gid=<gid> : Set gid on"
+          "prefix dir(s) if current user is root\n");
+  fprintf(stderr,
+          "--set-prefix-dir-group <group> | --set-prefix-dir-group=<group> : "
+          "Set group gid on prefix dir(s) if current user is root\n");
+  fprintf(stderr,
           "--whitelist-contains-any <text> | --whitelist-contains-any=<text> : "
           "Whitelist entries to contain \"<text>\", specify multiple times to "
           "allow entries that contain any of the specified \"<text>\"s.\n");
@@ -1209,6 +1221,165 @@ int simple_archiver_parse_args(int argc, const char **argv,
           --argc;
           ++argv;
         }
+      } else if (strcmp(argv[0], "--set-prefix-dir-uid") == 0
+                 || strncmp(argv[0], "--set-prefix-dir-uid=", 21) == 0) {
+        int_fast8_t is_separate = strcmp(argv[0], "--set-prefix-dir-uid") == 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --set-prefix-dir-uid expects an integer argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 21;
+        }
+        if (strlen(str) == 0) {
+          fprintf(stderr,
+                  "ERROR: Argument to \"--set-prefix-dir-uid\" is an empty "
+                  "string!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        unsigned long long uid = strtoull(str, NULL, 10);
+        if (uid == 0 && strcmp(str, "0") != 0) {
+          fprintf(stderr, "ERROR: Failed to parse \"--set-prefix-dir-uid\"!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (uid > 0xFFFFFFFF) {
+          fprintf(stderr,
+                  "ERROR: \"--set-prefix-dir-uid\": UID is too large, "
+                  "expecting an unsigned 32-bit integer!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (out->flags & 0x2000000) {
+          fprintf(stderr,
+                  "ERROR: \"--set-prefix-dir-uid\": \"--set-prefix-dir-user\" "
+                  "already specified!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->prefix_user.uid = (uint32_t)uid;
+        out->flags |= 0x1000000;
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
+      } else if (strcmp(argv[0], "--set-prefix-dir-user") == 0
+                 || strncmp(argv[0], "--set-prefix-dir-user=", 22) == 0) {
+        int_fast8_t is_separate = strcmp(argv[0], "--set-prefix-dir-user") == 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --set-prefix-dir-user expects a username "
+                  "argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (out->flags & 0x1000000) {
+          fprintf(stderr,
+                  "ERROR: \"--set-prefix-dir-user\": \"--set-prefix-dir-uid\" "
+                  "already specified!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 22;
+        }
+        if (strlen(str) == 0) {
+          fprintf(stderr,
+                  "ERROR: Argument to \"--set-prefix-dir-user\" is an empty "
+                  "string!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->prefix_user.username = strdup(str);
+        out->flags |= 0x2000000;
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
+      } else if (strcmp(argv[0], "--set-prefix-dir-gid") == 0
+                 || strncmp(argv[0], "--set-prefix-dir-gid=", 21) == 0) {
+        int_fast8_t is_separate = strcmp(argv[0], "--set-prefix-dir-gid") == 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --set-prefix-dir-gid expects an integer argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (out->flags & 0x8000000) {
+          fprintf(stderr,
+                  "ERROR: \"--set-prefix-dir-gid\": \"--set-prefix-dir-group\" "
+                  "already specified!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 21;
+        }
+        if (strlen(str) == 0) {
+          fprintf(stderr,
+                  "ERROR: Argument to \"--set-prefix-dir-gid\" is an empty "
+                  "string!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        unsigned long long gid = strtoull(str, NULL, 10);
+        if (gid == 0 && strcmp(str, "0") != 0) {
+          fprintf(stderr, "ERROR: Failed to parse \"--set-prefix-dir-gid\"!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (gid > 0xFFFFFFFF) {
+          fprintf(stderr,
+                  "ERROR: \"--set-prefix-dir-gid\": UID is too large, "
+                  "expecting an unsigned 32-bit integer!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->prefix_group.gid = (uint32_t)gid;
+        out->flags |= 0x4000000;
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
+      } else if (strcmp(argv[0], "--set-prefix-dir-group") == 0
+                 || strncmp(argv[0], "--set-prefix-dir-group=", 23) == 0) {
+        int_fast8_t is_separate =
+          strcmp(argv[0], "--set-prefix-dir-group") == 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --set-prefix-dir-group expects a groupname "
+                  "argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (out->flags & 0x4000000) {
+          fprintf(stderr,
+                  "ERROR: \"--set-prefix-dir-group\": \"--set-prefix-dir-gid\" "
+                  "already specified!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 23;
+        }
+        if (strlen(str) == 0) {
+          fprintf(stderr,
+                  "ERROR: Argument to \"--set-prefix-dir-group\" is an empty "
+                  "string!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+        out->prefix_group.groupname = strdup(str);
+        out->flags |= 0x8000000;
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
       } else if (strcmp(argv[0], "--whitelist-contains-any") == 0
                  || strncmp(argv[0], "--whitelist-contains-any=", 25) == 0) {
         int_fast8_t is_separate =
@@ -2018,7 +2189,6 @@ int simple_archiver_parse_args(int argc, const char **argv,
 }
 
 void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
-  parsed->flags = 0;
   if (parsed->filename) {
     free(parsed->filename);
     parsed->filename = NULL;
@@ -2081,6 +2251,14 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     free(parsed->prefix);
   }
 
+  if (parsed->flags & 0x2000000) {
+    free(parsed->prefix_user.username);
+  }
+
+  if (parsed->flags & 0x8000000) {
+    free(parsed->prefix_group.groupname);
+  }
+
   if (parsed->whitelist_contains_any) {
     simple_archiver_list_free(&parsed->whitelist_contains_any);
   }
@@ -2108,6 +2286,8 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   if (parsed->not_to_compress_file_extensions) {
     simple_archiver_hash_map_free(&parsed->not_to_compress_file_extensions);
   }
+
+  parsed->flags = 0;
 }
 
 int simple_archiver_handle_map_user_or_group(
