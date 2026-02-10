@@ -2581,7 +2581,7 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *buf = strdup(state->parsed->prefix);
 
-  if (simple_archiver_helper_is_admin()) {
+  if (simple_archiver_helper_can_chown()) {
     // Only set uid/gid if extracting as root.
     uint32_t uid = 0;
     uint32_t gid = 0;
@@ -9738,7 +9738,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     errno);
           }
         }
-        if (simple_archiver_helper_is_admin()
+        if (simple_archiver_helper_can_chown()
             && (state->parsed->flags & 0x400 || state->parsed->flags & 0x800)) {
           iret = fchownat(
               AT_FDCWD,
@@ -10300,7 +10300,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     permissions)
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_is_admin() &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -10486,7 +10486,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                       ? filename_prefixed
                       : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_is_admin() &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(filename_prefixed
                              ? filename_prefixed
                              : file_info->filename,
@@ -11456,7 +11456,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         && arg_allowed
         && lists_allowed
         && link_extracted
-        && simple_archiver_helper_is_admin()) {
+        && simple_archiver_helper_can_chown()) {
       uint32_t picked_uid;
       if (uid_remapped || user_remapped_uid) {
         if (state->parsed->flags & 0x4000) {
@@ -12142,7 +12142,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                     permissions)
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_is_admin() &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -12332,7 +12332,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               ? file_info->prefixed_filename
               : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_is_admin() &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -13634,7 +13634,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         && arg_allowed
         && lists_allowed
         && link_extracted
-        && simple_archiver_helper_is_admin()) {
+        && simple_archiver_helper_can_chown()) {
       uint32_t picked_uid;
       if (uid_remapped || user_remapped_uid) {
         if (state->parsed->flags & 0x4000) {
@@ -14353,7 +14353,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
                     permissions)
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_is_admin() &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -14607,7 +14607,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
               ? file_info->prefixed_filename
               : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_is_admin() &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,

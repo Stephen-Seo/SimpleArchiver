@@ -280,7 +280,7 @@ int simple_archiver_helper_make_dirs_perms(const char *file_path,
         // Error.
         return 5;
       }
-      if (simple_archiver_helper_is_admin() && chown(dir, uid, gid) != 0) {
+      if (simple_archiver_helper_can_chown() && chown(dir, uid, gid) != 0) {
         // Error.
         return 4;
       }
@@ -1176,7 +1176,7 @@ int simple_archiver_helper_is_dir_empty(const char *dir) {
     return 1;
 }
 
-int simple_archiver_helper_is_admin(void) {
+int simple_archiver_helper_can_chown(void) {
   if (geteuid() == 0) {
     return 1;
   }
@@ -1186,8 +1186,15 @@ int simple_archiver_helper_is_admin(void) {
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   cap_t cap_handle = cap_get_proc();
+  cap_flag_value_t val = CAP_CLEAR;
 
-  is_admin = cap_get_bound(CAP_SYS_ADMIN) > 0 ? 1 : 0;
+  int ret = cap_get_flag(cap_handle, CAP_CHOWN, CAP_EFFECTIVE, &val);
+  if (ret != 0) {
+    cap_free(cap_handle);
+    return 0;
+  }
+
+  is_admin = val == CAP_SET ? 1 : 0;
 
   cap_free(cap_handle);
 #endif

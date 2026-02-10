@@ -176,6 +176,6 @@ char *simple_archiver_helper_remove_single_dot_path(const char *str);
 int simple_archiver_helper_is_dir_empty(const char *dir);
 
 // Returns non-zero if has CAP_SYS_ADMIN or if EUID is 0.
-int simple_archiver_helper_is_admin(void);
+int simple_archiver_helper_can_chown(void);
 
 #endif
