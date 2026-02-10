@@ -77,6 +77,14 @@ typedef struct SDArchiverStateRetStruct {
 #define SDA_RET_STRUCT(enum_val) \
   (SDArchiverStateRetStruct){.line=__LINE__, .ret=enum_val}
 
+#define SDA_RET_ON_ERROR_FN(ret_fn) \
+  do { \
+    SDArchiverStateRetStruct ret_struct = ret_fn; \
+    if (ret_struct.ret != SDAS_SUCCESS) { \
+      return ret_struct; \
+    } \
+  } while (0);
+
 #define SDA_PSTATE_CMP_SIZE_KEY "SDA_Compressed_Size_Key"
 #define SDA_PSTATE_CMP_SIZE_KEY_SIZE 24
 #define SDA_PSTATE_ACT_SIZE_KEY "SDA_Actual_Size_Key"

@@ -9352,16 +9352,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDArchiverStateRetStruct prefix_chmod_ret =
-    prefix_dirs_to_forced_permissions(state);
-  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
-    return prefix_chmod_ret;
-  }
-  SDArchiverStateRetStruct prefix_chown_ret =
-    prefix_dirs_to_forced_ownership(state);
-  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
-    return prefix_chown_ret;
-  }
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -10591,16 +10583,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDArchiverStateRetStruct prefix_chmod_ret =
-    prefix_dirs_to_forced_permissions(state);
-  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
-    return prefix_chmod_ret;
-  }
-  SDArchiverStateRetStruct prefix_chown_ret =
-    prefix_dirs_to_forced_ownership(state);
-  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
-    return prefix_chown_ret;
-  }
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS
                         | (not_tested_once ? SDAS_NOT_TESTED_ONCE : 0));
@@ -10871,16 +10855,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
       "try a different positional argument?\n");
   }
 
-  SDArchiverStateRetStruct prefix_chmod_ret =
-    prefix_dirs_to_forced_permissions(state);
-  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
-    return prefix_chmod_ret;
-  }
-  SDArchiverStateRetStruct prefix_chown_ret =
-    prefix_dirs_to_forced_ownership(state);
-  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
-    return prefix_chown_ret;
-  }
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -12767,16 +12743,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDArchiverStateRetStruct prefix_chmod_ret =
-    prefix_dirs_to_forced_permissions(state);
-  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
-    return prefix_chmod_ret;
-  }
-  SDArchiverStateRetStruct prefix_chown_ret =
-    prefix_dirs_to_forced_ownership(state);
-  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
-    return prefix_chown_ret;
-  }
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -14816,16 +14784,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         simple_archiver_helper_datastructure_cleanup_nop);
     }
 
-    SDArchiverStateRetStruct prefix_chmod_ret =
-      prefix_dirs_to_forced_permissions(state);
-    if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
-      return prefix_chmod_ret;
-    }
-    SDArchiverStateRetStruct prefix_chown_ret =
-      prefix_dirs_to_forced_ownership(state);
-    if (prefix_chown_ret.ret != SDAS_SUCCESS) {
-      return prefix_chown_ret;
-    }
+    SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+    SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
     return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
@@ -15176,16 +15136,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDArchiverStateRetStruct prefix_chmod_ret =
-    prefix_dirs_to_forced_permissions(state);
-  if (prefix_chmod_ret.ret != SDAS_SUCCESS) {
-    return prefix_chmod_ret;
-  }
-  SDArchiverStateRetStruct prefix_chown_ret =
-    prefix_dirs_to_forced_ownership(state);
-  if (prefix_chown_ret.ret != SDAS_SUCCESS) {
-    return prefix_chown_ret;
-  }
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
