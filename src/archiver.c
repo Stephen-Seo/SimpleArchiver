@@ -2582,7 +2582,7 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
   char *buf = strdup(state->parsed->prefix);
 
   if (simple_archiver_helper_can_chown()) {
-    // Only set uid/gid if extracting as root.
+    // Only set uid/gid if has CAP_CHOWN and args to set them were used.
     uint32_t uid = 0;
     uint32_t gid = 0;
 
