@@ -36,6 +36,11 @@
 #include <signal.h>
 #endif
 
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+#include <sys/capability.h>
+#endif
+
 void simple_archiver_helper_cleanup_FILE(FILE **fd) {
   if (fd && *fd) {
     fclose(*fd);
@@ -275,7 +280,7 @@ int simple_archiver_helper_make_dirs_perms(const char *file_path,
         // Error.
         return 5;
       }
-      if (geteuid() == 0 && chown(dir, uid, gid) != 0) {
+      if (simple_archiver_helper_can_chown() && chown(dir, uid, gid) != 0) {
         // Error.
         return 4;
       }
@@ -1169,4 +1174,30 @@ int simple_archiver_helper_is_dir_empty(const char *dir) {
     }
     closedir(opened_dir);
     return 1;
+}
+
+int simple_archiver_helper_can_chown(void) {
+  if (geteuid() == 0) {
+    return 1;
+  }
+
+  int is_admin = 0;
+
+#if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC || \
+    SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
+  cap_t cap_handle = cap_get_proc();
+  cap_flag_value_t val = CAP_CLEAR;
+
+  int ret = cap_get_flag(cap_handle, CAP_CHOWN, CAP_EFFECTIVE, &val);
+  if (ret != 0) {
+    cap_free(cap_handle);
+    return 0;
+  }
+
+  is_admin = val == CAP_SET ? 1 : 0;
+
+  cap_free(cap_handle);
+#endif
+
+  return is_admin;
 }

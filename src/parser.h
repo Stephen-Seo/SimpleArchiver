@@ -69,6 +69,11 @@ typedef struct SDArchiverParsed {
   /// 0b xx1x xxxx xxxx xxxx xxxx xxxx - v6-extract remove empty dirs that are
   ///   not supposed to be empty
   /// 0b x1xx xxxx xxxx xxxx xxxx xxxx - also remove leaf dirs
+  /// 0b 1xxx xxxx xxxx xxxx xxxx xxxx - force prefix dir(s) permissions
+  /// 0b xxx1 xxxx xxxx xxxx xxxx xxxx xxxx - prefix user uid set
+  /// 0b xx1x xxxx xxxx xxxx xxxx xxxx xxxx - prefix user username set
+  /// 0b x1xx xxxx xxxx xxxx xxxx xxxx xxxx - prefix user gid set
+  /// 0b 1xxx xxxx xxxx xxxx xxxx xxxx xxxx - prefix user groupname set
   uint32_t flags;
   /// Null-terminated string.
   char *filename;
@@ -108,10 +113,19 @@ typedef struct SDArchiverParsed {
   uint_fast16_t file_permissions;
   uint_fast16_t dir_permissions;
   uint_fast16_t empty_dir_permissions;
+  uint_fast16_t prefix_dir_permissions;
   UsersInfos users_infos;
   SDA_UGMapping mappings;
   /// Prefix for archived/extracted paths.
   char *prefix;
+  union {
+    uint32_t uid;
+    char *username;
+  } prefix_user;
+  union {
+    uint32_t gid;
+    char *groupname;
+  } prefix_group;
   SDArchiverLinkedList *whitelist_contains_any;
   SDArchiverLinkedList *whitelist_contains_all;
   SDArchiverLinkedList *whitelist_begins;

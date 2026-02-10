@@ -8,6 +8,20 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 2.6
+
+Add `--force-prefix-dir-permissions`, which sets the permissions of dirs created
+with `--prefix`.
+
+Add `--set-prefix-dir-uid`, `--set-prefix-dir-user`, `--set-prefix-dir-gid`,
+and `--set-prefix-dir-group`.
+
+Some refactoring of error logs/prints when arg parsing.
+
+Unix platforms now link against `libcap` to check for privileges to check if
+`chown` (changing ownership) can be used during extraction of files/dirs.  
+Useful for options like `--force-uid=<UID>` or `--set-prefix-dir-gid=<GID>`.
+
 ## Version 2.5
 
 Fix bug where default file sorting method (sort by size) was broken for the

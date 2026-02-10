@@ -2567,6 +2567,115 @@ int greater_dirnamelen_fn(void *a, void *b) {
   return strlen(ad->dirname) > strlen(bd->dirname);
 }
 
+SDArchiverStateRetStruct prefix_dirs_to_forced_permissions(
+    const SDArchiverState *state) {
+  // Assumes cwd is already changed to specified with "-C" (if "-C" is used").
+  if ((state->parsed->flags & 0x800000) == 0) {
+    // Flag is not set. Do not return error.
+    return SDA_RET_STRUCT(SDAS_SUCCESS);
+  } else if (!state->parsed->prefix) {
+    // Prefix is not set. Do not return error.
+    return SDA_RET_STRUCT(SDAS_SUCCESS);
+  }
+
+  __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+  char *buf = strdup(state->parsed->prefix);
+
+  const mode_t prefix_perms = simple_archiver_internal_permissions_to_mode_t(
+    state->parsed->prefix_dir_permissions);
+
+  for (size_t idx = strlen(buf); idx-- > 0;) {
+    if (buf[idx] == '/') {
+      buf[idx] = 0;
+
+      int chmod_ret = chmod(buf, prefix_perms);
+      if (chmod_ret != 0) {
+        fprintf(stderr,
+                "ERROR: Failed to set perfix-dir permissions, errno %d\n",
+                errno);
+        return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
+      }
+
+      buf[idx] = '/';
+    }
+  }
+
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
+}
+
+SDArchiverStateRetStruct prefix_dirs_to_forced_ownership(
+    const SDArchiverState *state) {
+  if (state->parsed->prefix && simple_archiver_helper_can_chown()) {
+    // Only set uid/gid if has CAP_CHOWN and args to set them were used.
+    uint32_t uid = getuid();
+    uint32_t gid = getgid();
+    int_fast8_t will_use_chown = 0;
+
+    if (state->parsed->flags & 0x1000000) {
+      uid = state->parsed->prefix_user.uid;
+      will_use_chown = 1;
+    } else if (state->parsed->flags & 0x2000000) {
+      uint32_t *uid_mapped = NULL;
+      uid_mapped = simple_archiver_hash_map_get(
+          state->parsed->users_infos.UnameToUid,
+          state->parsed->prefix_user.username,
+          strlen(state->parsed->prefix_user.username) + 1);
+      if (uid_mapped) {
+        uid = *uid_mapped;
+        will_use_chown = 1;
+      } else {
+        fprintf(stderr,
+                "WARNING: No mapping for username \"%s\" for setting prefix "
+                "dir user!\n",
+                state->parsed->prefix_user.username);
+      }
+    }
+
+    if (state->parsed->flags & 0x4000000) {
+      gid = state->parsed->prefix_group.gid;
+      will_use_chown = 1;
+    } else if (state->parsed->flags & 0x8000000) {
+      uint32_t *gid_mapped = NULL;
+      gid_mapped = simple_archiver_hash_map_get(
+          state->parsed->users_infos.GnameToGid,
+          state->parsed->prefix_group.groupname,
+          strlen(state->parsed->prefix_group.groupname) + 1);
+      if (gid_mapped) {
+        gid = *gid_mapped;
+        will_use_chown = 1;
+      } else {
+        fprintf(stderr,
+                "WARNING: No mapping found for groupname \"%s\" for setting "
+                "prefix dir group!\n",
+                state->parsed->prefix_group.groupname);
+      }
+    }
+
+    if (will_use_chown) {
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *buf = strdup(state->parsed->prefix);
+      for (size_t idx = strlen(buf); idx-- > 0;) {
+        if (buf[idx] == '/') {
+          buf[idx] = 0;
+
+          int chown_ret =
+            fchownat(AT_FDCWD, buf, uid, gid, AT_SYMLINK_NOFOLLOW);
+          if (chown_ret != 0) {
+            fprintf(stderr,
+                    "ERROR: Failed to set prefix-dir ownership, errno %d\n",
+                    errno);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
+          }
+
+          buf[idx] = '/';
+        }
+      }
+    }
+  }
+
+  return SDA_RET_STRUCT(SDAS_SUCCESS);
+}
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -2931,6 +3040,7 @@ SDArchiverStateRetStruct simple_archiver_write_v0(
   } else {
     free(files_compressed_size);
   }
+
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
@@ -9242,6 +9352,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
@@ -9635,7 +9748,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     errno);
           }
         }
-        if (geteuid() == 0
+        if (simple_archiver_helper_can_chown()
             && (state->parsed->flags & 0x400 || state->parsed->flags & 0x800)) {
           iret = fchownat(
               AT_FDCWD,
@@ -10197,7 +10310,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     permissions)
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (geteuid() == 0 &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -10383,7 +10496,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                       ? filename_prefixed
                       : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (geteuid() == 0 &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(filename_prefixed
                              ? filename_prefixed
                              : file_info->filename,
@@ -10469,6 +10582,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       NULL,
       simple_archiver_helper_datastructure_cleanup_nop);
   }
+
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS
                         | (not_tested_once ? SDAS_NOT_TESTED_ONCE : 0));
@@ -10738,6 +10854,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
     fprintf(stderr, "WARNING: test/check mode but nothing was selected; "
       "try a different positional argument?\n");
   }
+
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -11341,7 +11460,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         && arg_allowed
         && lists_allowed
         && link_extracted
-        && geteuid() == 0) {
+        && simple_archiver_helper_can_chown()) {
       uint32_t picked_uid;
       if (uid_remapped || user_remapped_uid) {
         if (state->parsed->flags & 0x4000) {
@@ -12027,7 +12146,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                     permissions)
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (geteuid() == 0 &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -12217,7 +12336,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               ? file_info->prefixed_filename
               : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (geteuid() == 0 &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -12623,6 +12742,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       NULL,
       simple_archiver_helper_datastructure_cleanup_nop);
   }
+
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -13513,7 +13635,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         && arg_allowed
         && lists_allowed
         && link_extracted
-        && geteuid() == 0) {
+        && simple_archiver_helper_can_chown()) {
       uint32_t picked_uid;
       if (uid_remapped || user_remapped_uid) {
         if (state->parsed->flags & 0x4000) {
@@ -14232,7 +14354,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
                     permissions)
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (geteuid() == 0 &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -14486,7 +14608,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
               ? file_info->prefixed_filename
               : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (geteuid() == 0 &&
+          } else if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -14661,6 +14783,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         NULL,
         simple_archiver_helper_datastructure_cleanup_nop);
     }
+
+    SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+    SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+
     return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
 
@@ -15009,6 +15135,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       NULL,
       simple_archiver_helper_datastructure_cleanup_nop);
   }
+
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }

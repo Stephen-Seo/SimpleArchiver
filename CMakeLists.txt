@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 2.5)
+set(SimpleArchiver_VERSION 2.6)
 
 set(SimpleArchiver_SOURCES
     src/main.c
@@ -54,6 +54,8 @@ target_link_options(simplearchiver PUBLIC
     -Wl,--as-needed -Wl,--no-copy-dt-needed-entries
     -fPIE -pie
 )
+
+target_link_libraries(simplearchiver PRIVATE cap)
 
 if(NOT DEFINED DISABLE_FLAGS_FOR_COMPAT)
     target_compile_options(simplearchiver PUBLIC
@@ -137,6 +139,7 @@ add_executable(test_datastructures
     src/algorithms/linear_congruential_gen.c
     src/helpers.c
 )
+target_link_libraries(test_datastructures PRIVATE cap)
 
 add_executable(test_simplearchiver
     src/test.c
@@ -151,3 +154,4 @@ add_executable(test_simplearchiver
     src/data_structures/priority_heap.c
     src/users.c
 )
+target_link_libraries(test_simplearchiver PRIVATE cap)

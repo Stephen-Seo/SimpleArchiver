@@ -202,6 +202,29 @@ option will only take effect on extraction if the current effective user ID is
 effect intermediate directories that hold files/directories. See the previous
 option to force permissions on such directories.
 .TP
+.BR --force-prefix-dir-permissions " " \fI3-OctalValues\fR " | " --force-prefix-dir-permissions=\fI3-OctalValues\fR
+Force set permissions for directories created with \fB\-\-prefix\fR on archive
+extraction. For example, a valid value can be 755 or 750. Note that this option
+only has effect on prefix directories, not files/dirs within them.
+.TP
+.BR --set-prefix-dir-uid " " \fIuid\fR " | " --set-prefix-dir-uid=\fIuid\fR
+Sets the UID of prefix dir(s) (only if root or has CAP_CHOWN). Mutually
+exclusive with \fB\-\-set\-prefix\-dir\-user\fR.
+.TP
+.BR --set-prefix-dir-user " " \fIuser\fR " | " --set-prefix-dir-user=\fIuser\fR
+Sets the UID of prefix dir(s) (only if root or has CAP_CHOWN) that should
+have the same UID has the specified user. Mutually exclusive with
+\fB\-\-set\-prefix\-dir\-uid\fR.
+.TP
+.BR --set-prefix-dir-gid " " \fIgid\fR " | " --set-prefix-dir-gid=\fIgid\fR
+Sets the GID of prefix dir(s) (only if root or has CAP_CHOWN). Mutually
+exclusive with \fB\-\-set\-prefix\-dir\-group\fR.
+.TP
+.BR --set-prefix-dir-group " " \fIgroup\fR " | " --set-prefix-dir-group=\fIgroup\fR
+Sets the GID of prefix dir(s) (only if root or has CAP_CHOWN) that should
+have the same GID has the specified group. Mutually exclusive with
+\fB\-\-set\-prefix\-dir\-gid\fR.
+.TP
 .BR --whitelist-contains-any " " \fItext\fR " | " --whitelist-contains-any=\fItext\fR
 In any archival mode (create/test/extract), only allow files/directories that
 contain the specified text. Use this flag multiple times to add more text
