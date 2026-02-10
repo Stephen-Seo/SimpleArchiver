@@ -2,6 +2,14 @@
 
 ## Upcoming Changes
 
+## Alternate Changes
+
+(Alternate Changes are changes that are not in `main` or `dev`.)
+
+Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+
+## Version 2.6
+
 Add `--force-prefix-dir-permissions`, which sets the permissions of dirs created
 with `--prefix`.
 
@@ -13,12 +21,6 @@ Some refactoring of error logs/prints when arg parsing.
 Unix platforms now link against `libcap` to check for privileges to check if
 `chown` (changing ownership) can be used during extraction of files/dirs.  
 Useful for options like `--force-uid=<UID>` or `--set-prefix-dir-gid=<GID>`.
-
-## Alternate Changes
-
-(Alternate Changes are changes that are not in `main` or `dev`.)
-
-Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
 ## Version 2.5
 
