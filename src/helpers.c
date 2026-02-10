@@ -36,9 +36,11 @@
 #include <signal.h>
 #endif
 
+#ifdef ENABLE_LIBCAP
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
 #include <sys/capability.h>
+#endif
 #endif
 
 void simple_archiver_helper_cleanup_FILE(FILE **fd) {
@@ -1183,6 +1185,7 @@ int simple_archiver_helper_can_chown(void) {
 
   int is_admin = 0;
 
+#ifdef ENABLE_LIBCAP
 #if SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_MAC || \
     SIMPLE_ARCHIVER_PLATFORM == SIMPLE_ARCHIVER_PLATFORM_LINUX
   cap_t cap_handle = cap_get_proc();
@@ -1197,6 +1200,7 @@ int simple_archiver_helper_can_chown(void) {
   is_admin = val == CAP_SET ? 1 : 0;
 
   cap_free(cap_handle);
+#endif
 #endif
 
   return is_admin;

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 2.6)
+set(SimpleArchiver_VERSION 2.6.1)
 
 set(SimpleArchiver_SOURCES
     src/main.c
@@ -29,6 +29,14 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 endif()
 
+if(NOT DEFINED ENABLE_LIBCAP OR NOT ENABLE_LIBCAP)
+    message(STATUS "libcap NOT enabled")
+    set(ENABLE_LIBCAP_LIB "OFF")
+else()
+    message(STATUS "libcap ENABLED")
+    set(ENABLE_LIBCAP_LIB "ON")
+endif()
+
 add_executable(simplearchiver ${SimpleArchiver_SOURCES})
 
 target_compile_options(simplearchiver PUBLIC
@@ -41,6 +49,7 @@ target_compile_options(simplearchiver PUBLIC
     -Wl,-z,relro -Wl,-z,now
     -Wl,--as-needed -Wl,--no-copy-dt-needed-entries
     -fPIE -pie
+    $<IF:$<STREQUAL:"${ENABLE_LIBCAP_LIB}","ON">,-DENABLE_LIBCAP,>
 )
 
 target_link_options(simplearchiver PUBLIC
@@ -55,7 +64,9 @@ target_link_options(simplearchiver PUBLIC
     -fPIE -pie
 )
 
-target_link_libraries(simplearchiver PRIVATE cap)
+if(ENABLE_LIBCAP_LIB)
+    target_link_libraries(simplearchiver PRIVATE cap)
+endif()
 
 if(NOT DEFINED DISABLE_FLAGS_FOR_COMPAT)
     target_compile_options(simplearchiver PUBLIC
@@ -139,7 +150,9 @@ add_executable(test_datastructures
     src/algorithms/linear_congruential_gen.c
     src/helpers.c
 )
-target_link_libraries(test_datastructures PRIVATE cap)
+if(ENABLE_LIBCAP_LIB)
+    target_link_libraries(test_datastructures PRIVATE cap)
+endif()
 
 add_executable(test_simplearchiver
     src/test.c
@@ -154,4 +167,6 @@ add_executable(test_simplearchiver
     src/data_structures/priority_heap.c
     src/users.c
 )
-target_link_libraries(test_simplearchiver PRIVATE cap)
+if(ENABLE_LIBCAP_LIB)
+    target_link_libraries(test_simplearchiver PRIVATE cap)
+endif()
