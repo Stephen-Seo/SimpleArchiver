@@ -8,6 +8,8 @@ with `--prefix`.
 Add `--set-prefix-dir-uid`, `--set-prefix-dir-user`, `--set-prefix-dir-gid`,
 and `--set-prefix-dir-group`.
 
+Some refactoring of error logs/prints when arg parsing.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
