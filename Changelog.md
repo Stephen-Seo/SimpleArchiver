@@ -5,6 +5,9 @@
 Add `--force-prefix-dir-permissions`, which sets the permissions of dirs created
 with `--prefix`.
 
+Add `--set-prefix-dir-uid`, `--set-prefix-dir-user`, `--set-prefix-dir-gid`,
+and `--set-prefix-dir-group`.
+
 ## Alternate Changes
 
 (Alternate Changes are changes that are not in `main` or `dev`.)
