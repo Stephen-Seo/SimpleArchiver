@@ -55,6 +55,8 @@ target_link_options(simplearchiver PUBLIC
     -fPIE -pie
 )
 
+target_link_libraries(simplearchiver PRIVATE cap)
+
 if(NOT DEFINED DISABLE_FLAGS_FOR_COMPAT)
     target_compile_options(simplearchiver PUBLIC
         -fstrict-flex-arrays=3
@@ -137,6 +139,7 @@ add_executable(test_datastructures
     src/algorithms/linear_congruential_gen.c
     src/helpers.c
 )
+target_link_libraries(test_datastructures PRIVATE cap)
 
 add_executable(test_simplearchiver
     src/test.c
@@ -151,3 +154,4 @@ add_executable(test_simplearchiver
     src/data_structures/priority_heap.c
     src/users.c
 )
+target_link_libraries(test_simplearchiver PRIVATE cap)

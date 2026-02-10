@@ -31,6 +31,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <libgen.h>
+#include <sys/capability.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <signal.h>
@@ -275,7 +276,7 @@ int simple_archiver_helper_make_dirs_perms(const char *file_path,
         // Error.
         return 5;
       }
-      if (geteuid() == 0 && chown(dir, uid, gid) != 0) {
+      if (simple_archiver_helper_is_admin() && chown(dir, uid, gid) != 0) {
         // Error.
         return 4;
       }
@@ -1169,4 +1170,20 @@ int simple_archiver_helper_is_dir_empty(const char *dir) {
     }
     closedir(opened_dir);
     return 1;
+}
+
+int simple_archiver_helper_is_admin(void) {
+  if (geteuid() == 0) {
+    return 1;
+  }
+
+  int is_admin = 0;
+
+  cap_t cap_handle = cap_get_proc();
+
+  is_admin = cap_get_bound(CAP_SYS_ADMIN) > 0 ? 1 : 0;
+
+  cap_free(cap_handle);
+
+  return is_admin;
 }
