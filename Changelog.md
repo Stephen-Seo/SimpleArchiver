@@ -8,6 +8,16 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 2.6.2
+
+Update CMake build to bundle libcap, including support for libcap
+cross-compilation.
+
+Releases on github will now include builds that statically link against libcap.
+
+(libcap support allows setting file/dir ownership by checking for `CAP_CHOWN`
+capability instead of just checking if the current user is root.)
+
 ## Version 2.6.1
 
 Add conditional compilation for checking for `CAP_CHOWN` which is provided by
