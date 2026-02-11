@@ -29,12 +29,17 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 endif()
 
-if(NOT DEFINED ENABLE_LIBCAP OR NOT ENABLE_LIBCAP)
+if(DEFINED BUNDLED_LIBCAP AND BUNDLED_LIBCAP)
+    message(STATUS "bundled libcap ENABLED")
+    set(ENABLE_LIBCAP_LIB "ON")
+    set(ENABLE_BUNDLED_LIBCAP "ON")
+elseif(NOT DEFINED ENABLE_LIBCAP OR NOT ENABLE_LIBCAP)
     message(STATUS "libcap NOT enabled")
     set(ENABLE_LIBCAP_LIB "OFF")
 else()
     message(STATUS "libcap ENABLED")
     set(ENABLE_LIBCAP_LIB "ON")
+    set(ENABLE_LIBCAP_LIB_LINK "ON")
 endif()
 
 add_executable(simplearchiver ${SimpleArchiver_SOURCES})
@@ -64,7 +69,7 @@ target_link_options(simplearchiver PUBLIC
     -fPIE -pie
 )
 
-if(ENABLE_LIBCAP_LIB)
+if(ENABLE_LIBCAP_LIB_LINK)
     target_link_libraries(simplearchiver PRIVATE cap)
 endif()
 
@@ -150,7 +155,7 @@ add_executable(test_datastructures
     src/algorithms/linear_congruential_gen.c
     src/helpers.c
 )
-if(ENABLE_LIBCAP_LIB)
+if(ENABLE_LIBCAP_LIB_LINK)
     target_link_libraries(test_datastructures PRIVATE cap)
 endif()
 
@@ -167,6 +172,56 @@ add_executable(test_simplearchiver
     src/data_structures/priority_heap.c
     src/users.c
 )
-if(ENABLE_LIBCAP_LIB)
+if(ENABLE_LIBCAP_LIB_LINK)
     target_link_libraries(test_simplearchiver PRIVATE cap)
+endif()
+
+if(ENABLE_BUNDLED_LIBCAP)
+    if(DEFINED CROSS_CC)
+        string(LENGTH ${CROSS_CC} CC_LENGTH)
+        string(FIND "${CROSS_CC}" "/" CC_SLASH_INDEX REVERSE)
+        if(CC_SLASH_INDEX EQUAL "-1")
+            string(FIND "${CROSS_CC}" "gcc" CC_INDEX REVERSE)
+            string(SUBSTRING ${CROSS_CC} 0 ${CC_INDEX} CROSS_PREFIX_WITH_DASH)
+            string(FIND "${CROSS_CC}" "-gcc" CC_INDEX REVERSE)
+            string(SUBSTRING ${CROSS_CC} 0 ${CC_INDEX} CROSS_PREFIX)
+        else()
+            string(SUBSTRING "${CROSS_CC}" ${CC_SLASH_INDEX} -1 CROSS_FULL_CC)
+            string(FIND "${CROSS_FULL_CC}" "gcc" CC_INDEX REVERSE)
+            math(EXPR CC_INDEX "${CC_INDEX} - 1")
+            string(SUBSTRING "${CROSS_FULL_CC}" 1 ${CC_INDEX} CROSS_PREFIX_WITH_DASH)
+            string(FIND "${CROSS_FULL_CC}" "-gcc" CC_INDEX REVERSE)
+            math(EXPR CC_INDEX "${CC_INDEX} - 1")
+            string(SUBSTRING "${CROSS_FULL_CC}" 1 ${CC_INDEX} CROSS_PREFIX)
+        endif()
+        set(LIBCAP_CROSS_LIB "/usr/${CROSS_PREFIX}/lib")
+    endif()
+    add_custom_command(
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/third_party/lib/libcap.a"
+        COMMAND mkdir -p "${CMAKE_CURRENT_BINARY_DIR}/third_party/lib"
+        COMMAND mkdir -p "${CMAKE_CURRENT_SOURCE_DIR}/third_party"
+        COMMAND test -e "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libcap-2.77.tar.gz" || curl -L -o "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libcap-2.77.tar.gz" "https://git.kernel.org/pub/scm/libs/libcap/libcap.git/snapshot/libcap-2.77.tar.gz"
+        COMMAND sha256sum "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libcap-2.77.tar.gz" | grep "5e339f5ab434bf5b7979f65437ca24942ddcd6e6a3e57347370cd791bc0ea51c"
+        COMMAND rm -rf "${CMAKE_CURRENT_BINARY_DIR}/third_party/libcap-2.77"
+        COMMAND tar -xf "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libcap-2.77.tar.gz" -C "${CMAKE_CURRENT_BINARY_DIR}/third_party"
+        COMMAND env CROSS_COMPILE=${CROSS_PREFIX_WITH_DASH} lib=${LIBCAP_CROSS_LIB} PAM_CAP=no BUILD_CC=/usr/bin/gcc SHARED=no LIBCSTATIC=yes make -C "${CMAKE_CURRENT_BINARY_DIR}/third_party/libcap-2.77/libcap"
+        COMMAND install -D -m644 "${CMAKE_CURRENT_BINARY_DIR}/third_party/libcap-2.77/libcap/libcap.a" "${CMAKE_CURRENT_BINARY_DIR}/third_party/lib/libcap.a"
+        COMMAND cp -r "${CMAKE_CURRENT_BINARY_DIR}/third_party/libcap-2.77/libcap/include" "${CMAKE_CURRENT_BINARY_DIR}/third_party/"
+        COMMAND cp -r "${CMAKE_CURRENT_BINARY_DIR}/third_party/libcap-2.77/psx" "${CMAKE_CURRENT_BINARY_DIR}/third_party/"
+        COMMAND ln -srf "${CMAKE_CURRENT_BINARY_DIR}/third_party/psx/psx_syscall.h" "${CMAKE_CURRENT_BINARY_DIR}/third_party/include/sys/psx_syscall.h"
+        COMMAND rm -rf "${CMAKE_CURRENT_BINARY_DIR}/third_party/libcap-2.77"
+        VERBATIM)
+    add_custom_target(BUNDLED_LIBCAP_TARGET DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/third_party/lib/libcap.a")
+
+    add_dependencies(simplearchiver BUNDLED_LIBCAP_TARGET)
+    add_dependencies(test_datastructures BUNDLED_LIBCAP_TARGET)
+    add_dependencies(test_simplearchiver BUNDLED_LIBCAP_TARGET)
+
+    target_link_libraries(simplearchiver PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/third_party/lib/libcap.a")
+    target_link_libraries(test_datastructures PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/third_party/lib/libcap.a")
+    target_link_libraries(test_simplearchiver PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/third_party/lib/libcap.a")
+
+    target_include_directories(simplearchiver PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/third_party/include")
+    target_include_directories(test_datastructures PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/third_party/include")
+    target_include_directories(test_simplearchiver PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/third_party/include")
 endif()
