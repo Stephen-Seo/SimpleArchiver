@@ -1,3 +1,4 @@
 /build*/
 compile_commands.json
 /.cache/
+/third_party/libcap-2.77.tar.gz
