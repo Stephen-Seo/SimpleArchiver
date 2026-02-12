@@ -212,6 +212,7 @@ if(ENABLE_BUNDLED_LIBCAP)
         COMMAND rm -rf "${CMAKE_CURRENT_BINARY_DIR}/third_party/libcap-2.77"
         VERBATIM)
     add_custom_target(BUNDLED_LIBCAP_TARGET DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/third_party/lib/libcap.a")
+    set_property(TARGET BUNDLED_LIBCAP_TARGET PROPERTY ADDITIONAL_CLEAN_FILES "${CMAKE_CURRENT_BINARY_DIR}/third_party")
 
     add_dependencies(simplearchiver BUNDLED_LIBCAP_TARGET)
     add_dependencies(test_datastructures BUNDLED_LIBCAP_TARGET)
