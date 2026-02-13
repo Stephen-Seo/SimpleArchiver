@@ -4,6 +4,8 @@
 
 ## Version 2.6.3
 
+Minor changes in this release:
+
 Cleanup CMakeLists.txt .
 
 Update README.md and man page about `libcap` support.
