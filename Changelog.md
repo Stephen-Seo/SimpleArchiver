@@ -2,12 +2,6 @@
 
 ## Upcoming Changes
 
-## Alternate Changes
-
-(Alternate Changes are changes that are not in `main` or `dev`.)
-
-Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
-
 ## Version 2.6.3
 
 Cleanup CMakeLists.txt .
