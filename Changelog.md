@@ -8,6 +8,12 @@
 
 Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
 
+## Version 2.6.3
+
+Cleanup CMakeLists.txt .
+
+Update README.md and man page about `libcap` support.
+
 ## Version 2.6.2
 
 Update CMake build to bundle libcap, including support for libcap
