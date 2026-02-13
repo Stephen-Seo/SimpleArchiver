@@ -29,6 +29,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 endif()
 
+# Use "-DENABLE_LIBCAP=On" to enable linking against system libcap.
+# Use "-DBUNDLED_LIBCAP=On" to enable bundling libcap and linking it statically.
+unset(ENABLE_LIBCAP_LIB)
+unset(ENABLE_LIBCAP_LIB_LINK)
+unset(ENABLE_BUNDLED_LIBCAP)
 if(DEFINED BUNDLED_LIBCAP AND BUNDLED_LIBCAP)
     message(STATUS "bundled libcap ENABLED")
     set(ENABLE_LIBCAP_LIB "ON")
