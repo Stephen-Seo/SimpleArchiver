@@ -144,6 +144,19 @@ the archive. For previous file format versions (version 2 and 1), either name or
 numeric id will have an effect since these older file format versions only store
 UID/GID.
 
+### Checking for `chown` Availability
+
+Binaries built with `libcap` support can also check if `CAP_CHOWN` is enabled
+for the current user to check if `chown` can be used to set ownership of
+extracted files/dirs.  
+Note that the check-if-can-chown works like this:
+
+  - check if user is root
+    - if is root, then can use `chown`
+  - check if has `CAP_CHOWN` (only if libcap support is enabled)
+    - If has capability, then can use `chown`
+  - cannot use `chown`, dont use it
+
 ## Additional Info
 
 Check the man page (or
