@@ -372,3 +372,23 @@ specified. Note that this does not affect files that do not match the set of
 file extensions of files to not compress. If these options are not used or if no
 file matches any of the set file extensions, then the default behavior is used,
 which is to compress every chunk if a compressor is specified.
+
+.TP
+.BR "Checking if \fIchown\fB is Available"
+If \fIlibcap\fR support is compiled/available, then the \fICAP_CHOWN\fR
+capability can be checked for in addition to the check if the user is root to
+change file/directory permissions. Note that file/directory ownership are
+always stored when archiving, but when extracting ownership is not set on
+extracted files/dirs unless if the user is root or has \fICAP_CHOWN\fR.
+
+The check for whether or not \fIchown\fR can be used works as follows:
+
+.IP \[bu]
+Check if current user is root. If is root, then can \fIchown\fR.
+.IP \[bu]
+Check if current user has \fICAP_CHOWN\fR if has \fIlibcap\fR support. If user has this capability, then can \fIchown\fR.
+.IP \[bu]
+Previous checks failed, cannot use \fIchown\fR.
+
+One may check the flags in the CMakeLists.txt file to enable \fIlibcap\fR
+support.

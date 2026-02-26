@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 2.6.2)
+set(SimpleArchiver_VERSION 2.6.3)
 
 set(SimpleArchiver_SOURCES
     src/main.c
@@ -29,17 +29,25 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 endif()
 
+# Use "-DENABLE_LIBCAP=On" to enable linking against system libcap.
+# Use "-DBUNDLED_LIBCAP=On" to enable bundling libcap and linking it statically.
+# If cross compiling, set CROSS_CC to the cross compiler's C-compiler like:
+# -DCROSS_CC=aarch64-linux-gnu-gcc
+# CROSS_CC only takes effect if bundling libcap is enabled.
+unset(ENABLE_LIBCAP_LIB)
+unset(ENABLE_LIBCAP_LIB_LINK)
+unset(ENABLE_BUNDLED_LIBCAP)
 if(DEFINED BUNDLED_LIBCAP AND BUNDLED_LIBCAP)
     message(STATUS "bundled libcap ENABLED")
     set(ENABLE_LIBCAP_LIB "ON")
     set(ENABLE_BUNDLED_LIBCAP "ON")
-elseif(NOT DEFINED ENABLE_LIBCAP OR NOT ENABLE_LIBCAP)
-    message(STATUS "libcap NOT enabled")
-    set(ENABLE_LIBCAP_LIB "OFF")
-else()
+elseif(DEFINED ENABLE_LIBCAP AND ENABLE_LIBCAP)
     message(STATUS "libcap ENABLED")
     set(ENABLE_LIBCAP_LIB "ON")
     set(ENABLE_LIBCAP_LIB_LINK "ON")
+else()
+    message(STATUS "libcap NOT enabled")
+    set(ENABLE_LIBCAP_LIB "OFF")
 endif()
 
 add_executable(simplearchiver ${SimpleArchiver_SOURCES})
@@ -212,6 +220,7 @@ if(ENABLE_BUNDLED_LIBCAP)
         COMMAND rm -rf "${CMAKE_CURRENT_BINARY_DIR}/third_party/libcap-2.77"
         VERBATIM)
     add_custom_target(BUNDLED_LIBCAP_TARGET DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/third_party/lib/libcap.a")
+    set_property(TARGET BUNDLED_LIBCAP_TARGET PROPERTY ADDITIONAL_CLEAN_FILES "${CMAKE_CURRENT_BINARY_DIR}/third_party")
 
     add_dependencies(simplearchiver BUNDLED_LIBCAP_TARGET)
     add_dependencies(test_datastructures BUNDLED_LIBCAP_TARGET)

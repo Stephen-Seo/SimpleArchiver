@@ -2,11 +2,13 @@
 
 ## Upcoming Changes
 
-## Alternate Changes
+## Version 2.6.3
 
-(Alternate Changes are changes that are not in `main` or `dev`.)
+Minor changes in this release:
 
-Attempt fix https://github.com/Stephen-Seo/SimpleArchiver/issues/6 .
+Cleanup CMakeLists.txt .
+
+Update README.md and man page about `libcap` support.
 
 ## Version 2.6.2
 
