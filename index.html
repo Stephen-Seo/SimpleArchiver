@@ -510,4 +510,26 @@ not used or if no file matches any of the set file extensions, then the
 default behavior is used, which is to compress every chunk if a
 compressor is specified.</p>
 </dd>
+<dt><strong>Checking if <em>chown</em><strong> is
+Available</strong></strong></dt>
+<dd>
+<p>If <em>libcap</em> support is compiled/available, then the
+<em>CAP_CHOWN</em> capability can be checked for in addition to the
+check if the user is root to change file/directory permissions. Note
+that file/directory ownership are always stored when archiving, but when
+extracting ownership is not set on extracted files/dirs unless if the
+user is root or has <em>CAP_CHOWN</em>.</p>
+</dd>
 </dl>
+<p>The check for whether or not <em>chown</em> can be used works as
+follows:</p>
+<ul>
+<li><p>Check if current user is root. If is root, then can
+<em>chown</em>.</p></li>
+<li><p>Check if current user has <em>CAP_CHOWN</em> if has
+<em>libcap</em> support. If user has this capability, then can
+<em>chown</em>.</p></li>
+<li><p>Previous checks failed, cannot use <em>chown</em>.</p></li>
+</ul>
+<p>One may check the flags in the CMakeLists.txt file to enable
+<em>libcap</em> support.</p>
