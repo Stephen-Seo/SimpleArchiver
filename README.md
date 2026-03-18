@@ -1,5 +1,14 @@
 # Simple Archiver
 
+## NOTICE
+
+Please use the latest version of `simplearchiver`
+(tag `2.7` or the [latest Github
+release](https://github.com/Stephen-Seo/SimpleArchiver/releases/tag/2.7)) as
+previous versions contain an issue that was fixed as of `2.7`.
+
+## About SimpleArchiver
+
 This program ~~is not yet~~ ~~almost~~ basically finished! ~~Basic~~ ~~Necessary
 functionality is implemented and only~~ ~~some advanced features are missing~~
 ~~some extra features are not yet implemented.~~  
