@@ -8308,6 +8308,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
+
+      if (simple_archiver_helper_contains_double_dot_path(buf) != 0) {
+        fprintf(stderr, "ERROR: Filename contains \"..\"! %s\n", buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       arg_allowed =
         state->parsed->just_w_files->count == 0
         || simple_archiver_hash_map_get(state->parsed->just_w_files,
@@ -8394,6 +8400,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       uc_heap_buf[u16] = 0;
+
+      if (simple_archiver_helper_contains_double_dot_path(uc_heap_buf) != 0) {
+        fprintf(stderr, "ERROR: Filename contains \"..\"! %s\n", uc_heap_buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       arg_allowed =
         state->parsed->just_w_files->count == 0
         || simple_archiver_hash_map_get(state->parsed->just_w_files,
@@ -9493,6 +9505,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     }
     link_name[link_name_length] = 0;
 
+    if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
+      fprintf(stderr, "ERROR: Link name contains \"..\"! %s\n", link_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     const int_fast8_t arg_allowed =
       state->parsed->just_w_files->count == 0
       || simple_archiver_hash_map_get(state->parsed->just_w_files,
@@ -9850,6 +9867,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      if (simple_archiver_helper_contains_double_dot_path(file_info->filename)
+          != 0) {
+        fprintf(stderr,
+                "ERROR: Filename contains \"..\"! %s\n",
+                file_info->filename);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
 
       if (state && state->parsed->prefix) {
         file_info->prefixed_filename =
@@ -10641,6 +10666,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
 
     buf[u16] = 0;
 
+    if (simple_archiver_helper_contains_double_dot_path(buf) != 0) {
+      fprintf(stderr, "ERROR: Directory contains \"..\"! %s\n", buf);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     const uint_fast8_t arg_allowed =
       state->parsed->just_w_files->count == 0
       || simple_archiver_hash_map_get(state->parsed->just_w_files,
@@ -10997,6 +11027,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       return SDA_RET_STRUCT(ret);
     }
     link_name[link_name_length] = 0;
+
+    if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
+      fprintf(stderr, "ERROR: Link name contains \"..\"! %s\n", link_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
 
     const int_fast8_t arg_allowed =
       state->parsed->just_w_files->count == 0
@@ -11616,6 +11651,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      if (simple_archiver_helper_contains_double_dot_path(file_info->filename)
+          != 0) {
+        fprintf(stderr,
+                "ERROR: Path contains \"..\"! %s\n",
+                file_info->filename);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
 
       if (state && state->parsed->prefix) {
         file_info->prefixed_filename =
@@ -12434,6 +12477,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
 
     archive_dir_name[u16] = 0;
 
+    if (simple_archiver_helper_contains_double_dot_path(archive_dir_name)
+        != 0) {
+      fprintf(stderr,
+              "ERROR: Directory contains \"..\"! %s\n",
+              archive_dir_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     const uint_fast8_t arg_allowed =
       state->parsed->just_w_files->count == 0
       || simple_archiver_hash_map_get(state->parsed->just_w_files,
@@ -12872,6 +12923,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
               dir_count,
               dir_path);
 
+      if (simple_archiver_helper_contains_double_dot_path(dir_path) != 0) {
+        fprintf(stderr, "ERROR: Invalid directory name (has \"..\")!\n");
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       uint8_t pbits[2];
       if (fread(pbits, 1, 2, in_f) != 2) {
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -13164,6 +13220,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       return SDA_RET_STRUCT(ret);
     }
     link_name[link_name_length] = 0;
+
+    if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
+      fprintf(stderr, "ERROR: Link name contains \"..\"! %s\n", link_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
 
     const int_fast8_t arg_allowed =
       state->parsed->just_w_files->count == 0
@@ -13796,6 +13857,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      if (simple_archiver_helper_contains_double_dot_path(file_info->filename)
+          != 0) {
+        fprintf(stderr,
+                "ERROR: Filename contains \"..\"! %s\n",
+                file_info->filename);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
 
       if (state && state->parsed->prefix) {
         file_info->prefixed_filename =
@@ -14815,6 +14884,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     }
 
     archive_dir_name[u16] = 0;
+
+    if (simple_archiver_helper_contains_double_dot_path(archive_dir_name)
+        != 0) {
+      fprintf(stderr,
+              "ERROR: Directory name contains \"..\"! %s\n",
+              archive_dir_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
 
     const uint_fast8_t arg_allowed =
       state->parsed->just_w_files->count == 0
