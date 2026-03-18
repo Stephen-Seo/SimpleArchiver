@@ -3,7 +3,7 @@
 ## NOTICE
 
 Please use the latest version of `simplearchiver`
-(tag `2.7` or the [latest Github
+(at least tag `2.7` or at least the [latest Github
 release](https://github.com/Stephen-Seo/SimpleArchiver/releases/tag/2.7)) as
 previous versions contain an issue that was fixed as of `2.7`.
 
