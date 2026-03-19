@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 2.7.2
+
 Fix compiler warnings about usage of C-strings that were not the expected
 C-string type (`const char *`).
 
