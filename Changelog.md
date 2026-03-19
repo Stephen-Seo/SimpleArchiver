@@ -7,6 +7,12 @@
 Fix compiler warnings about usage of C-strings that were not the expected
 C-string type (`const char *`).
 
+In other words, a function expected a `const char*` typed value to be passed to
+it, but in one case, stack-allocated array (such as `char buf[1024]`) was
+provided while in another case, a `uint8_t *` was provided. As they both are
+still C-strings, it is safe to convert the type to `const char*` for use by
+the function.
+
 ## Version 2.7.1
 
 Minor changes to error messages when invalid data in an archive is discovered.  
