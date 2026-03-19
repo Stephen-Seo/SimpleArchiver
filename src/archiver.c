@@ -8310,7 +8310,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
 
       if (simple_archiver_helper_contains_double_dot_path(buf) != 0) {
-        fprintf(stderr, "ERROR: Filename contains \"..\"! %s\n", buf);
+        fprintf(stderr,
+                "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
+                buf);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
@@ -8402,7 +8404,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       uc_heap_buf[u16] = 0;
 
       if (simple_archiver_helper_contains_double_dot_path(uc_heap_buf) != 0) {
-        fprintf(stderr, "ERROR: Filename contains \"..\"! %s\n", uc_heap_buf);
+        fprintf(stderr,
+                "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
+                uc_heap_buf);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
@@ -9506,7 +9510,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     link_name[link_name_length] = 0;
 
     if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
-      fprintf(stderr, "ERROR: Link name contains \"..\"! %s\n", link_name);
+      fprintf(stderr,
+              "ERROR: Link name contains \"..\"! Link name: \"%s\"\n",
+              link_name);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
@@ -9871,7 +9877,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       if (simple_archiver_helper_contains_double_dot_path(file_info->filename)
           != 0) {
         fprintf(stderr,
-                "ERROR: Filename contains \"..\"! %s\n",
+                "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
                 file_info->filename);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
@@ -10667,7 +10673,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
     buf[u16] = 0;
 
     if (simple_archiver_helper_contains_double_dot_path(buf) != 0) {
-      fprintf(stderr, "ERROR: Directory contains \"..\"! %s\n", buf);
+      fprintf(stderr,
+              "ERROR: Directory contains \"..\"! Dir name: \"%s\"\n",
+              buf);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
@@ -11029,7 +11037,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     link_name[link_name_length] = 0;
 
     if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
-      fprintf(stderr, "ERROR: Link name contains \"..\"! %s\n", link_name);
+      fprintf(stderr,
+              "ERROR: Link name contains \"..\"! Link name: \"%s\"\n",
+              link_name);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
@@ -11655,7 +11665,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       if (simple_archiver_helper_contains_double_dot_path(file_info->filename)
           != 0) {
         fprintf(stderr,
-                "ERROR: Path contains \"..\"! %s\n",
+                "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
                 file_info->filename);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
@@ -12480,7 +12490,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     if (simple_archiver_helper_contains_double_dot_path(archive_dir_name)
         != 0) {
       fprintf(stderr,
-              "ERROR: Directory contains \"..\"! %s\n",
+              "ERROR: Directory contains \"..\"! Dir name: \"%s\"\n",
               archive_dir_name);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
@@ -13222,7 +13232,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     link_name[link_name_length] = 0;
 
     if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
-      fprintf(stderr, "ERROR: Link name contains \"..\"! %s\n", link_name);
+      fprintf(stderr,
+              "ERROR: Link name contains \"..\"! Link name: \"%s\"\n",
+              link_name);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
@@ -13861,7 +13873,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       if (simple_archiver_helper_contains_double_dot_path(file_info->filename)
           != 0) {
         fprintf(stderr,
-                "ERROR: Filename contains \"..\"! %s\n",
+                "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
                 file_info->filename);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
@@ -14888,7 +14900,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     if (simple_archiver_helper_contains_double_dot_path(archive_dir_name)
         != 0) {
       fprintf(stderr,
-              "ERROR: Directory name contains \"..\"! %s\n",
+              "ERROR: Directory name contains \"..\"! Dir name: \"%s\"\n",
               archive_dir_name);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }

@@ -2,6 +2,11 @@
 
 ## Upcoming Changes
 
+## Version 2.7.1
+
+Minor changes to error messages when invalid data in an archive is discovered.  
+Note that this is related to the changes made in Version 2.7 .
+
 ## Version 2.7
 
 Security Bugfix: Fix case where invalid data in archive was still parsed.
