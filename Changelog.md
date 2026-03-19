@@ -2,6 +2,9 @@
 
 ## Upcoming Changes
 
+Fix compiler warnings about usage of C-strings that were not the expected
+C-string type (`const char *`).
+
 ## Version 2.7.1
 
 Minor changes to error messages when invalid data in an archive is discovered.  
