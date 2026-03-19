@@ -4,7 +4,7 @@
 
 Please use the latest version of `simplearchiver`
 (at least tag `2.7` or at least the [latest Github
-release](https://github.com/Stephen-Seo/SimpleArchiver/releases/tag/2.7)) as
+release](https://github.com/Stephen-Seo/SimpleArchiver/releases)) as
 previous versions contain an issue that was fixed as of `2.7`.
 
 ## About SimpleArchiver
