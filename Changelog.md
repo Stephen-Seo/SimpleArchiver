@@ -8,6 +8,8 @@ Security Bugfix: Fix case where invalid data in archive was still parsed.
 
 All versions of `SimpleArchiver` prior to this version is affected.
 
+There will be an informational post about the changes made in this version soon.
+
 ## Version 2.6.3
 
 Minor changes in this release:
