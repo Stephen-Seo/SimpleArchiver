@@ -8309,7 +8309,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       }
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
 
-      if (simple_archiver_helper_contains_double_dot_path(buf) != 0) {
+      if (simple_archiver_helper_contains_double_dot_path(
+            (const char*)buf) != 0) {
         fprintf(stderr,
                 "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
                 buf);
@@ -8403,7 +8404,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       }
       uc_heap_buf[u16] = 0;
 
-      if (simple_archiver_helper_contains_double_dot_path(uc_heap_buf) != 0) {
+      if (simple_archiver_helper_contains_double_dot_path(
+            (const char*)uc_heap_buf) != 0) {
         fprintf(stderr,
                 "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
                 uc_heap_buf);
