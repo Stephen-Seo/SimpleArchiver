@@ -140,7 +140,7 @@ Following the link-count bytes, the following bytes are added for each symlink:
            will be set to zero-length and will not be stored.
         4. If this bit is set, then this entry points to something outside of
            this archive.
-2. 2 bytes 16-bit unsigned integer "link name" in big-endian. This does not
+2. 2 bytes 16-bit unsigned integer "link name" size in big-endian. This does not
    include the NULL at the end of the string. Must not be zero.
 3. X bytes of link-name (length defined by previous value). Is a NULL-terminated
    string.
@@ -501,7 +501,7 @@ Following the link-count bytes, the following bytes are added for each symlink:
            will be set to zero-length and will not be stored.
         4. If this bit is set, then this symlink points to something outside of
            this archive.
-2. 2 bytes 16-bit unsigned integer "link name" in big-endian. This does not
+2. 2 bytes 16-bit unsigned integer "link name" size in big-endian. This does not
    include the NULL at the end of the string. Must not be zero.
 3. X bytes of link-name (length defined by previous value). Is a NULL-terminated
    string.
@@ -743,7 +743,7 @@ Following the link-count bytes, the following bytes are added for each symlink:
            will be set to zero-length and will not be stored.
         4. If this bit is set, then this symlink points to something outside of
            this archive.
-2. 2 bytes 16-bit unsigned integer "link name" in big-endian. This does not
+2. 2 bytes 16-bit unsigned integer "link name" size in big-endian. This does not
    include the NULL at the end of the string. Must not be zero.
 3. X bytes of link-name (length defined by previous value). Is a NULL-terminated
    string.
