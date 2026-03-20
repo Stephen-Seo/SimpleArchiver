@@ -2,6 +2,13 @@
 
 ## Upcoming Changes
 
+## Version 2.7.3
+
+Refactor/Redo how `src/version.h` is handled by CMakeLists.txt.  
+The new behavior is to generate a header in the build directory and to "include"
+it during compilation to have a version string that includes the git hash (by
+default).
+
 ## Version 2.7.2
 
 Fix compiler warnings about usage of C-strings that were not the expected

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 2.7.2)
+set(SimpleArchiver_VERSION 2.7.3)
 
 set(SimpleArchiver_SOURCES
     src/main.c
@@ -101,58 +101,6 @@ set_source_files_properties(src/archiver.c
         COMPILE_FLAGS -Wno-format-nonliteral
 )
 
-if(DEFINED SDSA_OVERRIDE_VERSION_STRING)
-    message("Setting version \"${SDSA_OVERRIDE_VERSION_STRING}\"...")
-    if(EXISTS /usr/bin/sed)
-        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/dummy_output_override_version.txt"
-            COMMAND /usr/bin/sed ARGS -i "/^#define SIMPLE_ARCHIVER_VERSION_STR /c #define SIMPLE_ARCHIVER_VERSION_STR \\\"${SDSA_OVERRIDE_VERSION_STRING}\\\"" "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
-            VERBATIM
-        )
-        add_custom_target(VersionStringCMD
-            DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/dummy_output_override_version.txt")
-        add_dependencies(simplearchiver VersionStringCMD)
-    else()
-        set_source_files_properties(src/parser.c
-            PROPERTIES
-                COMPILE_FLAGS "-DSIMPLE_ARCHIVER_VERSION_STR=\\\"${SDSA_OVERRIDE_VERSION_STRING}\\\""
-        )
-    endif()
-elseif(EXISTS /usr/bin/git AND EXISTS /usr/bin/sh AND EXISTS /usr/bin/cat AND EXISTS /usr/bin/xargs AND EXISTS /usr/bin/sed)
-    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
-        COMMAND /usr/bin/sh ARGS -c "/usr/bin/git describe --long --tags >${CMAKE_CURRENT_BINARY_DIR}/version_string.txt || /usr/bin/echo ${SimpleArchiver_VERSION} >${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
-        COMMAND /usr/bin/sh ARGS -c "/usr/bin/cat ${CMAKE_CURRENT_BINARY_DIR}/version_string.txt | /usr/bin/xargs -Iderp sed -i \"/^#define SIMPLE_ARCHIVER_VERSION_STR /c #define SIMPLE_ARCHIVER_VERSION_STR \\\"derp\\\"\" ${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
-        COMMAND /usr/bin/rm ARGS -f "${CMAKE_CURRENT_BINARY_DIR}/version_string.txt"
-        VERBATIM)
-    add_custom_target(VersionStringCMD
-        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/version_string.txt")
-    add_dependencies(simplearchiver VersionStringCMD)
-else()
-    message("Setting version \"${SimpleArchiver_VERSION}\"")
-    set_source_files_properties(src/parser.c
-        PROPERTIES
-            COMPILE_FLAGS "-DSIMPLE_ARCHIVER_VERSION_STR=\\\"${SimpleArchiver_VERSION}\\\""
-    )
-endif()
-
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(simplearchiver PUBLIC
-        -fno-delete-null-pointer-checks -fno-strict-overflow
-        -fno-strict-aliasing
-    )
-    target_link_options(simplearchiver PUBLIC
-        -fno-delete-null-pointer-checks -fno-strict-overflow
-        -fno-strict-aliasing
-    )
-    if(NOT DEFINED DISABLE_FLAGS_FOR_COMPAT)
-        target_compile_options(simplearchiver PUBLIC
-            -ftrivial-auto-var-init=zero
-        )
-        target_link_options(simplearchiver PUBLIC
-            -ftrivial-auto-var-init=zero
-        )
-    endif()
-endif()
-
 add_executable(test_datastructures
     src/data_structures/test.c
     src/data_structures/linked_list.c
@@ -182,6 +130,54 @@ add_executable(test_simplearchiver
 )
 if(ENABLE_LIBCAP_LIB_LINK)
     target_link_libraries(test_simplearchiver PRIVATE cap)
+endif()
+
+if(DEFINED SDSA_OVERRIDE_VERSION_STRING)
+    message("Setting version \"${SDSA_OVERRIDE_VERSION_STRING}\"...")
+
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/VersionString.h"
+        CONTENT "#define SIMPLE_ARCHIVER_VERSION_STR \"${SDSA_OVERRIDE_VERSION_STRING}\""
+        NEWLINE_STYLE UNIX)
+    set_source_files_properties(src/parser.c
+        PROPERTIES COMPILE_FLAGS "-include ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h")
+elseif(EXISTS /usr/bin/git AND EXISTS /usr/bin/sh AND EXISTS /usr/bin/tr)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/VersionStringTemplate.h"
+        CONTENT "#define SIMPLE_ARCHIVER_VERSION_STR \""
+        NEWLINE_STYLE UNIX)
+
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/VersionString.h"
+        BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/VersionStringTemplate.h"
+        COMMAND /usr/bin/sh ARGS -c "cd ${CMAKE_CURRENT_SOURCE_DIR} && git describe --long --tags | cat ${CMAKE_CURRENT_BINARY_DIR}/VersionStringTemplate.h - | tr -d '\\n' > ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h"
+        COMMAND /usr/bin/sh ARGS -c "echo \\\" >> ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h"
+        VERBATIM)
+    set_source_files_properties(src/parser.c
+        PROPERTIES COMPILE_FLAGS "-include ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h")
+
+    add_custom_target(VersionStringCMD
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/VersionString.h")
+    add_dependencies(simplearchiver VersionStringCMD)
+    add_dependencies(test_simplearchiver VersionStringCMD)
+else()
+    message(WARNING "Unable to generate ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h, which is generated to include the current commit short-hash as part of the programs \"--version\" output")
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_options(simplearchiver PUBLIC
+        -fno-delete-null-pointer-checks -fno-strict-overflow
+        -fno-strict-aliasing
+    )
+    target_link_options(simplearchiver PUBLIC
+        -fno-delete-null-pointer-checks -fno-strict-overflow
+        -fno-strict-aliasing
+    )
+    if(NOT DEFINED DISABLE_FLAGS_FOR_COMPAT)
+        target_compile_options(simplearchiver PUBLIC
+            -ftrivial-auto-var-init=zero
+        )
+        target_link_options(simplearchiver PUBLIC
+            -ftrivial-auto-var-init=zero
+        )
+    endif()
 endif()
 
 if(ENABLE_BUNDLED_LIBCAP)
