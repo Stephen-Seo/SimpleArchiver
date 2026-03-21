@@ -2,6 +2,12 @@
 
 ## Upcoming Changes
 
+## Version 2.7.4
+
+More robust handling of strings inside the archive file. If a problem is
+encountered with a string in the archive file during testing/extracting, then
+`simplearchiver` will exit with an error message.
+
 ## Version 2.7.3
 
 Refactor/Redo how `src/version.h` is handled by CMakeLists.txt.  

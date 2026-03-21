@@ -1065,6 +1065,14 @@ TEST_HELPERS_PREFIX_END:
     free(ret);
   }
 
+  // Test helper has_null_before_size
+  {
+    CHECK_FALSE(simple_archiver_helper_has_null_before_size("test string", 11));
+    CHECK_TRUE(simple_archiver_helper_has_null_before_size("test string", 12));
+    CHECK_TRUE(simple_archiver_helper_has_null_before_size("test\0string", 11));
+    CHECK_TRUE(simple_archiver_helper_has_null_before_size("test\0string", 12));
+  }
+
   printf("Checks checked: %" PRId32 "\n", checks_checked);
   printf("Checks passed:  %" PRId32 "\n", checks_passed);
   return checks_passed == checks_checked ? 0 : 1;

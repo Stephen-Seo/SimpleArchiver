@@ -1205,3 +1205,13 @@ int simple_archiver_helper_can_chown(void) {
 
   return is_admin;
 }
+
+int simple_archiver_helper_has_null_before_size(const char *s, size_t index) {
+  for (size_t idx = 0; idx < index; ++idx) {
+    if (s[idx] == 0) {
+      return 1;
+    }
+  }
+
+  return 0;
+}

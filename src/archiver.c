@@ -8202,6 +8202,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
+      if (simple_archiver_helper_has_null_before_size(
+            (const char*)buf, u16) != 0) {
+        fprintf(stderr, "ERROR: Invalid compressor string: \"%s\"!\n", buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
       fprintf(stderr, "Compressor cmd: %s\n", buf);
     } else {
       __attribute__((
@@ -8212,6 +8217,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       uc_heap_buf[u16 - 1] = 0;
+      if (simple_archiver_helper_has_null_before_size(
+            (const char*)uc_heap_buf, u16 - 2) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid compressor string: \"%s\"!\n",
+                uc_heap_buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
       fprintf(stderr, "Compressor cmd: %s\n", uc_heap_buf);
     }
 
@@ -8226,6 +8238,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
+      if (simple_archiver_helper_has_null_before_size(
+            (const char*)buf, u16) != 0) {
+        fprintf(stderr, "ERROR: Invalid decompressor string: \"%s\"!\n", buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
       fprintf(stderr, "Decompressor cmd: %s\n", buf);
       decompressor_cmd = malloc(u16 + 1);
       memcpy((char *)decompressor_cmd, buf, u16 + 1);
@@ -8239,6 +8256,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       uc_heap_buf[u16 - 1] = 0;
+      if (simple_archiver_helper_has_null_before_size(
+            (const char*)uc_heap_buf, u16 - 2) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid decompressor string: \"%s\"!\n",
+                uc_heap_buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
       fprintf(stderr, "Decompressor cmd: %s\n", uc_heap_buf);
       decompressor_cmd = heap_buf;
       heap_buf = NULL;
@@ -8308,6 +8332,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            (const char*)buf, u16) != 0) {
+        fprintf(stderr, "ERROR: Invalid filename: \"%s\"!\n", buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
 
       if (simple_archiver_helper_contains_double_dot_path(
             (const char*)buf) != 0) {
@@ -8403,6 +8433,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       uc_heap_buf[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            (const char *)uc_heap_buf, u16) != 0) {
+        fprintf(stderr, "ERROR: Invalid filename: \"%s\"!\n", uc_heap_buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
 
       if (simple_archiver_helper_contains_double_dot_path(
             (const char*)uc_heap_buf) != 0) {
@@ -8998,6 +9034,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
+        if (simple_archiver_helper_has_null_before_size(
+              (const char*)buf, u16) != 0) {
+          fprintf(stderr, "ERROR: Invalid link absolute path: \"%s\"!\n", buf);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
         if (arg_allowed && lists_allowed) {
           fprintf(stderr, "  Link absolute path: %s\n", buf);
         }
@@ -9009,6 +9050,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         ((char *)abs_path)[u16 - 1] = 0;
+        if (simple_archiver_helper_has_null_before_size(
+              (const char*)abs_path, u16) != 0) {
+          fprintf(stderr,
+                  "ERROR: Invalid link absolute path: \"%s\"!\n",
+                  (const char*)abs_path);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
         if (arg_allowed && lists_allowed) {
           fprintf(stderr, "  Link absolute path: %s\n", (char *)abs_path);
         }
@@ -9027,6 +9075,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
+        if (simple_archiver_helper_has_null_before_size(
+              (const char*)buf, u16) != 0) {
+          fprintf(stderr, "ERROR: Invalid link relative path: \"%s\"!\n", buf);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
         if (arg_allowed && lists_allowed) {
           fprintf(stderr, "  Link relative path: %s\n", buf);
         }
@@ -9037,7 +9090,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         if (fread(rel_path, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
-        ((char *)rel_path)[u16 - 1] = 0;
+        ((char *)rel_path)[u16] = 0;
+        if (simple_archiver_helper_has_null_before_size(
+              (const char*)rel_path, u16 - 1) != 0) {
+          fprintf(stderr,
+                  "ERROR: Invalid link relative path: \"%s\"!\n",
+                  (const char*)rel_path);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
         if (arg_allowed && lists_allowed) {
           fprintf(stderr, "  Link relative path: %s\n", (char *)rel_path);
         }
@@ -9437,6 +9497,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     }
     compressor_cmd[u16] = 0;
 
+    if (simple_archiver_helper_has_null_before_size(
+          (const char*)compressor_cmd, u16 - 1) != 0) {
+      fprintf(stderr,
+              "ERROR: Invalid compressor string: \"%s\"!\n",
+              compressor_cmd);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
 
     if (fread(&u16, 2, 1, in_f) != 1) {
@@ -9450,6 +9518,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       return SDA_RET_STRUCT(ret);
     }
     decompressor_cmd[u16] = 0;
+
+    if (simple_archiver_helper_has_null_before_size(
+          (const char*)decompressor_cmd, u16 - 1) != 0) {
+      fprintf(stderr,
+              "ERROR: Invalid decompressor_cmd: \"%s\"!\n",
+              (const char*)decompressor_cmd);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
 
     fprintf(stderr, "Decompressor command: %s\n", decompressor_cmd);
     if (state && state->parsed && state->parsed->decompressor) {
@@ -9510,6 +9586,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       return SDA_RET_STRUCT(ret);
     }
     link_name[link_name_length] = 0;
+
+    if (simple_archiver_helper_has_null_before_size(
+          (const char*)link_name, link_name_length - 1) != 0) {
+      fprintf(stderr,
+              "ERROR: Invalid link name: \"%s\"!\n",
+              link_name);
+    }
 
     if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
       fprintf(stderr,
@@ -9594,6 +9677,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         return SDA_RET_STRUCT(ret);
       }
       path[path_length] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            (const char*)path, path_length - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid path string: \"%s\"!\n",
+                (const char*)path);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       int iret;
       if (do_extract
           && !skip_due_to_invalid
@@ -9704,6 +9796,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         return SDA_RET_STRUCT(ret);
       }
       path[path_length] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            (const char*)path, path_length - 1) != 0) {
+        fprintf(stderr, "ERROR: Invalid path string: \"%s\"!\n", path);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       int iret;
       if (do_extract
           && !skip_due_to_invalid
@@ -9875,6 +9974,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            file_info->filename, u16 - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid filename string: \"%s\"!\n",
+                file_info->filename);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
 
       if (simple_archiver_helper_contains_double_dot_path(file_info->filename)
           != 0) {
@@ -10674,6 +10781,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
 
     buf[u16] = 0;
 
+    if (simple_archiver_helper_has_null_before_size(buf, u16 - 1) != 0) {
+      fprintf(stderr, "ERROR: Invalid directory string: \"%s\"!\n", buf);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     if (simple_archiver_helper_contains_double_dot_path(buf) != 0) {
       fprintf(stderr,
               "ERROR: Directory contains \"..\"! Dir name: \"%s\"\n",
@@ -10962,6 +11074,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     }
     compressor_cmd[u16] = 0;
 
+    if (simple_archiver_helper_has_null_before_size(
+          (const char*)compressor_cmd, u16 - 1) != 0) {
+      fprintf(stderr,
+              "ERROR: Invalid compressor string: \"%s\"!\n",
+              compressor_cmd);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
 
     if (fread(&u16, 2, 1, in_f) != 1) {
@@ -10975,6 +11095,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       return SDA_RET_STRUCT(ret);
     }
     decompressor_cmd[u16] = 0;
+
+    if (simple_archiver_helper_has_null_before_size(
+          (const char*)decompressor_cmd, u16 - 1) != 0) {
+      fprintf(stderr,
+              "ERROR: Invalid decompressor string: \"%s\"!\n",
+              decompressor_cmd);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
 
     fprintf(stderr, "Decompressor command: %s\n", decompressor_cmd);
     if (state && state->parsed && state->parsed->decompressor) {
@@ -11037,6 +11165,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       return SDA_RET_STRUCT(ret);
     }
     link_name[link_name_length] = 0;
+
+    if (simple_archiver_helper_has_null_before_size(
+          link_name, link_name_length - 1) != 0) {
+      fprintf(stderr, "ERROR: Invalid link string: \"%s\"!\n", link_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
 
     if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
       fprintf(stderr,
@@ -11124,6 +11258,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(ret);
       }
       parsed_abs_path[path_length] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            parsed_abs_path, path_length - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid path string: \"%s\"!\n",
+                parsed_abs_path);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "  Abs path: %s\n", parsed_abs_path);
       }
@@ -11169,6 +11312,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(ret);
       }
       parsed_rel_path[path_length] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            parsed_rel_path, path_length - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid relative path string: \"%s\"!\n",
+                parsed_rel_path);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "  Rel path: %s\n", parsed_rel_path);
       }
@@ -11224,6 +11376,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       username[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(username, u16 - 1) != 0) {
+        fprintf(stderr, "ERROR: Invalid username string: \"%s\"!\n", username);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (arg_allowed && lists_allowed) {
         fprintf(stderr, "  Username: %s\n", username);
       }
@@ -11303,6 +11461,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       groupname[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            groupname, u16 - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid groupname string: \"%s\"!\n",
+                groupname);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (arg_allowed && lists_allowed) {
         fprintf(stderr, "  Groupname: %s\n", groupname);
       }
@@ -11664,6 +11831,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       }
       file_info->filename[u16] = 0;
 
+      if (simple_archiver_helper_has_null_before_size(
+            file_info->filename, u16 - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid filename string: \"%s\"!\n",
+                file_info->filename);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (simple_archiver_helper_contains_double_dot_path(file_info->filename)
           != 0) {
         fprintf(stderr,
@@ -11796,6 +11971,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         username[u16] = 0;
+
+        if (simple_archiver_helper_has_null_before_size(
+              username, u16 - 1) != 0) {
+          fprintf(stderr,
+                  "ERROR: Invalid username string: \"%s\"!\n",
+                  username);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
+
         file_info->username = strdup(username);
       } else {
         free(username);
@@ -11829,6 +12013,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         groupname[u16] = 0;
+
+        if (simple_archiver_helper_has_null_before_size(
+              groupname, u16 - 1) != 0) {
+          fprintf(stderr,
+                  "ERROR: Invalid groupname string: \"%s\"!\n",
+                  groupname);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
+
         file_info->groupname = strdup(groupname);
       } else {
         free(groupname);
@@ -12489,6 +12682,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
 
     archive_dir_name[u16] = 0;
 
+    if (simple_archiver_helper_has_null_before_size(
+          archive_dir_name, u16 - 1) != 0) {
+      fprintf(stderr,
+              "ERROR: Invalid directory name: \"%s\"!\n",
+              archive_dir_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     if (simple_archiver_helper_contains_double_dot_path(archive_dir_name)
         != 0) {
       fprintf(stderr,
@@ -12554,6 +12755,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       username[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(username, u16 - 1) != 0) {
+        fprintf(stderr, "ERROR: Invalid username string: \"%s\"!\n", username);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
     } else {
       free(username);
       username = NULL;
@@ -12572,6 +12778,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       groupname[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            groupname, u16 - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid groupname string: \"%s\"!\n",
+                groupname);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
     } else {
       free(groupname);
       groupname = NULL;
@@ -12871,6 +13085,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     }
     compressor_cmd[u16] = 0;
 
+    if (simple_archiver_helper_has_null_before_size(
+          compressor_cmd, u16 - 1) != 0) {
+      fprintf(stderr,
+              "ERROR: Invalid compressor string: \"%s\"!\n",
+              compressor_cmd);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     fprintf(stderr, "Compressor command: %s\n", compressor_cmd);
 
     if (fread(&u16, 2, 1, in_f) != 1) {
@@ -12884,6 +13106,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       return SDA_RET_STRUCT(ret);
     }
     decompressor_cmd[u16] = 0;
+
+    if (simple_archiver_helper_has_null_before_size(
+          decompressor_cmd, u16 - 1) != 0) {
+      fprintf(stderr,
+              "ERROR: Invalid decompressor string: \"%s\"!\n",
+              decompressor_cmd);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
 
     fprintf(stderr, "Decompressor command: %s\n", decompressor_cmd);
     if (state && state->parsed && state->parsed->decompressor) {
@@ -12928,6 +13158,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       dir_path[dir_path_size] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            dir_path, dir_path_size - 1) != 0) {
+        fprintf(stderr, "ERROR: Invalid directory string: \"%s\"!\n", dir_path);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
 
       fprintf(stderr,
               "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
@@ -13010,6 +13246,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         username[u16] = 0;
+
+        if (simple_archiver_helper_has_null_before_size(
+              username, u16 - 1) != 0) {
+          fprintf(stderr,
+                  "ERROR: Invalid username string: \"%s\"!\n",
+                  username);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
       }
 
       if (fread(&u16, 2, 1, in_f) != 1) {
@@ -13024,6 +13268,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         groupname[u16] = 0;
+
+        if (simple_archiver_helper_has_null_before_size(
+              groupname, u16 - 1) != 0) {
+          fprintf(stderr,
+                  "ERROR: Invalid groupname string: \"%s\"!\n",
+                  groupname);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
       }
       if (!do_extract) {
         fprintf(stderr,
@@ -13233,6 +13485,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     }
     link_name[link_name_length] = 0;
 
+    if (simple_archiver_helper_has_null_before_size(
+          link_name, link_name_length - 1) != 0) {
+      fprintf(stderr, "ERROR: Invalid link name: \"%s\"!\n", link_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
       fprintf(stderr,
               "ERROR: Link name contains \"..\"! Link name: \"%s\"\n",
@@ -13325,6 +13583,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(ret);
       }
       parsed_abs_path[path_length] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            parsed_abs_path, path_length - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid absolute path string: \"%s\"!\n",
+                parsed_abs_path);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "  Abs path: %s\n", parsed_abs_path);
       }
@@ -13370,6 +13637,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(ret);
       }
       parsed_rel_path[path_length] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            parsed_rel_path, path_length - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid relative path string: \"%s\"!\n",
+                parsed_rel_path);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "  Rel path: %s\n", parsed_rel_path);
       }
@@ -13425,6 +13701,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       username[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(username, u16 - 1) != 0) {
+        fprintf(stderr, "ERROR: Invalid username string: \"%s\"!\n", username);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (arg_allowed && lists_allowed) {
         fprintf(stderr, "  Username: %s\n", username);
       }
@@ -13504,6 +13786,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       groupname[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            groupname, u16 - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid groupname string: \"%s\"!\n",
+                groupname);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (arg_allowed && lists_allowed) {
         fprintf(stderr, "  Groupname: %s\n", groupname);
       }
@@ -13872,6 +14163,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       }
       file_info->filename[u16] = 0;
 
+      if (simple_archiver_helper_has_null_before_size(
+            file_info->filename, u16 - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid filename string: \"%s\"!\n",
+                file_info->filename);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+
       if (simple_archiver_helper_contains_double_dot_path(file_info->filename)
           != 0) {
         fprintf(stderr,
@@ -14006,6 +14305,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         username[u16] = 0;
+
+        if (simple_archiver_helper_has_null_before_size(
+              username, u16 - 1) != 0) {
+          fprintf(stderr,
+                  "ERROR: Invalid username string: \"%s\"!\n",
+                  username);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
+
         file_info->username = strdup(username);
       } else {
         free(username);
@@ -14039,6 +14347,15 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
         groupname[u16] = 0;
+
+        if (simple_archiver_helper_has_null_before_size(
+              groupname, u16 - 1) != 0) {
+          fprintf(stderr,
+                  "ERROR: Invalid groupname string: \"%s\"!\n",
+                  groupname);
+          return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+        }
+
         file_info->groupname = strdup(groupname);
       } else {
         free(groupname);
@@ -14899,6 +15216,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
 
     archive_dir_name[u16] = 0;
 
+    if (simple_archiver_helper_has_null_before_size(
+          archive_dir_name, u16 - 1) != 0) {
+      fprintf(stderr,
+              "ERROR: Invalid directory name: \"%s\"!\n",
+              archive_dir_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    }
+
     if (simple_archiver_helper_contains_double_dot_path(archive_dir_name)
         != 0) {
       fprintf(stderr,
@@ -14964,6 +15289,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       username[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(username, u16 - 1) != 0) {
+        fprintf(stderr, "ERROR: Invalid username string: \"%s\"!\n", username);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
     } else {
       free(username);
       username = NULL;
@@ -14982,6 +15312,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       groupname[u16] = 0;
+
+      if (simple_archiver_helper_has_null_before_size(
+            groupname, u16 - 1) != 0) {
+        fprintf(stderr,
+                "ERROR: Invalid groupname string: \"%s\"!\n",
+                groupname);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
     } else {
       free(groupname);
       groupname = NULL;
