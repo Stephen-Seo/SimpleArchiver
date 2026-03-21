@@ -178,4 +178,7 @@ int simple_archiver_helper_is_dir_empty(const char *dir);
 // Returns non-zero if has CAP_CHOWN or if EUID is 0.
 int simple_archiver_helper_can_chown(void);
 
+// Returns non-zero if string has NULL up to and including "index".
+int simple_archiver_helper_has_null_before_size(const char *s, size_t index);
+
 #endif
