@@ -2,6 +2,8 @@
 
 ## NOTICE
 
+[Writeup about the issue here.](https://seodisparate.com/blog/simplearchiver_issue_disclosure/)
+
 Please use the latest version of `simplearchiver`
 (at least tag `2.7` or at least the [latest Github
 release](https://github.com/Stephen-Seo/SimpleArchiver/releases)) as
