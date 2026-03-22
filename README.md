@@ -2,7 +2,8 @@
 
 ## NOTICE
 
-[Writeup about the issue here.](https://seodisparate.com/blog/simplearchiver_issue_disclosure/)
+[Writeup about the issue here.](https://seodisparate.com/blog/simplearchiver_issue_disclosure/)  
+[Backup gist about the issue here.](https://gist.github.com/Stephen-Seo/f804dd6d65f409b93243dd00d4f67452)
 
 Please use the latest version of `simplearchiver`
 (at least tag `2.7` or at least the [latest Github
