@@ -39,7 +39,8 @@ All versions of `SimpleArchiver` prior to this version is affected.
 
 ~~There will be an informational post about the changes made in this version soon.~~
 
-[The writeup about this issue can be found here.](https://seodisparate.com/blog/simplearchiver_issue_disclosure/)
+[The writeup about this issue can be found here.](https://seodisparate.com/blog/simplearchiver_issue_disclosure/)  
+[Backup writeup about the issue here.](https://gist.github.com/Stephen-Seo/f804dd6d65f409b93243dd00d4f67452)
 
 ## Version 2.6.3
 
