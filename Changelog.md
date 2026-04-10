@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Updated dependency libcap from version 2.77 to 2.78 .
+
 ## Version 2.7.4
 
 More robust handling of strings inside the archive file. If a problem is
