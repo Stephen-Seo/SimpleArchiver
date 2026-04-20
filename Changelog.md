@@ -2,6 +2,9 @@
 
 ## Upcoming Changes
 
+Remove obsolete arg "--allow-double-dot", which creates archives that become
+un-extractable due to validation on extract.
+
 ## Version 2.8
 
 Emit an error and stop if creating an archive and nothing was specified to
