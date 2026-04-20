@@ -169,6 +169,27 @@ Note that the check-if-can-chown works like this:
     - If has capability, then can use `chown`
   - cannot use `chown`, dont use it
 
+### Example Archiving a Directory
+
+If you want to archive `foo/` in `/home/bar/some_dir`, then you can use the
+command:
+
+```
+simplearchiver -c -f /tmp/my_archive.sa -C /home/bar/some_dir foo
+```
+
+If you want to archive the current directory:
+
+```
+simplearchiver -c -f /tmp/my_archive.sa .
+```
+
+With compression:
+
+```
+simplearchiver -c -f /tmp/my_archive.sa --compressor gzip --decompressor 'gzip -d' .
+```
+
 ## Additional Info
 
 Check the man page (or
