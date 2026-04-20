@@ -92,7 +92,6 @@ API calls.
     --print-file-exts-preset : Prints the preset extensions to stderr and stops simplearchiver.
     --use-file-exts-preset : Adds preset extensions to collection of file extensions to choose to not compress
     --add-file-ext <ext> | --add-file-ext=<ext> : Add a extension to choose to not compress (must be like ".thing")
-    --allow-double-dot : Allows positional args to have ".."
     --v6-remove-empty-dirs : Remove dirs that are empty after extraction (but were not empty when archived)
     --v6-remove-leaf-dirs : Also remove leaf dirs even if they normally would be kept
     --version : prints version and exits

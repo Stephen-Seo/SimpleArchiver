@@ -65,7 +65,7 @@ typedef struct SDArchiverParsed {
   ///   case-insensitive.
   /// 0b xxxx x1xx xxxx xxxx xxxx xxxx - Force use tmpfile.
   /// 0b xxxx 1xxx xxxx xxxx xxxx xxxx - Sort files by name before archiving.
-  /// 0b xxx1 xxxx xxxx xxxx xxxx xxxx - Enable positional args with ".." .
+  /// 0b xxx1 xxxx xxxx xxxx xxxx xxxx - UNUSED
   /// 0b xx1x xxxx xxxx xxxx xxxx xxxx - v6-extract remove empty dirs that are
   ///   not supposed to be empty
   /// 0b x1xx xxxx xxxx xxxx xxxx xxxx - also remove leaf dirs
