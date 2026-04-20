@@ -2,7 +2,10 @@
 
 ## Upcoming Changes
 
-Emit an error if creating an archive and nothing was specified to archive.  
+## Version 2.8
+
+Emit an error and stop if creating an archive and nothing was specified to
+archive.  
 (The previous behavior just created an empty archive file.)
 
 More validation of paths when extracting archives.
