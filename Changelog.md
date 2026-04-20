@@ -2,6 +2,14 @@
 
 ## Upcoming Changes
 
+## Version 2.8
+
+Emit an error and stop if creating an archive and nothing was specified to
+archive.  
+(The previous behavior just created an empty archive file.)
+
+More validation of paths when extracting archives.
+
 ## Version 2.7.5
 
 Updated dependency libcap from version 2.77 to 2.78 .

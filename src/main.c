@@ -116,6 +116,11 @@ int main(int argc, const char **argv) {
 
   if ((parsed.flags & 3) == 0) {
     // Is creating archive.
+
+    if (parsed.working_files->count == 0 && parsed.working_dirs->count == 0) {
+      fprintf(stderr, "ERROR: No files/dirs/symlinks specified to archive!\n");
+      return 10;
+    }
     __attribute__((cleanup(simple_archiver_free_state)))
     SDArchiverState *state = simple_archiver_init_state(&parsed);
     if ((parsed.flags & 0x10) == 0) {

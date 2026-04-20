@@ -8345,6 +8345,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                 "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
                 buf);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      } else if (buf[0] == '/') {
+        fprintf(stderr,
+                "ERROR: Filename starts with \"/\"! Filename: \"%s\"\n",
+                buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
       arg_allowed =
@@ -8444,6 +8449,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
             (const char*)uc_heap_buf) != 0) {
         fprintf(stderr,
                 "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
+                uc_heap_buf);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      } else if (uc_heap_buf[0] == '/') {
+        fprintf(stderr,
+                "ERROR: Filename starts with \"/\"! Filename: \"%s\"\n",
                 uc_heap_buf);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
@@ -9599,6 +9609,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
               "ERROR: Link name contains \"..\"! Link name: \"%s\"\n",
               link_name);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    } else if (link_name[0] == '/') {
+      fprintf(stderr,
+              "ERROR: Link name starts with \"/\"! Link name: \"%s\"\n",
+              link_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     const int_fast8_t arg_allowed =
@@ -9987,6 +10002,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           != 0) {
         fprintf(stderr,
                 "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
+                file_info->filename);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      } else if (file_info->filename[0] == '/') {
+        fprintf(stderr,
+                "ERROR: Filename starts with \"/\"! Filename: \"%s\"\n",
                 file_info->filename);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
@@ -10791,6 +10811,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
               "ERROR: Directory contains \"..\"! Dir name: \"%s\"\n",
               buf);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    } else if (buf[0] == '/') {
+      fprintf(stderr,
+              "ERROR: Directory begins with \"/\"! Dir name: \"%s\"\n",
+              buf);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     const uint_fast8_t arg_allowed =
@@ -11175,6 +11200,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
       fprintf(stderr,
               "ERROR: Link name contains \"..\"! Link name: \"%s\"\n",
+              link_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    } else if (link_name[0] == '/') {
+      fprintf(stderr,
+              "ERROR: Link name begins with \"/\"! Link name: \"%s\"\n",
               link_name);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
@@ -11843,6 +11873,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           != 0) {
         fprintf(stderr,
                 "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
+                file_info->filename);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      } else if (file_info->filename[0] == '/') {
+        fprintf(stderr,
+                "ERROR: Filename begins with \"/\"! Filename: \"%s\"\n",
                 file_info->filename);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
@@ -12696,6 +12731,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               "ERROR: Directory contains \"..\"! Dir name: \"%s\"\n",
               archive_dir_name);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    } else if (archive_dir_name[0] == '/') {
+      fprintf(stderr,
+              "ERROR: Directory begins with \"/\"! Dir name: \"%s\"\n",
+              archive_dir_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
 
     const uint_fast8_t arg_allowed =
@@ -13174,6 +13214,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       if (simple_archiver_helper_contains_double_dot_path(dir_path) != 0) {
         fprintf(stderr, "ERROR: Invalid directory name (has \"..\")!\n");
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      } else if (dir_path[0] == '/') {
+        fprintf(stderr, "ERROR: Invalid directory name (begins with \"/\")!\n");
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
       uint8_t pbits[2];
@@ -13494,6 +13537,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     if (simple_archiver_helper_contains_double_dot_path(link_name) != 0) {
       fprintf(stderr,
               "ERROR: Link name contains \"..\"! Link name: \"%s\"\n",
+              link_name);
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    } else if (link_name[0] == '/') {
+      fprintf(stderr,
+              "ERROR: Link name starts with \"/\"! Link name: \"%s\"\n",
               link_name);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     }
@@ -14175,6 +14223,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
           != 0) {
         fprintf(stderr,
                 "ERROR: Filename contains \"..\"! Filename: \"%s\"\n",
+                file_info->filename);
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      } else if (file_info->filename[0] == '/') {
+        fprintf(stderr,
+                "ERROR: Filename starts with \"/\"! Filename: \"%s\"\n",
                 file_info->filename);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
