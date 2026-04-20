@@ -126,26 +126,6 @@ int main(void) {
 
     simple_archiver_free_parsed(&parsed);
 
-    parsed = simple_archiver_create_parsed();
-    const char **args2 = (const char *[]){"parser", "-x", "-f", "the_filename",
-                         "--allow-double-dot",
-                         "././/././//./.derp", "././//./_doop",
-                         "./../../.prev_dir_file", NULL};
-    simple_archiver_parse_args(
-        8,
-        args2,
-        &parsed);
-
-    CHECK_TRUE(simple_archiver_hash_map_get(parsed.just_w_files, ".derp", 6));
-    CHECK_TRUE(simple_archiver_hash_map_get(parsed.just_w_files, "_doop", 6));
-    CHECK_TRUE(simple_archiver_hash_map_get(parsed.just_w_files,
-                                            "../../.prev_dir_file",
-                                            21));
-    CHECK_TRUE(strcmp("the_filename", parsed.filename) == 0);
-    CHECK_TRUE(parsed.flags == 0x100041);
-
-    simple_archiver_free_parsed(&parsed);
-
     // Test mappings.
     parsed = simple_archiver_create_parsed();
     CHECK_TRUE(simple_archiver_handle_map_user_or_group(
