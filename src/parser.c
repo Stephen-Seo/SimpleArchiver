@@ -369,8 +369,6 @@ void simple_archiver_print_usage(void) {
           "--add-file-ext <ext> | --add-file-ext=<ext> : Add a "
           "extension to choose to not compress (must be like \".thing\")\n");
   fprintf(stderr,
-          "--allow-double-dot : Allows positional args to have \"..\"\n");
-  fprintf(stderr,
           "--v6-remove-empty-dirs : Remove dirs that are empty after "
           "extraction (but were not empty when archived)\n");
   fprintf(stderr,
@@ -1749,8 +1747,6 @@ int simple_archiver_parse_args(int argc, const char **argv,
           --argc;
           ++argv;
         }
-      } else if (strcmp(argv[0], "--allow-double-dot") == 0) {
-        out->flags |= 0x100000;
       } else if (strcmp(argv[0], "--v6-remove-empty-dirs") == 0) {
         out->flags |= 0x200000;
       } else if (strcmp(argv[0], "--v6-remove-leaf-dirs") == 0) {
@@ -1780,11 +1776,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
       size_t arg_length = strlen(argv[0] + arg_idx) + 1;
       const char *arg_ptr = argv[0] + arg_idx;
 
-      if ((out->flags & 0x100000) == 0
-          && simple_archiver_helper_contains_double_dot_path(arg_ptr)) {
-        fprintf(stderr,
-                "ERROR: Path contains \"..\"! Use \"--allow-double-dot\" if "
-                "this is intended!\n");
+      if (simple_archiver_helper_contains_double_dot_path(arg_ptr)) {
+        fprintf(stderr, "ERROR: Path contains \"..\" which is not allowed!\n");
         return 1;
       } else if (arg_ptr[0] == '/') {
         fprintf(stderr,
