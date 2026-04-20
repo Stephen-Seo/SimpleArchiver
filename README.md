@@ -178,6 +178,12 @@ command:
 simplearchiver -c -f /tmp/my_archive.sa -C /home/bar/some_dir foo
 ```
 
+If you want to archive `/home/bar/some_dir/foo/` without the `foo/`:
+
+```
+simplearchiver -c -f /tmp/my_archive.sa -C /home/bar/some_dir/foo .
+```
+
 If you want to archive the current directory:
 
 ```
