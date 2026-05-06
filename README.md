@@ -131,6 +131,15 @@ instead as a fallback. Thus, `--temp-files-dir <dir>` changes the default dir
 to store the temporary compressed chunk. Note that `--force-tmpfile` exists to
 force simplearchiver to use `tmpfile()`.
 
+Note that temporary files are only created when using compression. This is due
+to the need to support "streaming". Or in other words, `simplearchiver` can
+create an archive and output it to standard-output (with `-f -`), or
+test/extract an archive given as standard-input (again, with `-f -`). The file
+formats require storing the chunk size before the chunk data itself, but the
+chunk size cannot be known for compressed chunks until the chunk has been
+actually compressed. This dependency on creating the compressed chunk first is
+the reason why temporary files are created.
+
 When storing symlinks, `simplearchiver` will typically store relative and
 absolute-paths for all symlinks. If a symlink points to something that will be
 stored in the archive during archive creation, then relative paths will be
