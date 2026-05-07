@@ -1912,16 +1912,25 @@ int symlinks_and_files_from_files(
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
         file_info_struct->bit_flags[1] |= 1;
       }
+      if ((stat_buf.st_mode & S_ISUID) != 0) {
+        file_info_struct->bit_flags[1] |= 4;
+      }
+      if ((stat_buf.st_mode & S_ISGID) != 0) {
+        file_info_struct->bit_flags[1] |= 8;
+      }
+      if ((stat_buf.st_mode & S_ISVTX) != 0) {
+        file_info_struct->bit_flags[1] |= 0x10;
+      }
       file_info_struct->uid = stat_buf.st_uid;
       file_info_struct->gid = stat_buf.st_gid;
       if (state->parsed->flags & 0x1000) {
         file_info_struct->bit_flags[0] = 0;
-        file_info_struct->bit_flags[1] &= 0xFE;
+        file_info_struct->bit_flags[1] &= 0xE0;
 
         file_info_struct->bit_flags[0] |=
           state->parsed->file_permissions & 0xFF;
         file_info_struct->bit_flags[1] |=
-          (state->parsed->file_permissions & 0x100) >> 8;
+          (state->parsed->file_permissions & 0x1F00) >> 8;
       }
       if (state->parsed->flags & 0x400) {
         file_info_struct->uid = state->parsed->uid;
@@ -2124,6 +2133,16 @@ int internal_write_dir_entries_v2_v3_v4_v5_v6(void *data, void *ud) {
     if ((stat_buf.st_mode & S_IXOTH) != 0) {
       u8 |= 1;
     }
+  }
+
+  if ((stat_buf.st_mode & S_ISUID) != 0) {
+    u8 |= 4;
+  }
+  if ((stat_buf.st_mode & S_ISGID) != 0) {
+    u8 |= 8;
+  }
+  if ((stat_buf.st_mode & S_ISVTX) != 0) {
+    u8 |= 0x10;
   }
 
   if (fwrite(&u8, 1, 1, out_f) != 1) {
@@ -6743,9 +6762,18 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
         if ((stat_buf.st_mode & S_IXOTH) != 0) {
           pbits[1] |= 1;
         }
+        if ((stat_buf.st_mode & S_ISUID) != 0) {
+          pbits[1] |= 4;
+        }
+        if ((stat_buf.st_mode & S_ISGID) != 0) {
+          pbits[1] |= 8;
+        }
+        if ((stat_buf.st_mode & S_ISVTX) != 0) {
+          pbits[1] |= 0x10;
+        }
       }
       // Set bit 0x20 (second byte, second bit) if dir not empty.
-      {
+      if (state && state->parsed->write_version == 6) {
         int is_dir_empty = simple_archiver_helper_is_dir_empty(dir_path);
         if (is_dir_empty < 0) {
           fprintf(stderr,
