@@ -556,6 +556,10 @@ The following bytes are added for each file within the current chunk:
         8. The eighth bit is "other write permission".
     2. The second byte.
         1. The first bit is "other execute permission".
+        2. Reserved.
+        3. The third bit is "setuid".
+        4. The fourth bit is "setgid".
+        5. The fifth bit is "sticky".
     3. The third byte.
         1. Currently unused.
     4. The fourth byte.
@@ -609,6 +613,10 @@ After this, for each directory of count "directory count":
         8. Other write permission
     2. The second byte's bits (unused bits are assumed to be set to 0):
         1. Other execute permission
+        2. Reserved bit (may have been written to by previous SA versions)
+        3. setuid bit permission
+        4. setgid bit permission
+        5. sticky bit permission
 4. Two 4-byte unsigned integers in big-endian for UID and GID.
     1. A 32-bit unsigned integer in big-endian that is the UID of the directory.
     2. A 32-bit unsigned integer in big-endian that is the GID of the directory.
@@ -699,7 +707,10 @@ directory:
         2. This bit is set if it is a non-empty dir.
             - Note that this bit was not used starting at version 2.0.
             - Note that this bit was designated as of version 2.2
-        3. The remaining bits are reserved for future use.
+        3. The third bit is "setuid".
+        4. The fourth bit is "setgid".
+        5. The fifth bit is "sticky".
+        6. The remaining bits are reserved for future use.
 4. 4 bytes 32-bit unsigned integer in big-endian UID of this directory.
 5. 4 bytes 32-bit unsigned integer in big-endian GID of this directory.
 6. 2 bytes 16-bit unsigned integer in big-endian length of "user name" which
@@ -798,6 +809,10 @@ The following bytes are added for each file within the current chunk:
         8. The eighth bit is "other write permission".
     2. The second byte.
         1. The first bit is "other execute permission".
+        2. Reserved.
+        3. The third bit is "setuid".
+        4. The fourth bit is "setgid".
+        5. The fifth bit is "sticky".
     3. The third byte.
         1. Currently unused.
     4. The fourth byte.
