@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Support setuid/setgid/sticky bits permissions for files and directories.
+
 ## Version 3.0
 
 Remove obsolete arg "--allow-double-dot", which creates archives that become
