@@ -1661,8 +1661,18 @@ mode_t permissions_from_bits_version_1(const uint8_t flags[4],
   }
   if ((flags[0] & 4) != 0) {
     permissions |= S_IXUSR;
-    if (print) {
+    if ((flags[1] & 4) != 0) {
+      permissions |= S_ISUID;
+      if (print) {
+        fprintf(stderr, "s");
+      }
+    } else if (print) {
       fprintf(stderr, "x");
+    }
+  } else if ((flags[1] & 4) != 0) {
+    permissions |= S_ISUID;
+    if (print) {
+      fprintf(stderr, "S");
     }
   } else if (print) {
     fprintf(stderr, "-");
@@ -1685,8 +1695,18 @@ mode_t permissions_from_bits_version_1(const uint8_t flags[4],
   }
   if ((flags[0] & 0x20) != 0) {
     permissions |= S_IXGRP;
-    if (print) {
+    if ((flags[1] & 8) != 0) {
+      permissions |= S_ISGID;
+      if (print) {
+        fprintf(stderr, "s");
+      }
+    } else if (print) {
       fprintf(stderr, "x");
+    }
+  } else if ((flags[1] & 8) != 0) {
+    permissions |= S_ISGID;
+    if (print) {
+      fprintf(stderr, "S");
     }
   } else if (print) {
     fprintf(stderr, "-");
@@ -1709,8 +1729,18 @@ mode_t permissions_from_bits_version_1(const uint8_t flags[4],
   }
   if ((flags[1] & 1) != 0) {
     permissions |= S_IXOTH;
-    if (print) {
+    if ((flags[1] & 0x10) != 0) {
+      permissions |= S_ISVTX;
+      if (print) {
+        fprintf(stderr, "t");
+      }
+    } else if (print) {
       fprintf(stderr, "x");
+    }
+  } else if ((flags[1] & 0x10) != 0) {
+    permissions |= S_ISVTX;
+    if (print) {
+      fprintf(stderr, "T");
     }
   } else if (print) {
     fprintf(stderr, "-");
@@ -1930,7 +1960,8 @@ int symlinks_and_files_from_files(
         file_info_struct->bit_flags[0] |=
           state->parsed->file_permissions & 0xFF;
         file_info_struct->bit_flags[1] |=
-          (state->parsed->file_permissions & 0x1F00) >> 8;
+          ((state->parsed->file_permissions & 0x100) >> 8)
+          | ((state->parsed->file_permissions & 0xE00) >> 7);
       }
       if (state->parsed->flags & 0x400) {
         file_info_struct->uid = state->parsed->uid;
@@ -2322,7 +2353,10 @@ mode_t simple_archiver_internal_permissions_to_mode_t(uint_fast16_t permissions)
     | ((permissions & 0x20) ? S_IXGRP : 0)
     | ((permissions & 0x40) ? S_IROTH : 0)
     | ((permissions & 0x80) ? S_IWOTH : 0)
-    | ((permissions & 0x100) ? S_IXOTH : 0);
+    | ((permissions & 0x100) ? S_IXOTH : 0)
+    | ((permissions & 0x400) ? S_ISUID : 0)
+    | ((permissions & 0x800) ? S_ISGID : 0)
+    | ((permissions & 0x1000) ? S_ISVTX : 0);
 }
 
 mode_t simple_archiver_internal_bits_to_mode_t(const uint8_t perms[restrict 2])
@@ -2335,7 +2369,10 @@ mode_t simple_archiver_internal_bits_to_mode_t(const uint8_t perms[restrict 2])
        | ((perms[0] & 0x20) ? S_IXGRP : 0)
        | ((perms[0] & 0x40) ? S_IROTH : 0)
        | ((perms[0] & 0x80) ? S_IWOTH : 0)
-       | ((perms[1] & 1)    ? S_IXOTH : 0);
+       | ((perms[1] & 1)    ? S_IXOTH : 0)
+       | ((perms[1] & 4)    ? S_ISUID : 0)
+       | ((perms[1] & 8)    ? S_ISGID : 0)
+       | ((perms[1] & 0x10) ? S_ISVTX : 0);
 }
 
 int simple_archiver_internal_prune_filenames_v0(
@@ -13255,13 +13292,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         fprintf(stderr, "    Permissions: ");
         fprintf(stderr, "%s", (pbits[0] & 1)    ? "r" : "-");
         fprintf(stderr, "%s", (pbits[0] & 2)    ? "w" : "-");
-        fprintf(stderr, "%s", (pbits[0] & 4)    ? "x" : "-");
+        if (pbits[1] & 4) {
+          fprintf(stderr, "%s", (pbits[0] & 4)    ? "s" : "S");
+        } else {
+          fprintf(stderr, "%s", (pbits[0] & 4)    ? "x" : "-");
+        }
         fprintf(stderr, "%s", (pbits[0] & 8)    ? "r" : "-");
         fprintf(stderr, "%s", (pbits[0] & 0x10) ? "w" : "-");
-        fprintf(stderr, "%s", (pbits[0] & 0x20) ? "x" : "-");
+        if (pbits[1] & 8) {
+          fprintf(stderr, "%s", (pbits[0] & 0x20) ? "s" : "S");
+        } else {
+          fprintf(stderr, "%s", (pbits[0] & 0x20) ? "x" : "-");
+        }
         fprintf(stderr, "%s", (pbits[0] & 0x40) ? "r" : "-");
         fprintf(stderr, "%s", (pbits[0] & 0x80) ? "w" : "-");
-        fprintf(stderr, "%s", (pbits[1] & 1)    ? "x" : "-");
+        if (pbits[1] & 0x10) {
+          fprintf(stderr, "%s", (pbits[1] & 1)    ? "t" : "T");
+        } else {
+          fprintf(stderr, "%s", (pbits[1] & 1)    ? "x" : "-");
+        }
         fprintf(stderr, "\n");
       }
 
@@ -15077,19 +15126,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
             return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
-          if (chmod(file_info->prefixed_filename
-                    ? file_info->prefixed_filename
-                    : file_info->filename,
-                    permissions)
-                == -1) {
-            fprintf(
-              stderr,
-              "ERROR Failed to set permissions of file \"%s\"!\n",
-              file_info->prefixed_filename
-              ? file_info->prefixed_filename
-              : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          //fprintf(stderr,
+          // "DEBUG: permissions: %x octal: %o\n", permissions, permissions);
+          if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -15102,6 +15141,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
               ? file_info->prefixed_filename
               : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
+                    permissions)
+                == -1) {
+            fprintf(
+              stderr,
+              "ERROR Failed to set permissions of file \"%s\"!\n",
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
@@ -15515,13 +15566,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       fprintf(stderr, "  Permissions: ");
       fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 2)    ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      if (perms_flags[1] & 4) {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 8)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x10) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      if (perms_flags[1] & 8) {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 0x40) ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x80) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      if (perms_flags[1] & 0x10) {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "t" : "T");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      }
       fprintf(stderr, "\n");
 
       fprintf(stderr,
