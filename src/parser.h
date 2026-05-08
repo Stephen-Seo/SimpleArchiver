@@ -110,6 +110,9 @@ typedef struct SDArchiverParsed {
   /// 0b xxxx x1xx xxxx - other read
   /// 0b xxxx 1xxx xxxx - other write
   /// 0b xxx1 xxxx xxxx - other execute
+  /// 0b xx1x xxxx xxxx - setuid
+  /// 0b x1xx xxxx xxxx - setgid
+  /// 0b 1xxx xxxx xxxx - sticky
   uint_fast16_t file_permissions;
   uint_fast16_t dir_permissions;
   uint_fast16_t empty_dir_permissions;

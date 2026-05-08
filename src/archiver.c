@@ -487,7 +487,8 @@ int write_files_fn_file_v0(void *data, void *ud) {
         ((uint8_t *)temp_to_write->buf)[0] |=
           (state->parsed->file_permissions & 0x7F) << 1;
         ((uint8_t *)temp_to_write->buf)[1] |=
-          (state->parsed->file_permissions & 0x18) >> 7;
+          ((state->parsed->file_permissions & 0x18) >> 7)
+          | ((state->parsed->file_permissions & 0xE00) >> 4);
       } else {
         if ((stat_buf.st_mode & S_IRUSR) != 0) {
           ((uint8_t *)temp_to_write->buf)[0] |= 0x2;
@@ -515,6 +516,15 @@ int write_files_fn_file_v0(void *data, void *ud) {
         }
         if ((stat_buf.st_mode & S_IXOTH) != 0) {
           ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
+        }
+        if ((stat_buf.st_mode & S_ISUID) != 0) {
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x20;
+        }
+        if ((stat_buf.st_mode & S_ISGID) != 0) {
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x40;
+        }
+        if ((stat_buf.st_mode & S_ISVTX) != 0) {
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x80;
         }
       }
 
@@ -656,6 +666,15 @@ int write_files_fn_file_v0(void *data, void *ud) {
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
         ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
       }
+      if ((stat_buf.st_mode & S_ISUID) != 0) {
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x20;
+      }
+      if ((stat_buf.st_mode & S_ISGID) != 0) {
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x40;
+      }
+      if ((stat_buf.st_mode & S_ISVTX) != 0) {
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x80;
+      }
 
       if (state->parsed->flags & 0x1000) {
         ((uint8_t *)temp_to_write->buf)[0] =
@@ -663,7 +682,8 @@ int write_files_fn_file_v0(void *data, void *ud) {
 
         ((uint8_t *)temp_to_write->buf)[1] &= 0xC;
         ((uint8_t *)temp_to_write->buf)[1] |=
-          (uint8_t)((state->parsed->file_permissions & 0x18) >> 7);
+          (uint8_t)((state->parsed->file_permissions & 0x18) >> 7)
+          | (uint8_t)((state->parsed->file_permissions & 0xE00) >> 4);
       }
 
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
@@ -1661,8 +1681,18 @@ mode_t permissions_from_bits_version_1(const uint8_t flags[4],
   }
   if ((flags[0] & 4) != 0) {
     permissions |= S_IXUSR;
-    if (print) {
+    if ((flags[1] & 4) != 0) {
+      permissions |= S_ISUID;
+      if (print) {
+        fprintf(stderr, "s");
+      }
+    } else if (print) {
       fprintf(stderr, "x");
+    }
+  } else if ((flags[1] & 4) != 0) {
+    permissions |= S_ISUID;
+    if (print) {
+      fprintf(stderr, "S");
     }
   } else if (print) {
     fprintf(stderr, "-");
@@ -1685,8 +1715,18 @@ mode_t permissions_from_bits_version_1(const uint8_t flags[4],
   }
   if ((flags[0] & 0x20) != 0) {
     permissions |= S_IXGRP;
-    if (print) {
+    if ((flags[1] & 8) != 0) {
+      permissions |= S_ISGID;
+      if (print) {
+        fprintf(stderr, "s");
+      }
+    } else if (print) {
       fprintf(stderr, "x");
+    }
+  } else if ((flags[1] & 8) != 0) {
+    permissions |= S_ISGID;
+    if (print) {
+      fprintf(stderr, "S");
     }
   } else if (print) {
     fprintf(stderr, "-");
@@ -1709,8 +1749,18 @@ mode_t permissions_from_bits_version_1(const uint8_t flags[4],
   }
   if ((flags[1] & 1) != 0) {
     permissions |= S_IXOTH;
-    if (print) {
+    if ((flags[1] & 0x10) != 0) {
+      permissions |= S_ISVTX;
+      if (print) {
+        fprintf(stderr, "t");
+      }
+    } else if (print) {
       fprintf(stderr, "x");
+    }
+  } else if ((flags[1] & 0x10) != 0) {
+    permissions |= S_ISVTX;
+    if (print) {
+      fprintf(stderr, "T");
     }
   } else if (print) {
     fprintf(stderr, "-");
@@ -1884,7 +1934,7 @@ int symlinks_and_files_from_files(
         return 1;
       }
       file_info_struct->bit_flags[0] = 0;
-      file_info_struct->bit_flags[1] &= 0xFE;
+      file_info_struct->bit_flags[1] &= 0xE0;
       if ((stat_buf.st_mode & S_IRUSR) != 0) {
         file_info_struct->bit_flags[0] |= 1;
       }
@@ -1912,16 +1962,26 @@ int symlinks_and_files_from_files(
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
         file_info_struct->bit_flags[1] |= 1;
       }
+      if ((stat_buf.st_mode & S_ISUID) != 0) {
+        file_info_struct->bit_flags[1] |= 4;
+      }
+      if ((stat_buf.st_mode & S_ISGID) != 0) {
+        file_info_struct->bit_flags[1] |= 8;
+      }
+      if ((stat_buf.st_mode & S_ISVTX) != 0) {
+        file_info_struct->bit_flags[1] |= 0x10;
+      }
       file_info_struct->uid = stat_buf.st_uid;
       file_info_struct->gid = stat_buf.st_gid;
       if (state->parsed->flags & 0x1000) {
         file_info_struct->bit_flags[0] = 0;
-        file_info_struct->bit_flags[1] &= 0xFE;
+        file_info_struct->bit_flags[1] &= 0xE0;
 
         file_info_struct->bit_flags[0] |=
           state->parsed->file_permissions & 0xFF;
         file_info_struct->bit_flags[1] |=
-          (state->parsed->file_permissions & 0x100) >> 8;
+          ((state->parsed->file_permissions & 0x100) >> 8)
+          | ((state->parsed->file_permissions & 0xE00) >> 7);
       }
       if (state->parsed->flags & 0x400) {
         file_info_struct->uid = state->parsed->uid;
@@ -2126,6 +2186,16 @@ int internal_write_dir_entries_v2_v3_v4_v5_v6(void *data, void *ud) {
     }
   }
 
+  if ((stat_buf.st_mode & S_ISUID) != 0) {
+    u8 |= 4;
+  }
+  if ((stat_buf.st_mode & S_ISGID) != 0) {
+    u8 |= 8;
+  }
+  if ((stat_buf.st_mode & S_ISVTX) != 0) {
+    u8 |= 0x10;
+  }
+
   if (fwrite(&u8, 1, 1, out_f) != 1) {
     fprintf(
       stderr,
@@ -2303,7 +2373,10 @@ mode_t simple_archiver_internal_permissions_to_mode_t(uint_fast16_t permissions)
     | ((permissions & 0x20) ? S_IXGRP : 0)
     | ((permissions & 0x40) ? S_IROTH : 0)
     | ((permissions & 0x80) ? S_IWOTH : 0)
-    | ((permissions & 0x100) ? S_IXOTH : 0);
+    | ((permissions & 0x100) ? S_IXOTH : 0)
+    | ((permissions & 0x200) ? S_ISUID : 0)
+    | ((permissions & 0x400) ? S_ISGID : 0)
+    | ((permissions & 0x800) ? S_ISVTX : 0);
 }
 
 mode_t simple_archiver_internal_bits_to_mode_t(const uint8_t perms[restrict 2])
@@ -2316,7 +2389,10 @@ mode_t simple_archiver_internal_bits_to_mode_t(const uint8_t perms[restrict 2])
        | ((perms[0] & 0x20) ? S_IXGRP : 0)
        | ((perms[0] & 0x40) ? S_IROTH : 0)
        | ((perms[0] & 0x80) ? S_IWOTH : 0)
-       | ((perms[1] & 1)    ? S_IXOTH : 0);
+       | ((perms[1] & 1)    ? S_IXOTH : 0)
+       | ((perms[1] & 4)    ? S_ISUID : 0)
+       | ((perms[1] & 8)    ? S_ISGID : 0)
+       | ((perms[1] & 0x10) ? S_ISVTX : 0);
 }
 
 int simple_archiver_internal_prune_filenames_v0(
@@ -6743,9 +6819,18 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
         if ((stat_buf.st_mode & S_IXOTH) != 0) {
           pbits[1] |= 1;
         }
+        if ((stat_buf.st_mode & S_ISUID) != 0) {
+          pbits[1] |= 4;
+        }
+        if ((stat_buf.st_mode & S_ISGID) != 0) {
+          pbits[1] |= 8;
+        }
+        if ((stat_buf.st_mode & S_ISVTX) != 0) {
+          pbits[1] |= 0x10;
+        }
       }
       // Set bit 0x20 (second byte, second bit) if dir not empty.
-      {
+      if (state && state->parsed->write_version == 6) {
         int is_dir_empty = simple_archiver_helper_is_dir_empty(dir_path);
         if (is_dir_empty < 0) {
           fprintf(stderr,
@@ -8584,11 +8669,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     }
     if ((buf[0] & 0x8) != 0) {
       permissions |= S_IXUSR;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if ((buf[1] & 0x20) != 0) {
+        permissions |= S_ISUID;
+        if (!do_extract && arg_allowed && lists_allowed) {
+          fprintf(stderr, "s");
+        }
+      } else if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "x");
       }
     } else if (!do_extract && arg_allowed && lists_allowed) {
-      fprintf(stderr, "-");
+      if ((buf[1] & 0x20) != 0) {
+        permissions |= S_ISUID;
+        fprintf(stderr, "S");
+      } else {
+        fprintf(stderr, "-");
+      }
     }
     if ((buf[0] & 0x10) != 0) {
       permissions |= S_IRGRP;
@@ -8608,11 +8703,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     }
     if ((buf[0] & 0x40) != 0) {
       permissions |= S_IXGRP;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if ((buf[1] & 0x40) != 0) {
+        permissions |= S_ISGID;
+        if (!do_extract && arg_allowed && lists_allowed) {
+          fprintf(stderr, "s");
+        }
+      } else if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "x");
       }
     } else if (!do_extract && arg_allowed && lists_allowed) {
-      fprintf(stderr, "-");
+      if ((buf[1] & 0x40) != 0) {
+        permissions |= S_ISGID;
+        fprintf(stderr, "S");
+      } else {
+        fprintf(stderr, "-");
+      }
     }
     if ((buf[0] & 0x80) != 0) {
       permissions |= S_IROTH;
@@ -8632,11 +8737,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     }
     if ((buf[1] & 0x2) != 0) {
       permissions |= S_IXOTH;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if ((buf[1] & 0x80) != 0) {
+        permissions |= S_ISVTX;
+        if (!do_extract && arg_allowed && lists_allowed) {
+          fprintf(stderr, "t");
+        }
+      } else if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "x");
       }
     } else if (!do_extract && arg_allowed && lists_allowed) {
-      fprintf(stderr, "-");
+      if ((buf[1] & 0x80) != 0) {
+        permissions |= S_ISVTX;
+        fprintf(stderr, "T");
+      } else {
+        fprintf(stderr, "-");
+      }
     }
 
     if (!do_extract && arg_allowed && lists_allowed) {
@@ -9440,8 +9555,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -10464,13 +10579,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
-          if (chmod(file_info->prefixed_filename
-                    ? file_info->prefixed_filename
-                    : file_info->filename,
-                    permissions)
-                == -1) {
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -10482,6 +10591,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     ? file_info->prefixed_filename
                     : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
+                    permissions)
+                == -1) {
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
                    && (file_info->other_flags & 1) == 0
@@ -10648,15 +10763,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
-          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
-                    permissions) == -1) {
-            fprintf(stderr,
-                    "ERROR Failed to set permissions of file \"%s\"!\n",
-                    filename_prefixed
-                      ? filename_prefixed
-                      : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          if (simple_archiver_helper_can_chown() &&
                      chown(filename_prefixed
                              ? filename_prefixed
                              : file_info->filename,
@@ -10666,6 +10773,16 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
                     file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(filename_prefixed
+                             ? filename_prefixed
+                             : file_info->filename,
+                           permissions) == -1) {
+            fprintf(stderr,
+                    "ERROR Failed to set permissions of file \"%s\"!\n",
+                    filename_prefixed
+                      ? filename_prefixed
+                      : file_info->filename);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
                    && (file_info->other_flags & 1) == 0
@@ -10743,8 +10860,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS
                         | (not_tested_once ? SDAS_NOT_TESTED_ONCE : 0));
@@ -10869,13 +10986,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
       fprintf(stderr, "  Permissions: ");
       fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 2)    ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      if (perms_flags[1] & 4) {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 8)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x10) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      if (perms_flags[1] & 8) {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 0x40) ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x80) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      if (perms_flags[1] & 0x10) {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "t" : "T");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      }
       fprintf(stderr, "\n");
 
       fprintf(stderr,
@@ -11032,8 +11161,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
       "try a different positional argument?\n");
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -12423,13 +12552,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
-          if (chmod(file_info->prefixed_filename
-                    ? file_info->prefixed_filename
-                    : file_info->filename,
-                    permissions)
-                == -1) {
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -12441,6 +12564,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                     ? file_info->prefixed_filename
                     : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
+                    permissions)
+                == -1) {
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
@@ -12607,19 +12736,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
             return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
-          if (chmod(file_info->prefixed_filename
-                    ? file_info->prefixed_filename
-                    : file_info->filename,
-                    permissions)
-                == -1) {
-            fprintf(
-              stderr,
-              "ERROR Failed to set permissions of file \"%s\"!\n",
-              file_info->prefixed_filename
-              ? file_info->prefixed_filename
-              : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -12632,6 +12749,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               ? file_info->prefixed_filename
               : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
+                    permissions)
+                == -1) {
+            fprintf(
+              stderr,
+              "ERROR Failed to set permissions of file \"%s\"!\n",
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
@@ -12940,13 +13069,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       fprintf(stderr, "  Permissions: ");
       fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 2)    ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      if (perms_flags[1] & 4) {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 8)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x10) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      if (perms_flags[1] & 8) {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 0x40) ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x80) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      if (perms_flags[1] & 0x10) {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "t" : "T");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      }
       fprintf(stderr, "\n");
 
       fprintf(stderr,
@@ -13060,8 +13201,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -13227,13 +13368,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         fprintf(stderr, "    Permissions: ");
         fprintf(stderr, "%s", (pbits[0] & 1)    ? "r" : "-");
         fprintf(stderr, "%s", (pbits[0] & 2)    ? "w" : "-");
-        fprintf(stderr, "%s", (pbits[0] & 4)    ? "x" : "-");
+        if (pbits[1] & 4) {
+          fprintf(stderr, "%s", (pbits[0] & 4)    ? "s" : "S");
+        } else {
+          fprintf(stderr, "%s", (pbits[0] & 4)    ? "x" : "-");
+        }
         fprintf(stderr, "%s", (pbits[0] & 8)    ? "r" : "-");
         fprintf(stderr, "%s", (pbits[0] & 0x10) ? "w" : "-");
-        fprintf(stderr, "%s", (pbits[0] & 0x20) ? "x" : "-");
+        if (pbits[1] & 8) {
+          fprintf(stderr, "%s", (pbits[0] & 0x20) ? "s" : "S");
+        } else {
+          fprintf(stderr, "%s", (pbits[0] & 0x20) ? "x" : "-");
+        }
         fprintf(stderr, "%s", (pbits[0] & 0x40) ? "r" : "-");
         fprintf(stderr, "%s", (pbits[0] & 0x80) ? "w" : "-");
-        fprintf(stderr, "%s", (pbits[1] & 1)    ? "x" : "-");
+        if (pbits[1] & 0x10) {
+          fprintf(stderr, "%s", (pbits[1] & 1)    ? "t" : "T");
+        } else {
+          fprintf(stderr, "%s", (pbits[1] & 1)    ? "x" : "-");
+        }
         fprintf(stderr, "\n");
       }
 
@@ -13250,10 +13403,19 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         SDArchiverInternalDirInfo *dinfo =
           malloc(sizeof(SDArchiverInternalDirInfo));
         dinfo->dirname = strdup(dir_path);
-        dinfo->permissions = state && (state->parsed->flags & 0x2000)
-              ? simple_archiver_internal_permissions_to_mode_t(
-                  state->parsed->dir_permissions)
-              : simple_archiver_internal_bits_to_mode_t(pbits);
+        if (pbits[1] & 2) {
+          // Is non-empty dir.
+          dinfo->permissions = state && (state->parsed->flags & 0x2000)
+                ? simple_archiver_internal_permissions_to_mode_t(
+                    state->parsed->dir_permissions)
+                : simple_archiver_internal_bits_to_mode_t(pbits);
+        } else {
+          // Is empty dir.
+          dinfo->permissions = state && (state->parsed->flags & 0x10000)
+                ? simple_archiver_internal_permissions_to_mode_t(
+                    state->parsed->empty_dir_permissions)
+                : simple_archiver_internal_bits_to_mode_t(pbits);
+        }
         simple_archiver_priority_heap_insert(dir_heap_post_process,
                                              1,
                                              dinfo,
@@ -14801,13 +14963,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
-          if (chmod(file_info->prefixed_filename
-                    ? file_info->prefixed_filename
-                    : file_info->filename,
-                    permissions)
-                == -1) {
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -14819,6 +14975,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
                     ? file_info->prefixed_filename
                     : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
+                    permissions)
+                == -1) {
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
@@ -15049,19 +15211,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
             return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
-          if (chmod(file_info->prefixed_filename
-                    ? file_info->prefixed_filename
-                    : file_info->filename,
-                    permissions)
-                == -1) {
-            fprintf(
-              stderr,
-              "ERROR Failed to set permissions of file \"%s\"!\n",
-              file_info->prefixed_filename
-              ? file_info->prefixed_filename
-              : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          //fprintf(stderr,
+          // "DEBUG: permissions: %x octal: %o\n", permissions, permissions);
+          if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -15074,6 +15226,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
               ? file_info->prefixed_filename
               : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
+                    permissions)
+                == -1) {
+            fprintf(
+              stderr,
+              "ERROR Failed to set permissions of file \"%s\"!\n",
+              file_info->prefixed_filename
+              ? file_info->prefixed_filename
+              : file_info->filename);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
@@ -15237,8 +15401,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         simple_archiver_helper_datastructure_cleanup_nop);
     }
 
-    SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
     SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+    SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
     return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
@@ -15487,13 +15651,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       fprintf(stderr, "  Permissions: ");
       fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 2)    ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      if (perms_flags[1] & 4) {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 8)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x10) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      if (perms_flags[1] & 8) {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 0x40) ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x80) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      if (perms_flags[1] & 0x10) {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "t" : "T");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      }
       fprintf(stderr, "\n");
 
       fprintf(stderr,
@@ -15618,8 +15794,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
