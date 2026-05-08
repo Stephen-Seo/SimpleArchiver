@@ -186,26 +186,26 @@ extraction if the current effective user ID is 0 (root).
 .BR --force-file-permissions " " \fI3-OctalValues\fR " | " --force-file-permissions=\fI3-OctalValues\fR
 Force set permissions for files on archive creation. Note that this option will
 only take effect on extraction if the current effective user ID is 0 (root).
-For example, a valid value can be 644 or 440.
+For example, a valid value can be 644 or 440 or 4755.
 .TP
 .BR --force-dir-permissions " " \fI3-OctalValues\fR " | " --force-dir-permissions=\fI3-OctalValues\fR
 Force set permissions for directories on archive creation. Note that this
 option will only take effect on extraction if the current effective user ID is
-0 (root). For example, a valid value can be 755 or 750. Note that this does not
-have any effect on empty directories. See the following option to force
-permissions on empty directories.
+0 (root). For example, a valid value can be 755 or 750 or 4755. Note that this
+does not have any effect on empty directories. See the following option to
+force permissions on empty directories.
 .TP
 .BR --force-empty-dir-permissions " " \fI3-OctalValues\fR " | " --force-empty-dir-permissions=\fI3-OctalValues\fR
 Force set permissions for empty directories on archive creation. Note that this
 option will only take effect on extraction if the current effective user ID is
-0 (root). For example, a valid value can be 755 or 750. Note that this does not
-effect intermediate directories that hold files/directories. See the previous
-option to force permissions on such directories.
+0 (root). For example, a valid value can be 755 or 750 or 4755. Note that this
+does not effect intermediate directories that hold files/directories. See the
+previous option to force permissions on such directories.
 .TP
 .BR --force-prefix-dir-permissions " " \fI3-OctalValues\fR " | " --force-prefix-dir-permissions=\fI3-OctalValues\fR
 Force set permissions for directories created with \fB\-\-prefix\fR on archive
-extraction. For example, a valid value can be 755 or 750. Note that this option
-only has effect on prefix directories, not files/dirs within them.
+extraction. For example, a valid value can be 755 or 750 or 4755. Note that
+this option only has effect on prefix directories, not files/dirs within them.
 .TP
 .BR --set-prefix-dir-uid " " \fIuid\fR " | " --set-prefix-dir-uid=\fIuid\fR
 Sets the UID of prefix dir(s) (only if root or has CAP_CHOWN). Mutually
