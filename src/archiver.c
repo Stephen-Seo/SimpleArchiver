@@ -14890,13 +14890,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
-          if (chmod(file_info->prefixed_filename
-                    ? file_info->prefixed_filename
-                    : file_info->filename,
-                    permissions)
-                == -1) {
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -14908,6 +14902,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
                     ? file_info->prefixed_filename
                     : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
+                    permissions)
+                == -1) {
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
