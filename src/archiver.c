@@ -10529,13 +10529,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
-          if (chmod(file_info->prefixed_filename
-                    ? file_info->prefixed_filename
-                    : file_info->filename,
-                    permissions)
-                == -1) {
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          if (simple_archiver_helper_can_chown() &&
                      chown(file_info->prefixed_filename
                            ? file_info->prefixed_filename
                            : file_info->filename,
@@ -10547,6 +10541,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     ? file_info->prefixed_filename
                     : file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(file_info->prefixed_filename
+                    ? file_info->prefixed_filename
+                    : file_info->filename,
+                    permissions)
+                == -1) {
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
                    && (file_info->other_flags & 1) == 0
@@ -10713,15 +10713,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             return SDA_RET_STRUCT(ret);
           }
           simple_archiver_helper_cleanup_FILE(&out_fd);
-          if (chmod(filename_prefixed ? filename_prefixed : file_info->filename,
-                    permissions) == -1) {
-            fprintf(stderr,
-                    "ERROR Failed to set permissions of file \"%s\"!\n",
-                    filename_prefixed
-                      ? filename_prefixed
-                      : file_info->filename);
-            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
-          } else if (simple_archiver_helper_can_chown() &&
+          if (simple_archiver_helper_can_chown() &&
                      chown(filename_prefixed
                              ? filename_prefixed
                              : file_info->filename,
@@ -10731,6 +10723,16 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     "    ERROR Failed to set UID/GID of file \"%s\"!\n",
                     file_info->filename);
             return SDA_RET_STRUCT(SDAS_UID_GID_SET_FAIL);
+          } else if (chmod(filename_prefixed
+                             ? filename_prefixed
+                             : file_info->filename,
+                           permissions) == -1) {
+            fprintf(stderr,
+                    "ERROR Failed to set permissions of file \"%s\"!\n",
+                    filename_prefixed
+                      ? filename_prefixed
+                      : file_info->filename);
+            return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
         } else if ((file_info->other_flags & 4) != 0
                    && (file_info->other_flags & 1) == 0
@@ -10934,13 +10936,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
       fprintf(stderr, "  Permissions: ");
       fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 2)    ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      if (perms_flags[1] & 4) {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 4)    ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 8)    ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x10) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      if (perms_flags[1] & 8) {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "s" : "S");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[0] & 0x20) ? "x" : "-");
+      }
       fprintf(stderr, "%s", (perms_flags[0] & 0x40) ? "r" : "-");
       fprintf(stderr, "%s", (perms_flags[0] & 0x80) ? "w" : "-");
-      fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      if (perms_flags[1] & 0x10) {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "t" : "T");
+      } else {
+        fprintf(stderr, "%s", (perms_flags[1] & 1)    ? "x" : "-");
+      }
       fprintf(stderr, "\n");
 
       fprintf(stderr,
