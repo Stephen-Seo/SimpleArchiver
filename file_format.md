@@ -368,6 +368,10 @@ The following bytes are added for each file within the current chunk:
         8. The eighth bit is "other write permission".
     2. The second byte.
         1. The first bit is "other execute permission".
+        2. Reserved.
+        3. The third bit is "setuid".
+        4. The fourth bit is "setgid".
+        5. The fifth bit is "sticky".
     3. The third byte.
         1. Currently unused.
     4. The fourth byte.
@@ -421,6 +425,10 @@ After this, for each directory of count "directory count":
         8. Other write permission
     2. The second byte's bits (unused bits are assumed to be set to 0):
         1. Other execute permission
+        2. Reserved
+        3. setuid permission
+        4. setgid permission
+        5. sticky permission
 4. Two 4-byte unsigned integers in big-endian for UID and GID.
     1. A 32-bit unsigned integer in big-endian that is the UID of the directory.
     2. A 32-bit unsigned integer in big-endian that is the GID of the directory.
