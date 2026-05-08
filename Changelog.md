@@ -4,6 +4,9 @@
 
 Support setuid/setgid/sticky bits permissions for files and directories.
 
+Support 4-digit mode strings for forcing permissions for files/dirs with
+setuid/setgid/sticky bits support.
+
 ## Version 3.0
 
 Remove obsolete arg "--allow-double-dot", which creates archives that become
