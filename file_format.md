@@ -64,6 +64,9 @@ Following the file-count bytes, the following bytes are added for each file:
            not exist.
         5. The fifth bit is set if this symlink points to something outside of
            this archive.
+        6. The sixth bit is "setuid permission".
+        7. The seventh bit is "setgid permission".
+        8. The eighth bit is "sticky permission".
     3. The third byte.
         1. Currently unused.
     4. The fourth byte.

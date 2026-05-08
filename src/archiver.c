@@ -487,7 +487,8 @@ int write_files_fn_file_v0(void *data, void *ud) {
         ((uint8_t *)temp_to_write->buf)[0] |=
           (state->parsed->file_permissions & 0x7F) << 1;
         ((uint8_t *)temp_to_write->buf)[1] |=
-          (state->parsed->file_permissions & 0x18) >> 7;
+          ((state->parsed->file_permissions & 0x18) >> 7)
+          | ((state->parsed->file_permissions & 0xE00) >> 4);
       } else {
         if ((stat_buf.st_mode & S_IRUSR) != 0) {
           ((uint8_t *)temp_to_write->buf)[0] |= 0x2;
@@ -515,6 +516,15 @@ int write_files_fn_file_v0(void *data, void *ud) {
         }
         if ((stat_buf.st_mode & S_IXOTH) != 0) {
           ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
+        }
+        if ((stat_buf.st_mode & S_ISUID) != 0) {
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x20;
+        }
+        if ((stat_buf.st_mode & S_ISGID) != 0) {
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x40;
+        }
+        if ((stat_buf.st_mode & S_ISVTX) != 0) {
+          ((uint8_t *)temp_to_write->buf)[1] |= 0x80;
         }
       }
 
@@ -656,6 +666,15 @@ int write_files_fn_file_v0(void *data, void *ud) {
       if ((stat_buf.st_mode & S_IXOTH) != 0) {
         ((uint8_t *)temp_to_write->buf)[1] |= 0x2;
       }
+      if ((stat_buf.st_mode & S_ISUID) != 0) {
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x20;
+      }
+      if ((stat_buf.st_mode & S_ISGID) != 0) {
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x40;
+      }
+      if ((stat_buf.st_mode & S_ISVTX) != 0) {
+        ((uint8_t *)temp_to_write->buf)[1] |= 0x80;
+      }
 
       if (state->parsed->flags & 0x1000) {
         ((uint8_t *)temp_to_write->buf)[0] =
@@ -663,7 +682,8 @@ int write_files_fn_file_v0(void *data, void *ud) {
 
         ((uint8_t *)temp_to_write->buf)[1] &= 0xC;
         ((uint8_t *)temp_to_write->buf)[1] |=
-          (uint8_t)((state->parsed->file_permissions & 0x18) >> 7);
+          (uint8_t)((state->parsed->file_permissions & 0x18) >> 7)
+          | (uint8_t)((state->parsed->file_permissions & 0xE00) >> 4);
       }
 
       simple_archiver_list_add(to_write, temp_to_write, free_internal_to_write);
@@ -8649,11 +8669,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     }
     if ((buf[0] & 0x8) != 0) {
       permissions |= S_IXUSR;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if ((buf[1] & 0x20) != 0) {
+        permissions |= S_ISUID;
+        if (!do_extract && arg_allowed && lists_allowed) {
+          fprintf(stderr, "s");
+        }
+      } else if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "x");
       }
     } else if (!do_extract && arg_allowed && lists_allowed) {
-      fprintf(stderr, "-");
+      if ((buf[1] & 0x20) != 0) {
+        permissions |= S_ISUID;
+        fprintf(stderr, "S");
+      } else {
+        fprintf(stderr, "-");
+      }
     }
     if ((buf[0] & 0x10) != 0) {
       permissions |= S_IRGRP;
@@ -8673,11 +8703,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     }
     if ((buf[0] & 0x40) != 0) {
       permissions |= S_IXGRP;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if ((buf[1] & 0x40) != 0) {
+        permissions |= S_ISGID;
+        if (!do_extract && arg_allowed && lists_allowed) {
+          fprintf(stderr, "s");
+        }
+      } else if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "x");
       }
     } else if (!do_extract && arg_allowed && lists_allowed) {
-      fprintf(stderr, "-");
+      if ((buf[1] & 0x40) != 0) {
+        permissions |= S_ISGID;
+        fprintf(stderr, "S");
+      } else {
+        fprintf(stderr, "-");
+      }
     }
     if ((buf[0] & 0x80) != 0) {
       permissions |= S_IROTH;
@@ -8697,11 +8737,21 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     }
     if ((buf[1] & 0x2) != 0) {
       permissions |= S_IXOTH;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if ((buf[1] & 0x80) != 0) {
+        permissions |= S_ISVTX;
+        if (!do_extract && arg_allowed && lists_allowed) {
+          fprintf(stderr, "t");
+        }
+      } else if (!do_extract && arg_allowed && lists_allowed) {
         fprintf(stderr, "x");
       }
     } else if (!do_extract && arg_allowed && lists_allowed) {
-      fprintf(stderr, "-");
+      if ((buf[1] & 0x80) != 0) {
+        permissions |= S_ISVTX;
+        fprintf(stderr, "T");
+      } else {
+        fprintf(stderr, "-");
+      }
     }
 
     if (!do_extract && arg_allowed && lists_allowed) {
