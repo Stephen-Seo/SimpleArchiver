@@ -1003,27 +1003,30 @@ int simple_archiver_parse_args(int argc, const char **argv,
         const char *str;
         if (is_separate
             && (argc < 2
-            || strlen(argv[1]) != 3
+            || strlen(argv[1]) < 3 || strlen(argv[1]) > 4
             || (!(argv[1][0] >= '0' && argv[1][0] <= '7'))
             || (!(argv[1][1] >= '0' && argv[1][1] <= '7'))
             || (!(argv[1][2] >= '0' && argv[1][2] <= '7'))
+            || (strlen(argv[1]) == 4 && (!(argv[1][3] >= '0'
+                                        && argv[1][3] <= '7')))
               )) {
           fprintf(stderr,
-                  "ERROR: --force-file-permissions expects 3 octal values "
-                  "(e.g. \"755\" or \"440\")!\n");
+                  "ERROR: --force-file-permissions expects 3/4 octal values "
+                  "(e.g. \"755\" or \"440\" or \"1755\")!\n");
           simple_archiver_print_usage();
           return 1;
         } else if (is_separate) {
           str = argv[1];
         } else {
           str = argv[0] + 25;
-          if (strlen(str) != 3
+          if (strlen(str) < 3 || strlen(str) > 4
               || !(str[0] >= '0' && str[0] <= '7')
               || !(str[1] >= '0' && str[1] <= '7')
-              || !(str[2] >= '0' && str[2] <= '7')) {
+              || !(str[2] >= '0' && str[2] <= '7')
+              || (strlen(str) == 4 && (!(str[3] >= '0' && str[3] <= '7')))) {
             fprintf(stderr,
-                    "ERROR: --force-file-permissions expects 3 octal values "
-                    "(e.g. \"755\" or \"440\")!\n");
+                    "ERROR: --force-file-permissions expects 3/4 octal values "
+                    "(e.g. \"755\" or \"440\" or \"1755\")!\n");
             simple_archiver_print_usage();
             return 1;
           }
@@ -1036,20 +1039,44 @@ int simple_archiver_parse_args(int argc, const char **argv,
           return 1;
         }
 
-        uint_fast8_t value = (uint_fast8_t)(str[0] - '0');
-        out->file_permissions |= (value & 4) ? 1 : 0;
-        out->file_permissions |= (value & 2) ? 2 : 0;
-        out->file_permissions |= (value & 1) ? 4 : 0;
+        uint_fast8_t value;
 
-        value = (uint_fast8_t)(str[1] - '0');
-        out->file_permissions |= (value & 4) ? 8 : 0;
-        out->file_permissions |= (value & 2) ? 0x10 : 0;
-        out->file_permissions |= (value & 1) ? 0x20 : 0;
+        if (strlen(str) == 4) {
+          value = (uint_fast8_t)(str[1] - '0');
+          out->file_permissions |= (value & 4) ? 1 : 0;
+          out->file_permissions |= (value & 2) ? 2 : 0;
+          out->file_permissions |= (value & 1) ? 4 : 0;
 
-        value = (uint_fast8_t)(str[2] - '0');
-        out->file_permissions |= (value & 4) ? 0x40 : 0;
-        out->file_permissions |= (value & 2) ? 0x80 : 0;
-        out->file_permissions |= (value & 1) ? 0x100 : 0;
+          value = (uint_fast8_t)(str[2] - '0');
+          out->file_permissions |= (value & 4) ? 8 : 0;
+          out->file_permissions |= (value & 2) ? 0x10 : 0;
+          out->file_permissions |= (value & 1) ? 0x20 : 0;
+
+          value = (uint_fast8_t)(str[3] - '0');
+          out->file_permissions |= (value & 4) ? 0x40 : 0;
+          out->file_permissions |= (value & 2) ? 0x80 : 0;
+          out->file_permissions |= (value & 1) ? 0x100 : 0;
+
+          value = (uint_fast8_t)(str[0] - '0');
+          out->file_permissions |= (value & 4) ? 0x200 : 0;
+          out->file_permissions |= (value & 2) ? 0x400 : 0;
+          out->file_permissions |= (value & 1) ? 0x800 : 0;
+        } else {
+          value = (uint_fast8_t)(str[0] - '0');
+          out->file_permissions |= (value & 4) ? 1 : 0;
+          out->file_permissions |= (value & 2) ? 2 : 0;
+          out->file_permissions |= (value & 1) ? 4 : 0;
+
+          value = (uint_fast8_t)(str[1] - '0');
+          out->file_permissions |= (value & 4) ? 8 : 0;
+          out->file_permissions |= (value & 2) ? 0x10 : 0;
+          out->file_permissions |= (value & 1) ? 0x20 : 0;
+
+          value = (uint_fast8_t)(str[2] - '0');
+          out->file_permissions |= (value & 4) ? 0x40 : 0;
+          out->file_permissions |= (value & 2) ? 0x80 : 0;
+          out->file_permissions |= (value & 1) ? 0x100 : 0;
+        }
 
         out->flags |= 0x1000;
 
@@ -1064,27 +1091,30 @@ int simple_archiver_parse_args(int argc, const char **argv,
         const char *str;
         if (is_separate
             && (argc < 2
-            || strlen(argv[1]) != 3
+            || strlen(argv[1]) < 3 || strlen(argv[1]) > 4
             || (!(argv[1][0] >= '0' && argv[1][0] <= '7'))
             || (!(argv[1][1] >= '0' && argv[1][1] <= '7'))
             || (!(argv[1][2] >= '0' && argv[1][2] <= '7'))
+            || (strlen(argv[1]) == 4 && (!(argv[1][3] >= '0'
+                                        && argv[1][3] <= '7')))
               )) {
           fprintf(stderr,
-                  "ERROR: --force-dir-permissions expects 3 octal values "
-                  "(e.g. \"755\" or \"440\")!\n");
+                  "ERROR: --force-dir-permissions expects 3/4 octal values "
+                  "(e.g. \"755\" or \"440\" or \"1755\")!\n");
           simple_archiver_print_usage();
           return 1;
         } else if (is_separate) {
           str = argv[1];
         } else {
           str = argv[0] + 24;
-          if (strlen(str) != 3
+          if (strlen(str) < 3 || strlen(str) > 4
               || !(str[0] >= '0' && str[0] <= '7')
               || !(str[1] >= '0' && str[1] <= '7')
-              || !(str[2] >= '0' && str[2] <= '7')) {
+              || !(str[2] >= '0' && str[2] <= '7')
+              || (strlen(str) == 4 && (!(str[3] >= '0' && str[3] <= '7')))) {
             fprintf(stderr,
-                    "ERROR: --force-dir-permissions expects 3 octal values "
-                    "(e.g. \"755\" or \"440\")!\n");
+                    "ERROR: --force-dir-permissions expects 3/4 octal values "
+                    "(e.g. \"755\" or \"440\" or \"1755\")!\n");
             simple_archiver_print_usage();
             return 1;
           }
@@ -1097,20 +1127,44 @@ int simple_archiver_parse_args(int argc, const char **argv,
           return 1;
         }
 
-        uint_fast8_t value = (uint_fast8_t)(str[0] - '0');
-        out->dir_permissions |= (value & 4) ? 1 : 0;
-        out->dir_permissions |= (value & 2) ? 2 : 0;
-        out->dir_permissions |= (value & 1) ? 4 : 0;
+        uint_fast8_t value;
 
-        value = (uint_fast8_t)(str[1] - '0');
-        out->dir_permissions |= (value & 4) ? 8 : 0;
-        out->dir_permissions |= (value & 2) ? 0x10 : 0;
-        out->dir_permissions |= (value & 1) ? 0x20 : 0;
+        if (strlen(str) == 4) {
+          value = (uint_fast8_t)(str[1] - '0');
+          out->dir_permissions |= (value & 4) ? 1 : 0;
+          out->dir_permissions |= (value & 2) ? 2 : 0;
+          out->dir_permissions |= (value & 1) ? 4 : 0;
 
-        value = (uint_fast8_t)(str[2] - '0');
-        out->dir_permissions |= (value & 4) ? 0x40 : 0;
-        out->dir_permissions |= (value & 2) ? 0x80 : 0;
-        out->dir_permissions |= (value & 1) ? 0x100 : 0;
+          value = (uint_fast8_t)(str[2] - '0');
+          out->dir_permissions |= (value & 4) ? 8 : 0;
+          out->dir_permissions |= (value & 2) ? 0x10 : 0;
+          out->dir_permissions |= (value & 1) ? 0x20 : 0;
+
+          value = (uint_fast8_t)(str[3] - '0');
+          out->dir_permissions |= (value & 4) ? 0x40 : 0;
+          out->dir_permissions |= (value & 2) ? 0x80 : 0;
+          out->dir_permissions |= (value & 1) ? 0x100 : 0;
+
+          value = (uint_fast8_t)(str[0] - '0');
+          out->dir_permissions |= (value & 4) ? 0x200 : 0;
+          out->dir_permissions |= (value & 2) ? 0x400 : 0;
+          out->dir_permissions |= (value & 1) ? 0x800 : 0;
+        } else {
+          value = (uint_fast8_t)(str[0] - '0');
+          out->dir_permissions |= (value & 4) ? 1 : 0;
+          out->dir_permissions |= (value & 2) ? 2 : 0;
+          out->dir_permissions |= (value & 1) ? 4 : 0;
+
+          value = (uint_fast8_t)(str[1] - '0');
+          out->dir_permissions |= (value & 4) ? 8 : 0;
+          out->dir_permissions |= (value & 2) ? 0x10 : 0;
+          out->dir_permissions |= (value & 1) ? 0x20 : 0;
+
+          value = (uint_fast8_t)(str[2] - '0');
+          out->dir_permissions |= (value & 4) ? 0x40 : 0;
+          out->dir_permissions |= (value & 2) ? 0x80 : 0;
+          out->dir_permissions |= (value & 1) ? 0x100 : 0;
+        }
 
         out->flags |= 0x2000;
 
@@ -1127,27 +1181,30 @@ int simple_archiver_parse_args(int argc, const char **argv,
         const char *str;
         if (is_separate
             && (argc < 2
-            || strlen(argv[1]) != 3
+            || strlen(argv[1]) < 3 || strlen(argv[1]) > 4
             || (!(argv[1][0] >= '0' && argv[1][0] <= '7'))
             || (!(argv[1][1] >= '0' && argv[1][1] <= '7'))
             || (!(argv[1][2] >= '0' && argv[1][2] <= '7'))
+            || (strlen(argv[1]) == 4 && (!(argv[1][3] >= '0'
+                                        && argv[1][3] <= '7')))
               )) {
           fprintf(stderr,
-                  "ERROR: --force-empty-dir-permissions expects 3 octal values"
-                  " (e.g. \"755\" or \"440\")!\n");
+                  "ERROR: --force-empty-dir-permissions expects 3/4 octal "
+                  "values (e.g. \"755\" or \"440\" or \"1755\")!\n");
           simple_archiver_print_usage();
           return 1;
         } else if (is_separate) {
           str = argv[1];
         } else {
           str = argv[0] + 30;
-          if (strlen(str) != 3
+          if (strlen(str) < 3 || strlen(str) > 4
               || !(str[0] >= '0' && str[0] <= '7')
               || !(str[1] >= '0' && str[1] <= '7')
-              || !(str[2] >= '0' && str[2] <= '7')) {
+              || !(str[2] >= '0' && str[2] <= '7')
+              || (strlen(str) == 4 && (!(str[3] >= '0' && str[3] <= '7')))) {
             fprintf(stderr,
-                    "ERROR: --force-empty-dir-permissions expects 3 octal "
-                    "values (e.g. \"755\" or \"440\")!\n");
+                    "ERROR: --force-empty-dir-permissions expects 3/4 octal "
+                    "values (e.g. \"755\" or \"440\" or \"1755\")!\n");
             simple_archiver_print_usage();
             return 1;
           }
@@ -1160,20 +1217,44 @@ int simple_archiver_parse_args(int argc, const char **argv,
           return 1;
         }
 
-        uint_fast8_t value = (uint_fast8_t)(str[0] - '0');
-        out->empty_dir_permissions |= (value & 4) ? 1 : 0;
-        out->empty_dir_permissions |= (value & 2) ? 2 : 0;
-        out->empty_dir_permissions |= (value & 1) ? 4 : 0;
+        uint_fast8_t value;
 
-        value = (uint_fast8_t)(str[1] - '0');
-        out->empty_dir_permissions |= (value & 4) ? 8 : 0;
-        out->empty_dir_permissions |= (value & 2) ? 0x10 : 0;
-        out->empty_dir_permissions |= (value & 1) ? 0x20 : 0;
+        if (strlen(str) == 4) {
+          value = (uint_fast8_t)(str[1] - '0');
+          out->empty_dir_permissions |= (value & 4) ? 1 : 0;
+          out->empty_dir_permissions |= (value & 2) ? 2 : 0;
+          out->empty_dir_permissions |= (value & 1) ? 4 : 0;
 
-        value = (uint_fast8_t)(str[2] - '0');
-        out->empty_dir_permissions |= (value & 4) ? 0x40 : 0;
-        out->empty_dir_permissions |= (value & 2) ? 0x80 : 0;
-        out->empty_dir_permissions |= (value & 1) ? 0x100 : 0;
+          value = (uint_fast8_t)(str[2] - '0');
+          out->empty_dir_permissions |= (value & 4) ? 8 : 0;
+          out->empty_dir_permissions |= (value & 2) ? 0x10 : 0;
+          out->empty_dir_permissions |= (value & 1) ? 0x20 : 0;
+
+          value = (uint_fast8_t)(str[3] - '0');
+          out->empty_dir_permissions |= (value & 4) ? 0x40 : 0;
+          out->empty_dir_permissions |= (value & 2) ? 0x80 : 0;
+          out->empty_dir_permissions |= (value & 1) ? 0x100 : 0;
+
+          value = (uint_fast8_t)(str[0] - '0');
+          out->empty_dir_permissions |= (value & 4) ? 0x200 : 0;
+          out->empty_dir_permissions |= (value & 2) ? 0x400 : 0;
+          out->empty_dir_permissions |= (value & 1) ? 0x800 : 0;
+        } else {
+          value = (uint_fast8_t)(str[0] - '0');
+          out->empty_dir_permissions |= (value & 4) ? 1 : 0;
+          out->empty_dir_permissions |= (value & 2) ? 2 : 0;
+          out->empty_dir_permissions |= (value & 1) ? 4 : 0;
+
+          value = (uint_fast8_t)(str[1] - '0');
+          out->empty_dir_permissions |= (value & 4) ? 8 : 0;
+          out->empty_dir_permissions |= (value & 2) ? 0x10 : 0;
+          out->empty_dir_permissions |= (value & 1) ? 0x20 : 0;
+
+          value = (uint_fast8_t)(str[2] - '0');
+          out->empty_dir_permissions |= (value & 4) ? 0x40 : 0;
+          out->empty_dir_permissions |= (value & 2) ? 0x80 : 0;
+          out->empty_dir_permissions |= (value & 1) ? 0x100 : 0;
+        }
 
         out->flags |= 0x10000;
 
@@ -1189,24 +1270,27 @@ int simple_archiver_parse_args(int argc, const char **argv,
         const char *str;
         if (is_separate
             && (argc < 2
-            || strlen(argv[1]) != 3
+            || strlen(argv[1]) < 3 || strlen(argv[1]) > 4
             || (!(argv[1][0] >= '0' && argv[1][0] <= '7'))
             || (!(argv[1][1] >= '0' && argv[1][1] <= '7'))
             || (!(argv[1][2] >= '0' && argv[1][2] <= '7'))
+            || (strlen(argv[1]) == 4 && (!(argv[1][3] >= '0'
+                                        && argv[1][3] <= '7')))
               )) {
           fprintf(stderr,
-                  "ERROR: --force-prefix-dir-permissions expects 3 octal values"
-                  " (e.g. \"755\" or \"440\")!\n");
+                  "ERROR: --force-prefix-dir-permissions expects 3/4 octal "
+                  "values (e.g. \"755\" or \"440\" or \"1755\")!\n");
           simple_archiver_print_usage();
           return 1;
         } else if (is_separate) {
           str = argv[1];
         } else {
           str = argv[0] + 31;
-          if (strlen(str) != 3
+          if (strlen(str) < 3 || strlen(str) > 4
               || !(str[0] >= '0' && str[0] <= '7')
               || !(str[1] >= '0' && str[1] <= '7')
-              || !(str[2] >= '0' && str[2] <= '7')) {
+              || !(str[2] >= '0' && str[2] <= '7')
+              || (strlen(str) == 4 && (!(str[3] >= '0' && str[3] <= '7')))) {
             fprintf(stderr,
                     "ERROR: --force-prefix-dir-permissions expects 3 octal "
                     "values (e.g. \"755\" or \"440\")!\n");
@@ -1222,20 +1306,44 @@ int simple_archiver_parse_args(int argc, const char **argv,
           return 1;
         }
 
-        uint_fast8_t value = (uint_fast8_t)(str[0] - '0');
-        out->prefix_dir_permissions |= (value & 4) ? 1 : 0;
-        out->prefix_dir_permissions |= (value & 2) ? 2 : 0;
-        out->prefix_dir_permissions |= (value & 1) ? 4 : 0;
+        uint_fast8_t value;
 
-        value = (uint_fast8_t)(str[1] - '0');
-        out->prefix_dir_permissions |= (value & 4) ? 8 : 0;
-        out->prefix_dir_permissions |= (value & 2) ? 0x10 : 0;
-        out->prefix_dir_permissions |= (value & 1) ? 0x20 : 0;
+        if (strlen(str) == 4) {
+          value = (uint_fast8_t)(str[1] - '0');
+          out->prefix_dir_permissions |= (value & 4) ? 1 : 0;
+          out->prefix_dir_permissions |= (value & 2) ? 2 : 0;
+          out->prefix_dir_permissions |= (value & 1) ? 4 : 0;
 
-        value = (uint_fast8_t)(str[2] - '0');
-        out->prefix_dir_permissions |= (value & 4) ? 0x40 : 0;
-        out->prefix_dir_permissions |= (value & 2) ? 0x80 : 0;
-        out->prefix_dir_permissions |= (value & 1) ? 0x100 : 0;
+          value = (uint_fast8_t)(str[2] - '0');
+          out->prefix_dir_permissions |= (value & 4) ? 8 : 0;
+          out->prefix_dir_permissions |= (value & 2) ? 0x10 : 0;
+          out->prefix_dir_permissions |= (value & 1) ? 0x20 : 0;
+
+          value = (uint_fast8_t)(str[3] - '0');
+          out->prefix_dir_permissions |= (value & 4) ? 0x40 : 0;
+          out->prefix_dir_permissions |= (value & 2) ? 0x80 : 0;
+          out->prefix_dir_permissions |= (value & 1) ? 0x100 : 0;
+
+          value = (uint_fast8_t)(str[0] - '0');
+          out->prefix_dir_permissions |= (value & 4) ? 0x200 : 0;
+          out->prefix_dir_permissions |= (value & 2) ? 0x400 : 0;
+          out->prefix_dir_permissions |= (value & 1) ? 0x800 : 0;
+        } else {
+          value = (uint_fast8_t)(str[0] - '0');
+          out->prefix_dir_permissions |= (value & 4) ? 1 : 0;
+          out->prefix_dir_permissions |= (value & 2) ? 2 : 0;
+          out->prefix_dir_permissions |= (value & 1) ? 4 : 0;
+
+          value = (uint_fast8_t)(str[1] - '0');
+          out->prefix_dir_permissions |= (value & 4) ? 8 : 0;
+          out->prefix_dir_permissions |= (value & 2) ? 0x10 : 0;
+          out->prefix_dir_permissions |= (value & 1) ? 0x20 : 0;
+
+          value = (uint_fast8_t)(str[2] - '0');
+          out->prefix_dir_permissions |= (value & 4) ? 0x40 : 0;
+          out->prefix_dir_permissions |= (value & 2) ? 0x80 : 0;
+          out->prefix_dir_permissions |= (value & 1) ? 0x100 : 0;
+        }
 
         out->flags |= 0x800000;
 

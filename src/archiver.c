@@ -2374,9 +2374,9 @@ mode_t simple_archiver_internal_permissions_to_mode_t(uint_fast16_t permissions)
     | ((permissions & 0x40) ? S_IROTH : 0)
     | ((permissions & 0x80) ? S_IWOTH : 0)
     | ((permissions & 0x100) ? S_IXOTH : 0)
-    | ((permissions & 0x400) ? S_ISUID : 0)
-    | ((permissions & 0x800) ? S_ISGID : 0)
-    | ((permissions & 0x1000) ? S_ISVTX : 0);
+    | ((permissions & 0x200) ? S_ISUID : 0)
+    | ((permissions & 0x400) ? S_ISGID : 0)
+    | ((permissions & 0x800) ? S_ISVTX : 0);
 }
 
 mode_t simple_archiver_internal_bits_to_mode_t(const uint8_t perms[restrict 2])
@@ -9555,8 +9555,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -10860,8 +10860,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS
                         | (not_tested_once ? SDAS_NOT_TESTED_ONCE : 0));
@@ -11161,8 +11161,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
       "try a different positional argument?\n");
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -13201,8 +13201,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
@@ -13403,10 +13403,19 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         SDArchiverInternalDirInfo *dinfo =
           malloc(sizeof(SDArchiverInternalDirInfo));
         dinfo->dirname = strdup(dir_path);
-        dinfo->permissions = state && (state->parsed->flags & 0x2000)
-              ? simple_archiver_internal_permissions_to_mode_t(
-                  state->parsed->dir_permissions)
-              : simple_archiver_internal_bits_to_mode_t(pbits);
+        if (pbits[1] & 2) {
+          // Is non-empty dir.
+          dinfo->permissions = state && (state->parsed->flags & 0x2000)
+                ? simple_archiver_internal_permissions_to_mode_t(
+                    state->parsed->dir_permissions)
+                : simple_archiver_internal_bits_to_mode_t(pbits);
+        } else {
+          // Is empty dir.
+          dinfo->permissions = state && (state->parsed->flags & 0x10000)
+                ? simple_archiver_internal_permissions_to_mode_t(
+                    state->parsed->empty_dir_permissions)
+                : simple_archiver_internal_bits_to_mode_t(pbits);
+        }
         simple_archiver_priority_heap_insert(dir_heap_post_process,
                                              1,
                                              dinfo,
@@ -15392,8 +15401,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         simple_archiver_helper_datastructure_cleanup_nop);
     }
 
-    SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
     SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+    SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
     return SDA_RET_STRUCT(SDAS_SUCCESS);
   }
@@ -15785,8 +15794,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       simple_archiver_helper_datastructure_cleanup_nop);
   }
 
-  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
+  SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_permissions(state));
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
