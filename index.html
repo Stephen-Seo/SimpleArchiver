@@ -251,7 +251,8 @@ only take effect on extraction if the current effective user ID is 0
 <dd>
 <p>Force set permissions for files on archive creation. Note that this
 option will only take effect on extraction if the current effective user
-ID is 0 (root). For example, a valid value can be 644 or 440.</p>
+ID is 0 (root). For example, a valid value can be 644 or 440 or
+4755.</p>
 </dd>
 <dt><strong>--force-dir-permissions</strong>
 <strong><em>3-OctalValues</em></strong> |
@@ -259,9 +260,9 @@ ID is 0 (root). For example, a valid value can be 644 or 440.</p>
 <dd>
 <p>Force set permissions for directories on archive creation. Note that
 this option will only take effect on extraction if the current effective
-user ID is 0 (root). For example, a valid value can be 755 or 750. Note
-that this does not have any effect on empty directories. See the
-following option to force permissions on empty directories.</p>
+user ID is 0 (root). For example, a valid value can be 755 or 750 or
+4755. Note that this does not have any effect on empty directories. See
+the following option to force permissions on empty directories.</p>
 </dd>
 <dt><strong>--force-empty-dir-permissions</strong>
 <strong><em>3-OctalValues</em></strong> |
@@ -270,9 +271,9 @@ following option to force permissions on empty directories.</p>
 <p>Force set permissions for empty directories on archive creation. Note
 that this option will only take effect on extraction if the current
 effective user ID is 0 (root). For example, a valid value can be 755 or
-750. Note that this does not effect intermediate directories that hold
-files/directories. See the previous option to force permissions on such
-directories.</p>
+750 or 4755. Note that this does not effect intermediate directories
+that hold files/directories. See the previous option to force
+permissions on such directories.</p>
 </dd>
 <dt><strong>--force-prefix-dir-permissions</strong>
 <strong><em>3-OctalValues</em></strong> |
@@ -280,8 +281,8 @@ directories.</p>
 <dd>
 <p>Force set permissions for directories created with
 <strong>--prefix</strong> on archive extraction. For example, a valid
-value can be 755 or 750. Note that this option only has effect on prefix
-directories, not files/dirs within them.</p>
+value can be 755 or 750 or 4755. Note that this option only has effect
+on prefix directories, not files/dirs within them.</p>
 </dd>
 <dt><strong>--set-prefix-dir-uid</strong> <strong><em>uid</em></strong>
 | <strong>--set-prefix-dir-uid=<em>uid</em></strong></dt>
