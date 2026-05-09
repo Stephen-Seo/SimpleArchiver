@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Minor fixes to man page.
+
 ## Version 3.1
 
 Support setuid/setgid/sticky bits permissions for files and directories.
