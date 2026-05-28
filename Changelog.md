@@ -4,6 +4,9 @@
 
 Minor fixes to man page.
 
+Minor refactoring by "struct packing" an internal struct used during archiving
+and testing/extracting.
+
 ## Version 3.1
 
 Support setuid/setgid/sticky bits permissions for files and directories.
