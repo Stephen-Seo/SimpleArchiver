@@ -76,12 +76,12 @@ typedef struct SDArchiverInternalToWrite {
 typedef struct SDArchiverInternalFileInfo {
   char *filename;
   char *prefixed_filename;
-  uint8_t bit_flags[4];
-  uint32_t uid;
-  uint32_t gid;
   char *username;
   char *groupname;
   uint64_t file_size;
+  uint32_t uid;
+  uint32_t gid;
+  uint8_t bit_flags[4];
   /// xxxx xxx1 - is invalid.
   /// xxxx xx1x - white/black-list allowed.
   /// xxxx x1xx - arg allowed.
