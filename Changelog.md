@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.1.1
+
 Minor fixes to man page.
 
 Minor refactoring by "struct packing" an internal struct used during archiving
