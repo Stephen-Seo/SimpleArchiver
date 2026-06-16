@@ -321,6 +321,10 @@ void simple_archiver_print_usage(void) {
           "--set-prefix-dir-group <group> | --set-prefix-dir-group=<group> : "
           "Set group gid on prefix dir(s) if current user is root\n");
   fprintf(stderr,
+          "--whitelist-exact <text> | --whitelist-exact=<text> : "
+          "Whitelist entries that match \"<text>\", specify multiple times to "
+          "allow entries that match any of the specified \"<text>\"s.\n");
+  fprintf(stderr,
           "--whitelist-contains-any <text> | --whitelist-contains-any=<text> : "
           "Whitelist entries to contain \"<text>\", specify multiple times to "
           "allow entries that contain any of the specified \"<text>\"s.\n");
@@ -338,6 +342,10 @@ void simple_archiver_print_usage(void) {
           "Whitelist entries to end with \"<text>\", specify multiple times to "
           "allow different entries to end with different \"<text>\" "
           "entries.\n");
+  fprintf(stderr,
+          "--blacklist-exact <text> | --blacklist-exact=<text> : "
+          "Blacklist entries that match \"<text>\", specify multiple times to "
+          "deny entries that match any of the specified \"<text>\"s.\n");
   fprintf(stderr,
           "--blacklist-contains-any <text> | --blacklist-contains-any=<text> : "
           "blacklist entries that contains \"<text>\", specify multiple times "
@@ -420,10 +428,12 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.mappings.GidToGid = simple_archiver_hash_map_init();
   parsed.mappings.GnameToGname = simple_archiver_hash_map_init();
   parsed.prefix = NULL;
+  parsed.whitelist_exact = NULL;
   parsed.whitelist_contains_any = NULL;
   parsed.whitelist_contains_all = NULL;
   parsed.whitelist_begins = NULL;
   parsed.whitelist_ends = NULL;
+  parsed.blacklist_exact = NULL;
   parsed.blacklist_contains_any = NULL;
   parsed.blacklist_contains_all = NULL;
   parsed.blacklist_begins = NULL;
@@ -1510,6 +1520,42 @@ int simple_archiver_parse_args(int argc, const char **argv,
           --argc;
           ++argv;
         }
+      } else if (strcmp(argv[0], "--whitelist-exact") == 0
+                 || strncmp(argv[0], "--whitelist-exact=", 18) == 0) {
+        int_fast8_t is_separate =
+          strcmp(argv[0], "--whitelist-exact") == 0 ? 1 : 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --whitelist-exact expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 18;
+        }
+        if (strlen(str) == 0) {
+          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->whitelist_exact) {
+          out->whitelist_exact = simple_archiver_hash_map_init();
+        }
+        simple_archiver_hash_map_insert(
+            out->whitelist_exact,
+            (void*)1,
+            strdup(str),
+            strlen(str),
+            simple_archiver_helper_datastructure_cleanup_nop,
+            NULL);
+
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
       } else if (strcmp(argv[0], "--whitelist-contains-any") == 0
                  || strncmp(argv[0], "--whitelist-contains-any=", 25) == 0) {
         int_fast8_t is_separate =
@@ -1643,6 +1689,42 @@ int simple_archiver_parse_args(int argc, const char **argv,
           out->whitelist_ends,
           (void *)str,
           simple_archiver_helper_datastructure_cleanup_nop);
+
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
+      } else if (strcmp(argv[0], "--blacklist-exact") == 0
+                 || strncmp(argv[0], "--blacklist-exact=", 18) == 0) {
+        int_fast8_t is_separate =
+          strcmp(argv[0], "--blacklist-exact") == 0 ? 1 : 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --blacklist-exact expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 18;
+        }
+        if (strlen(str) == 0) {
+          fprintf(stderr, "ERROR: Argument is an empty string!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
+        if (!out->blacklist_exact) {
+          out->blacklist_exact = simple_archiver_hash_map_init();
+        }
+        simple_archiver_hash_map_insert(
+            out->blacklist_exact,
+            (void*)1,
+            strdup(str),
+            strlen(str),
+            simple_archiver_helper_datastructure_cleanup_nop,
+            NULL);
 
         if (is_separate) {
           --argc;
@@ -2397,6 +2479,9 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     free(parsed->prefix_group.groupname);
   }
 
+  if (parsed->whitelist_exact) {
+    simple_archiver_hash_map_free(&parsed->whitelist_exact);
+  }
   if (parsed->whitelist_contains_any) {
     simple_archiver_list_free(&parsed->whitelist_contains_any);
   }
@@ -2408,6 +2493,9 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   }
   if (parsed->whitelist_ends) {
     simple_archiver_list_free(&parsed->whitelist_ends);
+  }
+  if (parsed->blacklist_exact) {
+    simple_archiver_hash_map_free(&parsed->blacklist_exact);
   }
   if (parsed->blacklist_contains_any) {
     simple_archiver_list_free(&parsed->blacklist_contains_any);

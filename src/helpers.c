@@ -736,127 +736,126 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
     const char *cstring,
     uint_fast8_t case_i,
     const SDArchiverParsed *parsed) {
-  if (parsed->whitelist_contains_any) {
-    uint_fast8_t contains_any = 0;
-    for (const SDArchiverLLNode *node
-          = parsed->whitelist_contains_any->head->next;
-        node != parsed->whitelist_contains_any->tail;
-        node = node->next) {
-      if (node->data) {
-        if (simple_archiver_helper_string_contains(
-            cstring, node->data, case_i)) {
-          contains_any = 1;
-          break;
+  if (parsed->whitelist_exact
+      || parsed->whitelist_contains_any
+      || parsed->whitelist_contains_all
+      || parsed->whitelist_begins
+      || parsed->whitelist_ends) {
+    // Whitelist exists, check whitelists.
+    if (parsed->whitelist_exact) {
+      if (simple_archiver_hash_map_get(parsed->whitelist_exact,
+                                       cstring,
+                                       strlen(cstring))) {
+        return 1;
+      }
+    }
+    if (parsed->whitelist_contains_any) {
+      for (const SDArchiverLLNode *node
+            = parsed->whitelist_contains_any->head->next;
+          node != parsed->whitelist_contains_any->tail;
+          node = node->next) {
+        if (node->data) {
+          if (simple_archiver_helper_string_contains(
+              cstring, node->data, case_i)) {
+            return 1;
+          }
         }
       }
     }
-    if (!contains_any) {
-      return 0;
+    if (parsed->whitelist_contains_all) {
+      for (const SDArchiverLLNode *node
+            = parsed->whitelist_contains_all->head->next;
+          node != parsed->whitelist_contains_all->tail;
+          node = node->next) {
+        if (node->data) {
+          if (!simple_archiver_helper_string_contains(
+              cstring, node->data, case_i)) {
+            return 0;
+          }
+        }
+      }
+      return 1;
     }
-  }
-  if (parsed->whitelist_contains_all) {
-    for (const SDArchiverLLNode *node
-          = parsed->whitelist_contains_all->head->next;
-        node != parsed->whitelist_contains_all->tail;
-        node = node->next) {
-      if (node->data) {
-        if (!simple_archiver_helper_string_contains(
-            cstring, node->data, case_i)) {
-          return 0;
+    if (parsed->whitelist_begins) {
+      for (const SDArchiverLLNode *node = parsed->whitelist_begins->head->next;
+          node != parsed->whitelist_begins->tail;
+          node = node->next) {
+        if (node->data) {
+          if (simple_archiver_helper_string_starts(
+              cstring, node->data, case_i)) {
+            return 1;
+          }
         }
       }
     }
-  }
-  if (parsed->whitelist_begins) {
-    uint_fast8_t contains = 0;
-    for (const SDArchiverLLNode *node = parsed->whitelist_begins->head->next;
-        node != parsed->whitelist_begins->tail;
-        node = node->next) {
-      if (node->data) {
-        if (simple_archiver_helper_string_starts(
-            cstring, node->data, case_i)) {
-          contains = 1;
-          break;
-        }
-      }
-    }
-    if (!contains) {
-      return 0;
-    }
-  }
-  if (parsed->whitelist_ends) {
-    uint_fast8_t contains = 0;
-    for (const SDArchiverLLNode *node = parsed->whitelist_ends->head->next;
-        node != parsed->whitelist_ends->tail;
-        node = node->next) {
-      if (node->data) {
-        if (simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
-          contains = 1;
-          break;
-        }
-      }
-    }
-    if (!contains) {
-      return 0;
-    }
-  }
-
-  if (parsed->blacklist_contains_any) {
-    for (const SDArchiverLLNode *node
-          = parsed->blacklist_contains_any->head->next;
-        node != parsed->blacklist_contains_any->tail;
-        node = node->next) {
-      if (node->data) {
-        if (simple_archiver_helper_string_contains(
-            cstring, node->data, case_i)) {
-          return 0;
-        }
-      }
-    }
-  }
-  if (parsed->blacklist_contains_all) {
-    uint_fast8_t contains_all = 1;
-    for (const SDArchiverLLNode *node
-          = parsed->blacklist_contains_all->head->next;
-        node != parsed->blacklist_contains_all->tail;
-        node = node->next) {
-      if (node->data) {
-        if (!simple_archiver_helper_string_contains(
-            cstring, node->data, case_i)) {
-          contains_all = 0;
-          break;
+    if (parsed->whitelist_ends) {
+      for (const SDArchiverLLNode *node = parsed->whitelist_ends->head->next;
+          node != parsed->whitelist_ends->tail;
+          node = node->next) {
+        if (node->data) {
+          if (simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
+            return 1;
+          }
         }
       }
     }
 
-    if (contains_all) {
-      return 0;
-    }
-  }
-  if (parsed->blacklist_begins) {
-    for (const SDArchiverLLNode *node = parsed->blacklist_begins->head->next;
-        node != parsed->blacklist_begins->tail;
-        node = node->next) {
-      if (node->data) {
-        if (simple_archiver_helper_string_starts(cstring, node->data, case_i)) {
-          return 0;
+    return 0;
+  } else {
+    // No whitelist exists, check blacklists.
+    if (parsed->blacklist_contains_any) {
+      for (const SDArchiverLLNode *node
+            = parsed->blacklist_contains_any->head->next;
+          node != parsed->blacklist_contains_any->tail;
+          node = node->next) {
+        if (node->data) {
+          if (simple_archiver_helper_string_contains(
+              cstring, node->data, case_i)) {
+            return 0;
+          }
         }
       }
     }
-  }
-  if (parsed->blacklist_ends) {
-    for (const SDArchiverLLNode *node = parsed->blacklist_ends->head->next;
-        node != parsed->blacklist_ends->tail;
-        node = node->next) {
-      if (node->data) {
-        if (simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
-          return 0;
+    if (parsed->blacklist_contains_all) {
+      for (const SDArchiverLLNode *node
+            = parsed->blacklist_contains_all->head->next;
+          node != parsed->blacklist_contains_all->tail;
+          node = node->next) {
+        if (node->data) {
+          if (!simple_archiver_helper_string_contains(
+              cstring, node->data, case_i)) {
+            return 0;
+          }
         }
       }
     }
-  }
+    if (parsed->blacklist_begins) {
+      for (const SDArchiverLLNode *node = parsed->blacklist_begins->head->next;
+          node != parsed->blacklist_begins->tail;
+          node = node->next) {
+        if (node->data) {
+          if (simple_archiver_helper_string_starts(cstring,
+                                                   node->data,
+                                                   case_i)) {
+            return 0;
+          }
+        }
+      }
+    }
+    if (parsed->blacklist_ends) {
+      for (const SDArchiverLLNode *node = parsed->blacklist_ends->head->next;
+          node != parsed->blacklist_ends->tail;
+          node = node->next) {
+        if (node->data) {
+          if (simple_archiver_helper_string_ends(cstring, node->data, case_i)) {
+            return 0;
+          }
+        }
+      }
+    }
 
-  return 1;
+    return 1;
+  }
 }
 
 FILE *simple_archiver_helper_temp_dir(const SDArchiverParsed *parsed,
