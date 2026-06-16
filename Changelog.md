@@ -2,6 +2,10 @@
 
 ## Upcoming Changes
 
+Update man page regarding:
+--whitelist-exact=\<str\>
+--blacklist-exact=\<str\>
+
 ## Version 3.2
 
 Implement the following args:
