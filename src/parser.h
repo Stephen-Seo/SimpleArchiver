@@ -130,11 +130,13 @@ typedef struct SDArchiverParsed {
     char *groupname;
   } prefix_group;
   SDArchiverHashMap *whitelist_exact;
+  SDArchiverHashMap *whitelist_exact_case_i;
   SDArchiverLinkedList *whitelist_contains_any;
   SDArchiverLinkedList *whitelist_contains_all;
   SDArchiverLinkedList *whitelist_begins;
   SDArchiverLinkedList *whitelist_ends;
   SDArchiverHashMap *blacklist_exact;
+  SDArchiverHashMap *blacklist_exact_case_i;
   SDArchiverLinkedList *blacklist_contains_any;
   SDArchiverLinkedList *blacklist_contains_all;
   SDArchiverLinkedList *blacklist_begins;

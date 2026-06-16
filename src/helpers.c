@@ -737,15 +737,24 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
     uint_fast8_t case_i,
     const SDArchiverParsed *parsed) {
   if (parsed->whitelist_exact
+      || parsed->whitelist_exact_case_i
       || parsed->whitelist_contains_any
       || parsed->whitelist_contains_all
       || parsed->whitelist_begins
       || parsed->whitelist_ends) {
     // Whitelist exists, check whitelists.
-    if (parsed->whitelist_exact) {
+    if (!case_i && parsed->whitelist_exact) {
       if (simple_archiver_hash_map_get(parsed->whitelist_exact,
                                        cstring,
                                        strlen(cstring))) {
+        return 1;
+      }
+    } else if (case_i && parsed->whitelist_exact_case_i) {
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *lower = simple_archiver_helper_to_lower(cstring);
+      if (simple_archiver_hash_map_get(parsed->whitelist_exact_case_i,
+                                       lower,
+                                       strlen(lower))) {
         return 1;
       }
     }
@@ -807,10 +816,18 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
     return 0;
   } else {
     // No whitelist exists, check blacklists.
-    if (parsed->blacklist_exact) {
+    if (!case_i && parsed->blacklist_exact) {
       if (simple_archiver_hash_map_get(parsed->blacklist_exact,
                                        cstring,
                                        strlen(cstring))) {
+        return 0;
+      }
+    } else if (case_i && parsed->blacklist_exact_case_i) {
+      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+      char *lower = simple_archiver_helper_to_lower(cstring);
+      if (simple_archiver_hash_map_get(parsed->blacklist_exact_case_i,
+                                       lower,
+                                       strlen(lower))) {
         return 0;
       }
     }

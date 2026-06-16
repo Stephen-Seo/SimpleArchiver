@@ -2,6 +2,13 @@
 
 ## Upcoming Changes
 
+## Version 3.2.3
+
+Enable white/black-list case-insensitive checking with "exact" variants of the
+white/black-lists.
+
+Add unit-tests for white/black-lists.
+
 ## Version 3.2.2
 
 Fix the following args:  
