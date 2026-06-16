@@ -2,9 +2,13 @@
 
 ## Upcoming Changes
 
+## Version 3.2.1
+
 Update man page regarding:
 --whitelist-exact=\<str\>
 --blacklist-exact=\<str\>
+
+Fix not using "blacklist-exact".
 
 ## Version 3.2
 

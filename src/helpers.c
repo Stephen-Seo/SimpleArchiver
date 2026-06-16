@@ -803,6 +803,13 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
     return 0;
   } else {
     // No whitelist exists, check blacklists.
+    if (parsed->blacklist_exact) {
+      if (simple_archiver_hash_map_get(parsed->blacklist_exact,
+                                       cstring,
+                                       strlen(cstring))) {
+        return 0;
+      }
+    }
     if (parsed->blacklist_contains_any) {
       for (const SDArchiverLLNode *node
             = parsed->blacklist_contains_any->head->next;
