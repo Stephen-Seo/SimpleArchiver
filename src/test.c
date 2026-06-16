@@ -29,6 +29,7 @@
 // Local includes.
 #include "archiver.h"
 #include "data_structures/hash_map.h"
+#include "data_structures/linked_list.h"
 #include "helpers.h"
 #include "parser.h"
 #include "parser_internal.h"
@@ -1051,6 +1052,385 @@ TEST_HELPERS_PREFIX_END:
     CHECK_TRUE(simple_archiver_helper_has_null_before_size("test string", 12));
     CHECK_TRUE(simple_archiver_helper_has_null_before_size("test\0string", 11));
     CHECK_TRUE(simple_archiver_helper_has_null_before_size("test\0string", 12));
+  }
+
+  // Test simple_archiver_helper_string_allowed_lists
+  {
+    SDArchiverParsed parsed;
+    memset(&parsed, 0, sizeof(SDArchiverParsed));
+
+    // no white/black lists.
+    CHECK_TRUE(simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                           0,
+                                                           &parsed) == 1);
+
+    // blacklist exact.
+    parsed.blacklist_exact = simple_archiver_hash_map_init();
+    simple_archiver_hash_map_insert(
+        parsed.blacklist_exact,
+        (void*)1,
+        "the_TEST_string",
+        15,
+        simple_archiver_helper_datastructure_cleanup_nop,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    parsed.blacklist_exact_case_i = simple_archiver_hash_map_init();
+    simple_archiver_hash_map_insert(
+        parsed.blacklist_exact_case_i,
+        (void*)1,
+        simple_archiver_helper_to_lower("the_TEST_string"),
+        15,
+        simple_archiver_helper_datastructure_cleanup_nop,
+        NULL);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_test_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_test_string",
+                                                    1,
+                                                    &parsed) == 0);
+
+    // whitelist that has more precedence over blacklist
+    parsed.whitelist_exact = simple_archiver_hash_map_init();
+    simple_archiver_hash_map_insert(
+        parsed.whitelist_exact,
+        (void*)1,
+        "the_TEST_string",
+        15,
+        simple_archiver_helper_datastructure_cleanup_nop,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    parsed.whitelist_exact_case_i = simple_archiver_hash_map_init();
+    simple_archiver_hash_map_insert(
+        parsed.whitelist_exact_case_i,
+        (void*)1,
+        simple_archiver_helper_to_lower("the_TEST_string"),
+        15,
+        simple_archiver_helper_datastructure_cleanup_nop,
+        NULL);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_test_string",
+                                                    0,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_test_string",
+                                                    1,
+                                                    &parsed) != 0);
+
+    simple_archiver_hash_map_free(&parsed.whitelist_exact);
+    simple_archiver_hash_map_free(&parsed.whitelist_exact_case_i);
+    simple_archiver_hash_map_free(&parsed.blacklist_exact);
+    simple_archiver_hash_map_free(&parsed.blacklist_exact_case_i);
+
+    // no white/black-lists, defaults to allowed
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) == 1);
+
+    // whitelist contains any
+    parsed.whitelist_contains_any = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.whitelist_contains_any,
+                             "TEST",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_test_string",
+                                                    1,
+                                                    &parsed) != 0);
+
+    // whitelist contains all
+    simple_archiver_list_free(&parsed.whitelist_contains_any);
+
+    parsed.whitelist_contains_all = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.whitelist_contains_all,
+                             "_",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+    simple_archiver_list_add(parsed.whitelist_contains_all,
+                             "str",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) != 0);
+
+    simple_archiver_list_add(parsed.whitelist_contains_all,
+                             "test",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) != 0);
+
+    // whitelist begins
+    simple_archiver_list_free(&parsed.whitelist_contains_all);
+
+    parsed.whitelist_begins = simple_archiver_list_init();
+
+    simple_archiver_list_add(parsed.whitelist_begins,
+                             "the",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) != 0);
+
+    simple_archiver_list_free(&parsed.whitelist_begins);
+    parsed.whitelist_begins = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.whitelist_begins,
+                             "THE",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) != 0);
+
+    // whitelist ends
+    simple_archiver_list_free(&parsed.whitelist_begins);
+    parsed.whitelist_ends = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.whitelist_ends,
+                             "string",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) != 0);
+
+    simple_archiver_list_free(&parsed.whitelist_ends);
+    parsed.whitelist_ends = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.whitelist_ends,
+                             "STRING",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) != 0);
+
+    // blacklist any
+    simple_archiver_list_free(&parsed.whitelist_ends);
+    parsed.blacklist_contains_any = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.blacklist_contains_any,
+                             "the",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) == 0);
+
+    simple_archiver_list_free(&parsed.blacklist_contains_any);
+    parsed.blacklist_contains_any = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.blacklist_contains_any,
+                             "THE",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) == 0);
+
+    // blacklist all
+    simple_archiver_list_free(&parsed.blacklist_contains_any);
+    parsed.blacklist_contains_all = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.blacklist_contains_all,
+                             "the",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+    simple_archiver_list_add(parsed.blacklist_contains_all,
+                             "string",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("THE_TEST_STRING",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("THE_TEST_STRING",
+                                                    1,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("another_str",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("another_str",
+                                                    1,
+                                                    &parsed) != 0);
+
+    simple_archiver_list_free(&parsed.blacklist_contains_all);
+    parsed.blacklist_contains_all = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.blacklist_contains_all,
+                             "The",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+    simple_archiver_list_add(parsed.blacklist_contains_all,
+                             "StrIng",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("THE_TEST_STRING",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("THE_TEST_STRING",
+                                                    1,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("another_str",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("another_str",
+                                                    1,
+                                                    &parsed) != 0);
+
+    // blacklist begins
+    simple_archiver_list_free(&parsed.blacklist_contains_all);
+    parsed.blacklist_begins = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.blacklist_begins,
+                             "the",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) == 0);
+
+    simple_archiver_list_free(&parsed.blacklist_begins);
+    parsed.blacklist_begins = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.blacklist_begins,
+                             "The",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) == 0);
+
+    // blacklist ends
+    simple_archiver_list_free(&parsed.blacklist_begins);
+    parsed.blacklist_ends = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.blacklist_ends,
+                             "string",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) == 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) == 0);
+
+    simple_archiver_list_free(&parsed.blacklist_ends);
+    parsed.blacklist_ends = simple_archiver_list_init();
+    simple_archiver_list_add(parsed.blacklist_ends,
+                             "STRING",
+                             simple_archiver_helper_datastructure_cleanup_nop);
+
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    0,
+                                                    &parsed) != 0);
+    CHECK_TRUE(
+        simple_archiver_helper_string_allowed_lists("the_TEST_string",
+                                                    1,
+                                                    &parsed) == 0);
+
+    // cleanup
+    simple_archiver_hash_map_free(&parsed.whitelist_exact);
+    simple_archiver_hash_map_free(&parsed.whitelist_exact_case_i);
+    simple_archiver_hash_map_free(&parsed.blacklist_exact);
+    simple_archiver_hash_map_free(&parsed.blacklist_exact_case_i);
+    simple_archiver_list_free(&parsed.whitelist_contains_any);
+    simple_archiver_list_free(&parsed.whitelist_contains_all);
+    simple_archiver_list_free(&parsed.whitelist_begins);
+    simple_archiver_list_free(&parsed.whitelist_ends);
+    simple_archiver_list_free(&parsed.blacklist_contains_any);
+    simple_archiver_list_free(&parsed.blacklist_contains_all);
+    simple_archiver_list_free(&parsed.blacklist_begins);
+    simple_archiver_list_free(&parsed.blacklist_ends);
   }
 
   printf("Checks checked: %" PRId32 "\n", checks_checked);
