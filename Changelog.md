@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.2.2
+
 Fix the following args:  
 --whitelist-contains-all=\<str\>  
 --blacklist-contains-all=\<str\>
