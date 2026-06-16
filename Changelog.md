@@ -2,18 +2,24 @@
 
 ## Upcoming Changes
 
+## Version 3.2.2
+
+Fix the following args:  
+--whitelist-contains-all=\<str\>  
+--blacklist-contains-all=\<str\>
+
 ## Version 3.2.1
 
-Update man page regarding:
---whitelist-exact=\<str\>
+Update man page regarding:  
+--whitelist-exact=\<str\>  
 --blacklist-exact=\<str\>
 
 Fix not using "blacklist-exact".
 
 ## Version 3.2
 
-Implement the following args:
---whitelist-exact=\<str\>
+Implement the following args:  
+--whitelist-exact=\<str\>  
 --blacklist-exact=\<str\>
 
 Restructure white/black-lists so that if a white-list exists, then only use

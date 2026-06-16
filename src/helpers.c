@@ -763,6 +763,7 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
       }
     }
     if (parsed->whitelist_contains_all) {
+      int_fast8_t not_contains = 0;
       for (const SDArchiverLLNode *node
             = parsed->whitelist_contains_all->head->next;
           node != parsed->whitelist_contains_all->tail;
@@ -770,11 +771,14 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
         if (node->data) {
           if (!simple_archiver_helper_string_contains(
               cstring, node->data, case_i)) {
-            return 0;
+            not_contains = 1;
+            break;
           }
         }
       }
-      return 1;
+      if (!not_contains) {
+        return 1;
+      }
     }
     if (parsed->whitelist_begins) {
       for (const SDArchiverLLNode *node = parsed->whitelist_begins->head->next;
@@ -824,6 +828,7 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
       }
     }
     if (parsed->blacklist_contains_all) {
+      int_fast8_t not_contains = 0;
       for (const SDArchiverLLNode *node
             = parsed->blacklist_contains_all->head->next;
           node != parsed->blacklist_contains_all->tail;
@@ -831,9 +836,13 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
         if (node->data) {
           if (!simple_archiver_helper_string_contains(
               cstring, node->data, case_i)) {
-            return 0;
+            not_contains = 1;
+            break;
           }
         }
+      }
+      if (!not_contains) {
+        return 0;
       }
     }
     if (parsed->blacklist_begins) {
