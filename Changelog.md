@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.2
+
 Implement the following args:
 --whitelist-exact=\<str\>
 --blacklist-exact=\<str\>
