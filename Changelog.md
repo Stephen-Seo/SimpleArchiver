@@ -2,6 +2,15 @@
 
 ## Upcoming Changes
 
+## Version 3.2
+
+Implement the following args:
+--whitelist-exact=\<str\>
+--blacklist-exact=\<str\>
+
+Restructure white/black-lists so that if a white-list exists, then only use
+whitelists, and if no white-list exists, then only use blacklists.
+
 ## Version 3.1.1
 
 Minor fixes to man page.
