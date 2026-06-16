@@ -429,11 +429,13 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.mappings.GnameToGname = simple_archiver_hash_map_init();
   parsed.prefix = NULL;
   parsed.whitelist_exact = NULL;
+  parsed.whitelist_exact_case_i = NULL;
   parsed.whitelist_contains_any = NULL;
   parsed.whitelist_contains_all = NULL;
   parsed.whitelist_begins = NULL;
   parsed.whitelist_ends = NULL;
   parsed.blacklist_exact = NULL;
+  parsed.blacklist_exact_case_i = NULL;
   parsed.blacklist_contains_any = NULL;
   parsed.blacklist_contains_all = NULL;
   parsed.blacklist_begins = NULL;
@@ -1552,6 +1554,17 @@ int simple_archiver_parse_args(int argc, const char **argv,
             simple_archiver_helper_datastructure_cleanup_nop,
             NULL);
 
+        if (!out->whitelist_exact_case_i) {
+          out->whitelist_exact_case_i = simple_archiver_hash_map_init();
+        }
+        simple_archiver_hash_map_insert(
+            out->whitelist_exact_case_i,
+            (void*)1,
+            simple_archiver_helper_to_lower(str),
+            strlen(str),
+            simple_archiver_helper_datastructure_cleanup_nop,
+            NULL);
+
         if (is_separate) {
           --argc;
           ++argv;
@@ -1722,6 +1735,17 @@ int simple_archiver_parse_args(int argc, const char **argv,
             out->blacklist_exact,
             (void*)1,
             strdup(str),
+            strlen(str),
+            simple_archiver_helper_datastructure_cleanup_nop,
+            NULL);
+
+        if (!out->blacklist_exact_case_i) {
+          out->blacklist_exact_case_i = simple_archiver_hash_map_init();
+        }
+        simple_archiver_hash_map_insert(
+            out->blacklist_exact_case_i,
+            (void*)1,
+            simple_archiver_helper_to_lower(str),
             strlen(str),
             simple_archiver_helper_datastructure_cleanup_nop,
             NULL);
@@ -2482,6 +2506,9 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   if (parsed->whitelist_exact) {
     simple_archiver_hash_map_free(&parsed->whitelist_exact);
   }
+  if (parsed->whitelist_exact_case_i) {
+    simple_archiver_hash_map_free(&parsed->whitelist_exact_case_i);
+  }
   if (parsed->whitelist_contains_any) {
     simple_archiver_list_free(&parsed->whitelist_contains_any);
   }
@@ -2496,6 +2523,9 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   }
   if (parsed->blacklist_exact) {
     simple_archiver_hash_map_free(&parsed->blacklist_exact);
+  }
+  if (parsed->blacklist_exact_case_i) {
+    simple_archiver_hash_map_free(&parsed->blacklist_exact_case_i);
   }
   if (parsed->blacklist_contains_any) {
     simple_archiver_list_free(&parsed->blacklist_contains_any);
