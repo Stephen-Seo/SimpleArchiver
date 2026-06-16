@@ -312,6 +312,14 @@ Mutually exclusive with <strong>--set-prefix-dir-group</strong>.</p>
 should have the same GID has the specified group. Mutually exclusive
 with <strong>--set-prefix-dir-gid</strong>.</p>
 </dd>
+<dt><strong>--whitelist-exact</strong> <strong><em>text</em></strong> |
+<strong>--whitelist-exact=<em>text</em></strong></dt>
+<dd>
+<p>In any archival mode (create/test/extract), only allow
+files/directories that match the specified text. Use this flag multiple
+times to add more text entries such that any file/directory path that
+matches ANY of the specified texts will be allowed/whitelisted.</p>
+</dd>
 <dt><strong>--whitelist-contains-any</strong>
 <strong><em>text</em></strong> |
 <strong>--whitelist-contains-any=<em>text</em></strong></dt>
@@ -349,6 +357,14 @@ specified texts will be allowed/whitelisted.</p>
 paths that end with the specified text. Use this flag multiple times to
 add more text entries such that any path that ENDS with ANY of the
 specified texts will be allowed/whitelisted.</p>
+</dd>
+<dt><strong>--blacklist-exact</strong> <strong><em>text</em></strong> |
+<strong>--blacklist-exact=<em>text</em></strong></dt>
+<dd>
+<p>In any archival mode (create/test/extract), only deny
+files/directories that match the specified text. Use this flag multiple
+times to add more text entries such that any file/directory path that
+matches ANY of the specified texts will be denied/blacklisted.</p>
 </dd>
 <dt><strong>--blacklist-contains-any</strong>
 <strong><em>text</em></strong> |
