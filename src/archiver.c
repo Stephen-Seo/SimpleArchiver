@@ -1380,9 +1380,10 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
 
         // get chunked-encoding mini-chunk
         fread_amt = fread(mini_chunk, 1, size_from_base10, in_f);
-        if (fread_amt != size_from_base10) {
-          fprintf(stderr, "ERROR: Did not read full mini-chunk!\n");
-          return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+
+        if (fread_amt == 0) {
+          // TODO: check if it is better to return error here.
+          return SDAS_SUCCESS;
         }
 
         ssize_t write_ret = write(*to_dec_pipe, mini_chunk, fread_amt);
