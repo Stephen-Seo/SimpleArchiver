@@ -866,7 +866,7 @@ After the files' metadata are the current chunk's data:
    concatenated with each other. If using de/compressor, this section is the
    previously mentioned files concatenated and compressed into a single blob of
    data.
-    - Note that file format version 5 introduced adding a two-byte suffix to
+    - Note that file format version 5 introduced adding a two-byte prefix to
       every chunk's data ('S' and 'A'; 0x53 and 0x41).
 
 The changes from verion 5 to version 6 (this version) is that a section is added
@@ -1102,11 +1102,11 @@ if the chunk is NOT compressed:
 
 1. chunk file-size (8 bytes)
 2. chunk data uncompressed
-    - Note that file format version 5 introduced adding a two-byte suffix to
+    - Note that file format version 5 introduced adding a two-byte prefix to
       every chunk's data ('S' and 'A'; 0x53 and 0x41).
 
 if the chunk IS compressed:
 
 1. "chunked-encoding" of the chunk data as described earlier.
-    - Note that file format version 5 introduced adding a two-byte suffix to
+    - Note that file format version 5 introduced adding a two-byte prefix to
       every chunk's data ('S' and 'A'; 0x53 and 0x41).
