@@ -410,7 +410,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.just_w_files = simple_archiver_hash_map_init();
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
-  parsed.write_version = 6;
+  parsed.write_version = 7;
   parsed.minimum_chunk_size = 268435456;
   parsed.uid = 0;
   parsed.gid = 0;

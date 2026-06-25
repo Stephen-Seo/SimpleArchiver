@@ -181,4 +181,7 @@ int simple_archiver_helper_can_chown(void);
 // Returns non-zero if string has NULL up to and including "index".
 int simple_archiver_helper_has_null_before_size(const char *s, size_t index);
 
+// Must be FREE'd after use.
+char *simple_archiver_helper_value_to_base10_with_newline(uint64_t value);
+
 #endif

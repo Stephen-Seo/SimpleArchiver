@@ -57,6 +57,7 @@ typedef enum SDArchiverStateReturns {
   SDAS_TOO_MANY_DIRS,
   SDAS_COMPRESSION_ERROR,
   SDAS_DECOMPRESSION_ERROR,
+  SDAS_CHUNKED_DECOMPRESSION_ERROR,
   SDAS_NON_DEC_EXTRACT_ERROR,
   SDAS_FILE_CREATE_FAIL,
   SDAS_COMPRESSED_WRITE_FAIL,
@@ -123,7 +124,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   SDArchiverState *state,
   SDArchiverHashMap *write_state);
 
-SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
+SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   FILE *out_f,
   SDArchiverState *state,
   SDArchiverHashMap *write_state);
@@ -163,7 +164,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   SDArchiverHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
-SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
   FILE *in_f,
   int_fast8_t do_extract,
   const SDArchiverState *state,

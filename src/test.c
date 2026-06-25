@@ -1418,6 +1418,23 @@ TEST_HELPERS_PREFIX_END:
                                                     1,
                                                     &parsed) == 0);
 
+    // test helper value to base10 with newline
+    char *buf = simple_archiver_helper_value_to_base10_with_newline(1234);
+    CHECK_TRUE(strcmp("1234\n", buf) == 0);
+    free(buf);
+
+    buf = simple_archiver_helper_value_to_base10_with_newline(0);
+    CHECK_TRUE(strcmp("0\n", buf) == 0);
+    free(buf);
+
+    buf = simple_archiver_helper_value_to_base10_with_newline(1);
+    CHECK_TRUE(strcmp("1\n", buf) == 0);
+    free(buf);
+
+    buf = simple_archiver_helper_value_to_base10_with_newline(9922341);
+    CHECK_TRUE(strcmp("9922341\n", buf) == 0);
+    free(buf);
+
     // cleanup
     simple_archiver_hash_map_free(&parsed.whitelist_exact);
     simple_archiver_hash_map_free(&parsed.whitelist_exact_case_i);
