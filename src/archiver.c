@@ -1355,7 +1355,7 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
       if (*has_hold < 0) {
         // chunked-encoding: get the base10 size
         uint64_t size_from_base10 = 0;
-        char c;
+        char c = 0;
 
         size_t fread_amt = fread(&c, 1, 1, in_f);
 
@@ -1410,7 +1410,6 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
           // Fully written successfully, nothing to do here.
           return SDAS_SUCCESS;
         }
-
       } else {
         ssize_t write_ret = write(*to_dec_pipe,
                                   *v7_hold_buf,
@@ -1432,6 +1431,7 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
           memcpy(new_buf,
                  *v7_hold_buf + write_ret,
                  (size_t)(*has_hold - write_ret));
+          *has_hold -= write_ret;
           free(*v7_hold_buf);
           *v7_hold_buf = new_buf;
           return SDAS_SUCCESS;
@@ -2865,7 +2865,7 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_ownership(
 
 SDArchiverStateReturns internal_skip_chunked_encoded_chunk(FILE *in_f) {
   uint64_t size_from_base10;
-  char c;
+  char c = 0;
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   while (!feof(in_f) && !ferror(in_f)) {
     size_from_base10 = 0;
