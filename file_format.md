@@ -905,6 +905,10 @@ followed by a newline ( "\n" ). After the newline is the "mini-chunk" data of
 the size specified earlier. This repeats until there is no more data, which is
 indicated with a single "0" digit and a single newline.
 
+NOTICE: The maximum size of a "mini-chunk" is 32KiB. simplearchiver will return
+with an error if it encounters a mini-chunk in chunked-encoding with a size
+greater than 32KiB.
+
 Note that this does not store the size of the compressed chunk beforehand, and
 must be calculated by summing up each of the "mini-chunk" sizes in this
 "chunked-encoding" format.
@@ -1110,3 +1114,4 @@ if the chunk IS compressed:
 1. "chunked-encoding" of the chunk data as described earlier.
     - Note that file format version 5 introduced adding a two-byte prefix to
       every chunk's data ('S' and 'A'; 0x53 and 0x41).
+    - Note that the maximum size of a "mini-chunk" is 32KiB.

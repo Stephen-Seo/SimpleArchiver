@@ -1373,6 +1373,12 @@ SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
           *chunk_remaining = 0;
           *has_hold = -1;
           goto TRY_WRITE_TO_DECOMP_END;
+        } else if (size_from_base10 > 32 * 1024) {
+          // Invalid chunk size: larger than 32KiB
+          fprintf(stderr,
+                  "ERROR: \"mini-chunk\" (chunked-encoding) size is larger "
+                  "than 32KiB!\n");
+          return SDAS_INVALID_FILE;
         }
 
         __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
@@ -8148,22 +8154,65 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
               }
             } else {
               // chunked-encoding
-              __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-              char *base10 =
-                  simple_archiver_helper_value_to_base10_with_newline(
-                    (uint64_t)read_ret);
-              size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
-              if (fwrite_ret != (size_t)strlen(base10)) {
-                fprintf(stderr,
-                        "ERROR: Failed to write chunked-encoding (base10 size)!"
-                        "\n");
-                return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
-              }
-              fwrite_ret = fwrite(buf, 1, (size_t)read_ret, out_f);
-              if (fwrite_ret != (size_t)read_ret) {
-                fprintf(stderr,
-                        "ERROR: Failed to write chunked-encoding (data)!\n");
-                return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+              size_t idx = 0;
+              size_t read_amt = (size_t)read_ret;
+              while (read_amt > 0) {
+                if (read_amt < 32 * 1024) {
+                  __attribute__((cleanup(
+                      simple_archiver_helper_cleanup_c_string)))
+                  char *base10 =
+                      simple_archiver_helper_value_to_base10_with_newline(
+                        (uint64_t)read_amt);
+                  size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
+                  if (fwrite_ret != (size_t)strlen(base10)) {
+                    fprintf(stderr,
+                            "ERROR: Failed to write chunked-encoding "
+                            "(base10 size)!\n");
+                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+                  }
+                  fwrite_ret = fwrite(buf + idx,
+                                      1,
+                                      read_amt,
+                                      out_f);
+                  if (fwrite_ret != read_amt) {
+                    fprintf(stderr,
+                            "ERROR: Failed to write chunked-encoding "
+                            "(data)!\n");
+                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+                  }
+                  idx += read_amt;
+                  read_amt = 0;
+                } else {
+                  if (sizeof(buf) < 32 * 1024) {
+                    fprintf(stderr,
+                            "ERROR: buf should be able to hold 32KiB!\n");
+                    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  }
+                  __attribute__((cleanup(
+                      simple_archiver_helper_cleanup_c_string)))
+                  char *base10 =
+                      simple_archiver_helper_value_to_base10_with_newline(
+                        32 * 1024);
+                  size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
+                  if (fwrite_ret != (size_t)strlen(base10)) {
+                    fprintf(stderr,
+                            "ERROR: Failed to write chunked-encoding "
+                            "(base10 size)!\n");
+                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+                  }
+                  fwrite_ret = fwrite(buf + idx,
+                                      1,
+                                      32 * 1024,
+                                      out_f);
+                  if (fwrite_ret != 32 * 1024) {
+                    fprintf(stderr,
+                            "ERROR: Failed to write chunked-encoding "
+                            "(data)!\n");
+                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+                  }
+                  idx += 32 * 1024;
+                  read_amt -= 32 * 1024;
+                }
               }
             }
           }
