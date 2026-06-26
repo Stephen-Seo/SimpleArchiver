@@ -107,6 +107,7 @@ typedef struct SDArchiverDecompInfo {
   int_fast8_t *v5_to_skip;
   int in_pipe;
   uint32_t write_version;
+  uint32_t size_from_base10;
 } SDArchiverDecompInfo;
 
 void internal_cleanup_dirinfo_fn(void *data) {
@@ -1378,7 +1379,7 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
         }
       }
     } else {
-      if (*info->has_hold < 0) {
+      if (*info->has_hold < 0 && info->size_from_base10 == 0) {
         // chunked-encoding: get the base10 size
         uint64_t size_from_base10 = 0;
         char c = 0;
@@ -1407,22 +1408,23 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
           return SDAS_INVALID_FILE;
         }
 
-        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-        char *mini_chunk = malloc(size_from_base10);
-
         // get chunked-encoding mini-chunk
-        fread_amt = fread(mini_chunk, 1, size_from_base10, info->in_f);
+        fread_amt = fread(info->read_buf, 1, size_from_base10, info->in_f);
 
         if (fread_amt == 0) {
           // TODO: check if it is better to return error here.
           return SDAS_SUCCESS;
+        } else if (fread_amt < size_from_base10) {
+          info->size_from_base10 = (uint32_t)(size_from_base10 - fread_amt);
         }
 
-        ssize_t write_ret = write(*info->to_dec_pipe, mini_chunk, fread_amt);
+        ssize_t write_ret = write(*info->to_dec_pipe,
+                                  info->read_buf,
+                                  fread_amt);
         if (write_ret < 0) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
             *info->has_hold = (ssize_t)fread_amt;
-            memcpy(info->hold_buf, mini_chunk, fread_amt);
+            memcpy(info->hold_buf, info->read_buf, fread_amt);
             return SDAS_SUCCESS;
           } else {
             fprintf(stderr, "ERROR: Failed to write to decomp "
@@ -1436,14 +1438,14 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
         } else if ((size_t)write_ret < fread_amt) {
           *info->has_hold = (ssize_t)fread_amt - write_ret;
           memcpy(info->hold_buf,
-                 mini_chunk + write_ret,
+                 info->read_buf + write_ret,
                  (size_t)*info->has_hold);
           return SDAS_SUCCESS;
         } else {
           // Fully written successfully, nothing to do here.
           return SDAS_SUCCESS;
         }
-      } else {
+      } else if (*info->has_hold > 0) {
         ssize_t write_ret = write(*info->to_dec_pipe,
                                   info->hold_buf,
                                   (size_t)*info->has_hold);
@@ -1473,6 +1475,49 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
         } else {
           *info->has_hold = -1;
         }
+      } else if (info->size_from_base10 != 0) {
+        size_t fread_amt = fread(info->read_buf,
+                                 1,
+                                 info->size_from_base10,
+                                 info->in_f);
+
+        if (fread_amt == 0) {
+          // TODO: check if it is better to return error here.
+          return SDAS_SUCCESS;
+        } else if (fread_amt < info->size_from_base10) {
+          info->size_from_base10 =
+            (uint32_t)(info->size_from_base10 - fread_amt);
+        } else {
+          info->size_from_base10 = 0;
+        }
+
+        ssize_t write_ret = write(*info->to_dec_pipe,
+                                  info->read_buf,
+                                  fread_amt);
+        if (write_ret < 0) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            *info->has_hold = (ssize_t)fread_amt;
+            memcpy(info->hold_buf, info->read_buf, fread_amt);
+            return SDAS_SUCCESS;
+          } else {
+            fprintf(stderr, "ERROR: Failed to write to decomp "
+                            "(chunked-encoding; write_ret < 0)\n");
+            return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+          }
+        } else if (write_ret == 0) {
+          fprintf(stderr, "ERROR: Failed to write to decomp "
+                          "(chunked-encoding; write_ret == 0)\n");
+          return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+        } else if ((size_t)write_ret < fread_amt) {
+          *info->has_hold = (ssize_t)fread_amt - write_ret;
+          memcpy(info->hold_buf,
+                 info->read_buf + write_ret,
+                 (size_t)*info->has_hold);
+          return SDAS_SUCCESS;
+        } else {
+          // Fully written successfully, nothing to do here.
+          return SDAS_SUCCESS;
+        }
       }
 
       // Wait for "0\n" to go to end.
@@ -1489,6 +1534,7 @@ TRY_WRITE_TO_DECOMP_END:
   }
 
   return SDAS_SUCCESS;
+
 }
 
 /// Returns SDAS_SUCCESS on success.
@@ -10772,7 +10818,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         &has_hold,
         NULL,
         pipe_outof_read,
-        state->parsed->write_version
+        state->parsed->write_version,
+        0
       };
 
       while (node->next != file_info_list->tail) {
@@ -12745,7 +12792,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         &has_hold,
         NULL,
         pipe_outof_read,
-        state->parsed->write_version
+        state->parsed->write_version,
+        0
       };
 
       while (node->next != file_info_list->tail) {
@@ -15189,7 +15237,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         &has_hold,
         &v5_to_skip,
         pipe_outof_read,
-        state->parsed->write_version
+        state->parsed->write_version,
+        0
       };
 
       while (node->next != file_info_list->tail) {
