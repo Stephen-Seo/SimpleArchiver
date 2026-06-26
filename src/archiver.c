@@ -1462,13 +1462,11 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
                           "(has-hold; chunked-encoding; write_ret == 0)\n");
           return SDAS_CHUNKED_DECOMPRESSION_ERROR;
         } else if (write_ret < *info->has_hold) {
-          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-          char *new_buf = malloc((size_t)(*info->has_hold - write_ret));
-          memcpy(new_buf,
+          memcpy(info->read_buf,
                  info->hold_buf + write_ret,
                  (size_t)(*info->has_hold - write_ret));
           memcpy(info->hold_buf,
-                 new_buf,
+                 info->read_buf,
                  (size_t)(*info->has_hold - write_ret));
           *info->has_hold -= write_ret;
           return SDAS_SUCCESS;
