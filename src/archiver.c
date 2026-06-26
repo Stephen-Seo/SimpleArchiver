@@ -49,6 +49,7 @@
 #define FILE_COUNTS_OUTPUT_FORMAT_STR_1 \
   "[%%%" PRIu64 "zu/%%%" PRIu64 PRIu64 "]\n"
 
+// Must not be smaller than 32KiB.
 #define SIMPLE_ARCHIVER_BUFFER_SIZE (1024 * 32)
 
 volatile int is_sig_pipe_occurred = 0;
@@ -104,7 +105,6 @@ typedef struct SDArchiverDecompInfo {
   char *hold_buf;
   ssize_t *has_hold;
   int_fast8_t *v5_to_skip;
-  char **v7_hold_buf;
   int in_pipe;
   uint32_t write_version;
 } SDArchiverDecompInfo;
@@ -1422,8 +1422,7 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
         if (write_ret < 0) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
             *info->has_hold = (ssize_t)fread_amt;
-            *info->v7_hold_buf = mini_chunk;
-            mini_chunk = NULL;
+            memcpy(info->hold_buf, mini_chunk, fread_amt);
             return SDAS_SUCCESS;
           } else {
             fprintf(stderr, "ERROR: Failed to write to decomp "
@@ -1436,8 +1435,7 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
           return SDAS_CHUNKED_DECOMPRESSION_ERROR;
         } else if ((size_t)write_ret < fread_amt) {
           *info->has_hold = (ssize_t)fread_amt - write_ret;
-          *info->v7_hold_buf = malloc((size_t)(*info->has_hold));
-          memcpy(*info->v7_hold_buf,
+          memcpy(info->hold_buf,
                  mini_chunk + write_ret,
                  (size_t)*info->has_hold);
           return SDAS_SUCCESS;
@@ -1447,7 +1445,7 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
         }
       } else {
         ssize_t write_ret = write(*info->to_dec_pipe,
-                                  *info->v7_hold_buf,
+                                  info->hold_buf,
                                   (size_t)*info->has_hold);
         if (write_ret < 0) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -1462,17 +1460,17 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
                           "(has-hold; chunked-encoding; write_ret == 0)\n");
           return SDAS_CHUNKED_DECOMPRESSION_ERROR;
         } else if (write_ret < *info->has_hold) {
+          __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *new_buf = malloc((size_t)(*info->has_hold - write_ret));
           memcpy(new_buf,
-                 *info->v7_hold_buf + write_ret,
+                 info->hold_buf + write_ret,
+                 (size_t)(*info->has_hold - write_ret));
+          memcpy(info->hold_buf,
+                 new_buf,
                  (size_t)(*info->has_hold - write_ret));
           *info->has_hold -= write_ret;
-          free(*info->v7_hold_buf);
-          *info->v7_hold_buf = new_buf;
           return SDAS_SUCCESS;
         } else {
-          free(*info->v7_hold_buf);
-          *info->v7_hold_buf = NULL;
           *info->has_hold = -1;
         }
       }
@@ -10762,9 +10760,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
       ssize_t has_hold = -1;
 
-      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-      char *v7_hold_buf = NULL;
-
       SDArchiverDecompInfo decomp_info = (SDArchiverDecompInfo){
         NULL,
         (char*)buf,
@@ -10776,7 +10771,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         hold_buf,
         &has_hold,
         NULL,
-        &v7_hold_buf,
         pipe_outof_read,
         state->parsed->write_version
       };
@@ -12739,9 +12733,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
       ssize_t has_hold = -1;
 
-      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-      char *v7_hold_buf = NULL;
-
       SDArchiverDecompInfo decomp_info = (SDArchiverDecompInfo){
         NULL,
         (char*)buf,
@@ -12753,7 +12744,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         hold_buf,
         &has_hold,
         NULL,
-        &v7_hold_buf,
         pipe_outof_read,
         state->parsed->write_version
       };
@@ -15185,9 +15175,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
       ssize_t has_hold = -1;
 
-      __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-      char *v7_hold_buf = NULL;
-
       int_fast8_t is_empty = 1;
 
       SDArchiverDecompInfo decomp_info = (SDArchiverDecompInfo){
@@ -15201,7 +15188,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         hold_buf,
         &has_hold,
         &v5_to_skip,
-        &v7_hold_buf,
         pipe_outof_read,
         state->parsed->write_version
       };
@@ -15373,8 +15359,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         has_hold = -1;
         uint64_t remaining = chunk_size;
         uint64_t read_remaining = 2;
-        __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
-        char *v7_hold_buf = NULL;
         while (remaining != 0) {
           SDArchiverStateReturns write_decomp_ret =
             try_write_to_decomp(&decomp_info);
