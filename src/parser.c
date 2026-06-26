@@ -687,9 +687,10 @@ int simple_archiver_parse_args(int argc, const char **argv,
           fprintf(stderr, "ERROR: --write-version cannot be negative!\n");
           simple_archiver_print_usage();
           return 1;
-        } else if (version > 6) {
+        } else if (version > 7) {
           fprintf(stderr,
-                  "ERROR: --write-version must be 0, 1, 2, 3, 4, 5, or 6!\n");
+                  "ERROR: --write-version must be 0, 1, 2, 3, 4, 5, 6, or 7!"
+                  "\n");
           simple_archiver_print_usage();
           return 1;
         }
