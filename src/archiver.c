@@ -8311,6 +8311,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                         "ERROR: Failed to write chunked-encoding (data)!\n");
                 return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
               }
+              *files_compressed_size += (uint64_t)read_ret;
             }
           }
         }
