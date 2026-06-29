@@ -105,6 +105,7 @@ typedef struct SDArchiverDecompInfo {
   char *hold_buf;
   ssize_t *has_hold;
   int_fast8_t *v5_to_skip;
+  uint64_t *compressed_size;
   int in_pipe;
   uint32_t write_version;
   uint32_t size_from_base10;
@@ -1407,6 +1408,9 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
                   "than 32KiB!\n");
           return SDAS_INVALID_FILE;
         }
+
+        // Sum to "compressed_size"
+        *info->compressed_size += size_from_base10;
 
         // get chunked-encoding mini-chunk
         fread_amt = fread(info->read_buf, 1, size_from_base10, info->in_f);
@@ -8216,6 +8220,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                     return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
                   }
                   idx += read_amt;
+                  *files_compressed_size += read_amt;
                   read_amt = 0;
                 } else {
                   if (sizeof(buf) < 32 * 1024) {
@@ -8246,6 +8251,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                     return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
                   }
                   idx += 32 * 1024;
+                  *files_compressed_size += 32 * 1024;
                   read_amt -= 32 * 1024;
                 }
               }
@@ -10815,6 +10821,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         hold_buf,
         &has_hold,
         NULL,
+        &compressed_size,
         pipe_outof_read,
         state->parsed->write_version,
         0
@@ -12789,6 +12796,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         hold_buf,
         &has_hold,
         NULL,
+        &compressed_size,
         pipe_outof_read,
         state->parsed->write_version,
         0
@@ -15234,6 +15242,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         hold_buf,
         &has_hold,
         &v5_to_skip,
+        &compressed_size,
         pipe_outof_read,
         state->parsed->write_version,
         0
