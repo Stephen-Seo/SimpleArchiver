@@ -237,7 +237,7 @@ void simple_archiver_print_usage(void) {
           "\n");
   fprintf(stderr,
           "--write-version <version> | --write-version=<version> : Force write "
-          "version file format (default 5)\n");
+          "version file format (default 7)\n");
   fprintf(stderr,
           "--chunk-min-size <bytes> | --chunk-min-size=<bytes> : minimum chunk "
           "size (default 268435456 or 256MiB) when using chunks (file formats "
