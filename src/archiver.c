@@ -2909,7 +2909,9 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_ownership(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-SDArchiverStateReturns internal_skip_chunked_encoded_chunk(FILE *in_f) {
+SDArchiverStateReturns internal_skip_chunked_encoded_chunk(
+    FILE *in_f,
+    uint64_t *compressed_size) {
   uint64_t size_from_base10;
   char c = 0;
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
@@ -2937,6 +2939,16 @@ SDArchiverStateReturns internal_skip_chunked_encoded_chunk(FILE *in_f) {
     // Break if end of chunk.
     if (size_from_base10 == 0) {
       break;
+    } else if (size_from_base10 > 32 * 1024) {
+      // Invalid chunk size: larger than 32KiB
+      fprintf(stderr,
+              "ERROR: \"mini-chunk\" (chunked-encoding) size is larger "
+              "than 32KiB!\n");
+      return SDAS_INVALID_FILE;
+    }
+
+    if (compressed_size) {
+      *compressed_size += size_from_base10;
     }
 
     // Read/skip the current mini-chunk.
@@ -15128,7 +15140,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
       } else {
         // skip chunk that is using chunked-encoding
         fprintf(stderr, "Skipping chunked-encoding chunk...\n");
-        SDArchiverStateReturns ret = internal_skip_chunked_encoded_chunk(in_f);
+        SDArchiverStateReturns ret =
+          internal_skip_chunked_encoded_chunk(in_f, &compressed_size);
         if (ret != SDAS_SUCCESS) {
           return SDA_RET_STRUCT(ret);
         }
