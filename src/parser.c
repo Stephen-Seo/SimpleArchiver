@@ -237,7 +237,7 @@ void simple_archiver_print_usage(void) {
           "\n");
   fprintf(stderr,
           "--write-version <version> | --write-version=<version> : Force write "
-          "version file format (default 7)\n");
+          "version file format (default 6)\n");
   fprintf(stderr,
           "--chunk-min-size <bytes> | --chunk-min-size=<bytes> : minimum chunk "
           "size (default 268435456 or 256MiB) when using chunks (file formats "
@@ -410,7 +410,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.just_w_files = simple_archiver_hash_map_init();
   parsed.temp_dir = NULL;
   parsed.user_cwd = NULL;
-  parsed.write_version = 7;
+  parsed.write_version = 6;
   parsed.minimum_chunk_size = 268435456;
   parsed.uid = 0;
   parsed.gid = 0;
