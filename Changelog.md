@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.3.0
+
 Implement file format version 7.  
 This new file format was created to support "chunked-encoding" of compressed
 chunks.
