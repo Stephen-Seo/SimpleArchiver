@@ -2,6 +2,32 @@
 
 ## Upcoming Changes
 
+Implement file format version 7.  
+This new file format was created to support "chunked-encoding" of compressed
+chunks.
+
+From file format 1 to file format 6, compressed chunks were temporarily stored
+in a temporary file before being stored in the archive when archiving. This is
+due to the need to write the size of the compressed chunk to the archive before
+writing the data of the compressed chunk itself. Seeking is not allowed due to
+the need to support streamability.
+
+(SimpleArchiver supports streamability. This means that `simplearchiver` can
+archive files and output the resulting archive to standard-output. This also
+means that `simplearchiver` can read archive data from standard-input and
+extract files. SimpleArchiver has always supported streamability.)
+
+"chunked-encoding" is where compressed data from a compressor is written to
+the archive file with the size of the "mini-chunk" prepended to it. This means
+that compressed data is written on the fly to the archive as it is being
+compressed without need of writing to a temporary file. The caveat is that
+the size of the compressed chunk can only be known by "parsing" the data to get
+each "mini-chunk" size.
+
+Note that since file format 7 is new, it is opt-in, and file format 6 is the
+default. Use `--write-version=7` as an argument to `simplearchiver` to use
+file format version 7 when archiving.
+
 ## Version 3.2.3
 
 Enable white/black-list case-insensitive checking with "exact" variants of the
