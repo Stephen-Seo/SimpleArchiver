@@ -49,6 +49,7 @@
 #define FILE_COUNTS_OUTPUT_FORMAT_STR_1 \
   "[%%%" PRIu64 "zu/%%%" PRIu64 PRIu64 "]\n"
 
+// Must not be smaller than 32KiB.
 #define SIMPLE_ARCHIVER_BUFFER_SIZE (1024 * 32)
 
 volatile int is_sig_pipe_occurred = 0;
@@ -92,6 +93,23 @@ typedef struct SDArchiverInternalDirInfo {
   char *dirname;
   mode_t permissions;
 } SDArchiverInternalDirInfo;
+
+typedef struct SDArchiverDecompInfo {
+  char *out_filename;
+  char *read_buf;
+  size_t read_buf_size;
+  uint64_t file_size;
+  int *to_dec_pipe;
+  uint64_t *chunk_remaining;
+  FILE *in_f;
+  char *hold_buf;
+  ssize_t *has_hold;
+  int_fast8_t *v5_to_skip;
+  uint64_t *compressed_size;
+  int in_pipe;
+  uint32_t write_version;
+  uint32_t size_from_base10;
+} SDArchiverDecompInfo;
 
 void internal_cleanup_dirinfo_fn(void *data) {
   SDArchiverInternalDirInfo *dinfo = data;
@@ -1226,152 +1244,310 @@ SDArchiverStateReturns read_fd_to_out_fd(FILE *in_fd,
   return SDAS_SUCCESS;
 }
 
-SDArchiverStateReturns try_write_to_decomp(int *to_dec_pipe,
-                                           uint64_t *chunk_remaining,
-                                           FILE *in_f,
-                                           char *buf,
-                                           const size_t buf_size,
-                                           char *hold_buf,
-                                           ssize_t *has_hold) {
-  if (*to_dec_pipe >= 0) {
-    if (*chunk_remaining > 0) {
-      if (*chunk_remaining > buf_size) {
-        if (*has_hold < 0) {
-          size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, in_f);
-          if (fread_ret == 0) {
-            goto TRY_WRITE_TO_DECOMP_END;
+SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
+  if (*info->to_dec_pipe >= 0) {
+    if (info->write_version < 7) {
+      if (*info->chunk_remaining > 0) {
+        if (*info->chunk_remaining > info->read_buf_size) {
+          if (*info->has_hold < 0) {
+            size_t fread_ret = fread(info->read_buf,
+                                     1,
+                                     SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                     info->in_f);
+            if (fread_ret == 0) {
+              goto TRY_WRITE_TO_DECOMP_END;
+            } else {
+              ssize_t write_ret = write(*info->to_dec_pipe,
+                                        info->read_buf,
+                                        fread_ret);
+              if (write_ret < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                  *info->has_hold = (ssize_t)fread_ret;
+                  memcpy(info->hold_buf, info->read_buf, fread_ret);
+                  return SDAS_SUCCESS;
+                } else {
+                  return SDAS_DECOMPRESSION_ERROR;
+                }
+              } else if (write_ret == 0) {
+                return SDAS_DECOMPRESSION_ERROR;
+              } else if ((size_t)write_ret < fread_ret) {
+                *info->chunk_remaining -= (size_t)write_ret;
+                *info->has_hold = (ssize_t)fread_ret - write_ret;
+                memcpy(info->hold_buf,
+                       info->read_buf + write_ret,
+                       (size_t)*info->has_hold);
+                return SDAS_SUCCESS;
+              } else {
+                *info->chunk_remaining -= (size_t)write_ret;
+              }
+            }
           } else {
-            ssize_t write_ret = write(*to_dec_pipe, buf, fread_ret);
+            ssize_t write_ret = write(*info->to_dec_pipe,
+                                      info->hold_buf,
+                                      (size_t)*info->has_hold);
             if (write_ret < 0) {
               if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                *has_hold = (ssize_t)fread_ret;
-                memcpy(hold_buf, buf, fread_ret);
                 return SDAS_SUCCESS;
               } else {
                 return SDAS_DECOMPRESSION_ERROR;
               }
             } else if (write_ret == 0) {
               return SDAS_DECOMPRESSION_ERROR;
-            } else if ((size_t)write_ret < fread_ret) {
-              *chunk_remaining -= (size_t)write_ret;
-              *has_hold = (ssize_t)fread_ret - write_ret;
-              memcpy(hold_buf, buf + write_ret, (size_t)*has_hold);
+            } else if (write_ret < *info->has_hold) {
+              *info->chunk_remaining -= (size_t)write_ret;
+              memcpy(info->read_buf,
+                     info->hold_buf + write_ret,
+                     (size_t)(*info->has_hold - write_ret));
+              memcpy(info->hold_buf,
+                     info->read_buf,
+                     (size_t)(*info->has_hold - write_ret));
+              *info->has_hold = *info->has_hold - write_ret;
               return SDAS_SUCCESS;
             } else {
-              *chunk_remaining -= (size_t)write_ret;
+              *info->chunk_remaining -= (size_t)*info->has_hold;
+              *info->has_hold = -1;
             }
           }
         } else {
-          ssize_t write_ret = write(*to_dec_pipe, hold_buf, (size_t)*has_hold);
-          if (write_ret < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-              return SDAS_SUCCESS;
+          if (*info->has_hold < 0) {
+            // Handling for 32-bit systems.
+            // size_t and uintptr_t is 4 bytes on 32-bit systems.
+            // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
+            // compiling for 32-bit systems.
+            size_t fread_ret;
+            if (sizeof(uintptr_t) == 4 && *info->chunk_remaining > 0x7FFFFFFF) {
+              fread_ret = fread(info->read_buf, 1, 0x7FFFFFFF, info->in_f);
             } else {
-              return SDAS_DECOMPRESSION_ERROR;
+              fread_ret = fread(info->read_buf,
+                                1,
+                                (size_t)*info->chunk_remaining, info->in_f);
             }
-          } else if (write_ret == 0) {
-            return SDAS_DECOMPRESSION_ERROR;
-          } else if (write_ret < *has_hold) {
-            *chunk_remaining -= (size_t)write_ret;
-            memcpy(buf, hold_buf + write_ret, (size_t)(*has_hold - write_ret));
-            memcpy(hold_buf, buf, (size_t)(*has_hold - write_ret));
-            *has_hold = *has_hold - write_ret;
-            return SDAS_SUCCESS;
+            if (fread_ret == 0) {
+              goto TRY_WRITE_TO_DECOMP_END;
+            } else {
+              ssize_t write_ret =
+                write(*info->to_dec_pipe, info->read_buf, fread_ret);
+              if (write_ret < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                  *info->has_hold = (int)fread_ret;
+                  memcpy(info->hold_buf, info->read_buf, fread_ret);
+                  return SDAS_SUCCESS;
+                } else {
+                  return SDAS_DECOMPRESSION_ERROR;
+                }
+              } else if (write_ret == 0) {
+                return SDAS_DECOMPRESSION_ERROR;
+              } else if ((size_t)write_ret < fread_ret) {
+                *info->chunk_remaining -= (size_t)write_ret;
+                *info->has_hold = (ssize_t)fread_ret - write_ret;
+                memcpy(info->hold_buf,
+                       info->read_buf + write_ret,
+                       (size_t)*info->has_hold);
+                return SDAS_SUCCESS;
+              } else if ((size_t)write_ret <= *info->chunk_remaining) {
+                *info->chunk_remaining -= (size_t)write_ret;
+              } else {
+                return SDAS_DECOMPRESSION_ERROR;
+              }
+            }
           } else {
-            *chunk_remaining -= (size_t)*has_hold;
-            *has_hold = -1;
-          }
-        }
-      } else {
-        if (*has_hold < 0) {
-          // Handling for 32-bit systems.
-          // size_t and uintptr_t is 4 bytes on 32-bit systems.
-          // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
-          // compiling for 32-bit systems.
-          size_t fread_ret;
-          if (sizeof(uintptr_t) == 4 && *chunk_remaining > 0x7FFFFFFF) {
-            fread_ret = fread(buf, 1, 0x7FFFFFFF, in_f);
-          } else {
-            fread_ret = fread(buf, 1, (size_t)*chunk_remaining, in_f);
-          }
-          if (fread_ret == 0) {
-            goto TRY_WRITE_TO_DECOMP_END;
-          } else {
-            ssize_t write_ret = write(*to_dec_pipe, buf, fread_ret);
+            ssize_t write_ret = write(*info->to_dec_pipe,
+                                      info->hold_buf,
+                                      (size_t)*info->has_hold);
             if (write_ret < 0) {
               if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                *has_hold = (int)fread_ret;
-                memcpy(hold_buf, buf, fread_ret);
                 return SDAS_SUCCESS;
               } else {
                 return SDAS_DECOMPRESSION_ERROR;
               }
             } else if (write_ret == 0) {
               return SDAS_DECOMPRESSION_ERROR;
-            } else if ((size_t)write_ret < fread_ret) {
-              *chunk_remaining -= (size_t)write_ret;
-              *has_hold = (ssize_t)fread_ret - write_ret;
-              memcpy(hold_buf, buf + write_ret, (size_t)*has_hold);
-              return SDAS_SUCCESS;
-            } else if ((size_t)write_ret <= *chunk_remaining) {
-              *chunk_remaining -= (size_t)write_ret;
-            } else {
-              return SDAS_DECOMPRESSION_ERROR;
-            }
-          }
-        } else {
-          ssize_t write_ret = write(*to_dec_pipe, hold_buf, (size_t)*has_hold);
-          if (write_ret < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            } else if (write_ret < *info->has_hold) {
+              *info->chunk_remaining -= (size_t)write_ret;
+              memcpy(info->read_buf,
+                     info->hold_buf + write_ret,
+                     (size_t)(*info->has_hold - write_ret));
+              memcpy(info->hold_buf,
+                     info->read_buf,
+                     (size_t)(*info->has_hold - write_ret));
+              *info->has_hold = *info->has_hold - write_ret;
               return SDAS_SUCCESS;
             } else {
-              return SDAS_DECOMPRESSION_ERROR;
+              *info->chunk_remaining -= (size_t)*info->has_hold;
+              *info->has_hold = -1;
             }
-          } else if (write_ret == 0) {
-            return SDAS_DECOMPRESSION_ERROR;
-          } else if (write_ret < *has_hold) {
-            *chunk_remaining -= (size_t)write_ret;
-            memcpy(buf, hold_buf + write_ret, (size_t)(*has_hold - write_ret));
-            memcpy(hold_buf, buf, (size_t)(*has_hold - write_ret));
-            *has_hold = *has_hold - write_ret;
-            return SDAS_SUCCESS;
-          } else {
-            *chunk_remaining -= (size_t)*has_hold;
-            *has_hold = -1;
           }
         }
       }
+    } else {
+      if (*info->has_hold < 0 && info->size_from_base10 == 0) {
+        // chunked-encoding: get the base10 size
+        uint64_t size_from_base10 = 0;
+        char c = 0;
+
+        size_t fread_amt = fread(&c, 1, 1, info->in_f);
+
+        while (c != '\n') {
+          if (fread_amt != 1 || c < '0' || c > '9') {
+            fprintf(stderr, "ERROR: Invalid char for chunked-encoding size!\n");
+            return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+          }
+          size_from_base10 = size_from_base10 * 10 + (uint64_t)(c - '0');
+          fread_amt = fread(&c, 1, 1, info->in_f);
+        }
+
+        if (size_from_base10 == 0) {
+          // end of chunk
+          *info->chunk_remaining = 0;
+          *info->has_hold = -1;
+          goto TRY_WRITE_TO_DECOMP_END;
+        } else if (size_from_base10 > 32 * 1024) {
+          // Invalid chunk size: larger than 32KiB
+          fprintf(stderr,
+                  "ERROR: \"mini-chunk\" (chunked-encoding) size is larger "
+                  "than 32KiB!\n");
+          return SDAS_INVALID_FILE;
+        }
+
+        // Sum to "compressed_size"
+        *info->compressed_size += size_from_base10;
+
+        // get chunked-encoding mini-chunk
+        fread_amt = fread(info->read_buf, 1, size_from_base10, info->in_f);
+
+        if (fread_amt == 0) {
+          // TODO: check if it is better to return error here.
+          return SDAS_SUCCESS;
+        } else if (fread_amt < size_from_base10) {
+          info->size_from_base10 = (uint32_t)(size_from_base10 - fread_amt);
+        }
+
+        ssize_t write_ret = write(*info->to_dec_pipe,
+                                  info->read_buf,
+                                  fread_amt);
+        if (write_ret < 0) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            *info->has_hold = (ssize_t)fread_amt;
+            memcpy(info->hold_buf, info->read_buf, fread_amt);
+            return SDAS_SUCCESS;
+          } else {
+            fprintf(stderr, "ERROR: Failed to write to decomp "
+                            "(chunked-encoding; write_ret < 0)\n");
+            return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+          }
+        } else if (write_ret == 0) {
+          fprintf(stderr, "ERROR: Failed to write to decomp "
+                          "(chunked-encoding; write_ret == 0)\n");
+          return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+        } else if ((size_t)write_ret < fread_amt) {
+          *info->has_hold = (ssize_t)fread_amt - write_ret;
+          memcpy(info->hold_buf,
+                 info->read_buf + write_ret,
+                 (size_t)*info->has_hold);
+          return SDAS_SUCCESS;
+        } else {
+          // Fully written successfully, nothing to do here.
+          return SDAS_SUCCESS;
+        }
+      } else if (*info->has_hold > 0) {
+        ssize_t write_ret = write(*info->to_dec_pipe,
+                                  info->hold_buf,
+                                  (size_t)*info->has_hold);
+        if (write_ret < 0) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return SDAS_SUCCESS;
+          } else {
+            fprintf(stderr, "ERROR: Failed to write to decomp "
+                            "(has-hold; chunked-encoding; write_ret < 0)\n");
+            return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+          }
+        } else if (write_ret == 0) {
+          fprintf(stderr, "ERROR: Failed to write to decomp "
+                          "(has-hold; chunked-encoding; write_ret == 0)\n");
+          return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+        } else if (write_ret < *info->has_hold) {
+          memcpy(info->read_buf,
+                 info->hold_buf + write_ret,
+                 (size_t)(*info->has_hold - write_ret));
+          memcpy(info->hold_buf,
+                 info->read_buf,
+                 (size_t)(*info->has_hold - write_ret));
+          *info->has_hold -= write_ret;
+          return SDAS_SUCCESS;
+        } else {
+          *info->has_hold = -1;
+        }
+      } else if (info->size_from_base10 != 0) {
+        size_t fread_amt = fread(info->read_buf,
+                                 1,
+                                 info->size_from_base10,
+                                 info->in_f);
+
+        if (fread_amt == 0) {
+          // TODO: check if it is better to return error here.
+          return SDAS_SUCCESS;
+        } else if (fread_amt < info->size_from_base10) {
+          info->size_from_base10 =
+            (uint32_t)(info->size_from_base10 - fread_amt);
+        } else {
+          info->size_from_base10 = 0;
+        }
+
+        ssize_t write_ret = write(*info->to_dec_pipe,
+                                  info->read_buf,
+                                  fread_amt);
+        if (write_ret < 0) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            *info->has_hold = (ssize_t)fread_amt;
+            memcpy(info->hold_buf, info->read_buf, fread_amt);
+            return SDAS_SUCCESS;
+          } else {
+            fprintf(stderr, "ERROR: Failed to write to decomp "
+                            "(chunked-encoding; write_ret < 0)\n");
+            return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+          }
+        } else if (write_ret == 0) {
+          fprintf(stderr, "ERROR: Failed to write to decomp "
+                          "(chunked-encoding; write_ret == 0)\n");
+          return SDAS_CHUNKED_DECOMPRESSION_ERROR;
+        } else if ((size_t)write_ret < fread_amt) {
+          *info->has_hold = (ssize_t)fread_amt - write_ret;
+          memcpy(info->hold_buf,
+                 info->read_buf + write_ret,
+                 (size_t)*info->has_hold);
+          return SDAS_SUCCESS;
+        } else {
+          // Fully written successfully, nothing to do here.
+          return SDAS_SUCCESS;
+        }
+      }
+
+      // Wait for "0\n" to go to end.
+      return SDAS_SUCCESS;
     }
   }
 
 TRY_WRITE_TO_DECOMP_END:
-  if (*to_dec_pipe >= 0 && *chunk_remaining == 0 && *has_hold < 0) {
-    close(*to_dec_pipe);
-    *to_dec_pipe = -1;
+  if (*info->to_dec_pipe >= 0
+      && *info->chunk_remaining == 0
+      && *info->has_hold < 0) {
+    close(*info->to_dec_pipe);
+    *info->to_dec_pipe = -1;
   }
 
   return SDAS_SUCCESS;
+
 }
 
 /// Returns SDAS_SUCCESS on success.
-SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
-                                               int in_pipe,
-                                               char *read_buf,
-                                               const size_t read_buf_size,
-                                               const uint64_t file_size,
-                                               int *to_dec_pipe,
-                                               uint64_t *chunk_remaining,
-                                               FILE *in_f,
-                                               char *hold_buf,
-                                               ssize_t *has_hold,
-                                               int_fast8_t *v5_to_skip) {
+SDArchiverStateReturns read_decomp_to_out_file(SDArchiverDecompInfo *info) {
   __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *out_fd =
       NULL;
-  if (out_filename) {
-    out_fd = fopen(out_filename, "wb");
+  if (info->out_filename) {
+    out_fd = fopen(info->out_filename, "wb");
     if (!out_fd) {
       fprintf(stderr, "ERROR Failed to open \"%s\" for writing!\n",
-              out_filename);
+              info->out_filename);
       return SDAS_FILE_CREATE_FAIL;
     }
   }
@@ -1379,38 +1555,24 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
   uint64_t written_amt = 0;
   ssize_t read_ret;
   size_t fwrite_ret;
-  while (written_amt < file_size) {
+  while (written_amt < info->file_size) {
     if (is_sig_pipe_occurred) {
       fprintf(stderr, "ERROR: SIGPIPE while decompressing!\n");
       return SDAS_DECOMPRESSION_ERROR;
     }
-    SDArchiverStateReturns ret =
-      try_write_to_decomp(to_dec_pipe,
-                          chunk_remaining,
-                          in_f,
-                          read_buf,
-                          read_buf_size,
-                          hold_buf,
-                          has_hold);
+    SDArchiverStateReturns ret = try_write_to_decomp(info);
     if (ret != SDAS_SUCCESS) {
       return ret;
     } else if (is_sig_pipe_occurred) {
       fprintf(stderr, "ERROR: SIGPIPE while decompressing!\n");
       return SDAS_DECOMPRESSION_ERROR;
-    } else if (file_size - written_amt >= read_buf_size) {
-      while (v5_to_skip && *v5_to_skip) {
-        read_ret = read(in_pipe, read_buf, 2);
+    } else if (info->file_size - written_amt >= info->read_buf_size) {
+      while (info->v5_to_skip && *info->v5_to_skip) {
+        read_ret = read(info->in_pipe, info->read_buf, 2);
         if (read_ret == -1) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
             nanosleep(&nonblock_sleep, NULL);
-            SDArchiverStateReturns ret =
-              try_write_to_decomp(to_dec_pipe,
-                                  chunk_remaining,
-                                  in_f,
-                                  read_buf,
-                                  read_buf_size,
-                                  hold_buf,
-                                  has_hold);
+            SDArchiverStateReturns ret = try_write_to_decomp(info);
             if (ret != SDAS_SUCCESS) {
               return ret;
             }
@@ -1421,13 +1583,13 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         } else if (read_ret != 2) {
           return SDAS_DECOMPRESSION_ERROR;
         } else {
-          *v5_to_skip = 0;
+          *info->v5_to_skip = 0;
         }
       }
-      read_ret = read(in_pipe, read_buf, read_buf_size);
+      read_ret = read(info->in_pipe, info->read_buf, info->read_buf_size);
       if (read_ret > 0) {
         if (out_fd) {
-          fwrite_ret = fwrite(read_buf, 1, (size_t)read_ret, out_fd);
+          fwrite_ret = fwrite(info->read_buf, 1, (size_t)read_ret, out_fd);
           if (fwrite_ret == (size_t)read_ret) {
             written_amt += fwrite_ret;
           } else if (ferror(out_fd)) {
@@ -1444,7 +1606,7 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         }
       } else if (read_ret == 0) {
         // EOF.
-        if (written_amt < file_size) {
+        if (written_amt < info->file_size) {
           fprintf(stderr,
                   "ERROR Decompressed EOF while file needs more bytes!\n");
           return SDAS_DECOMPRESSION_ERROR;
@@ -1464,19 +1626,12 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         }
       }
     } else {
-      while (v5_to_skip && *v5_to_skip) {
-        read_ret = read(in_pipe, read_buf, 2);
+      while (info->v5_to_skip && *info->v5_to_skip) {
+        read_ret = read(info->in_pipe, info->read_buf, 2);
         if (read_ret == -1) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
             nanosleep(&nonblock_sleep, NULL);
-            SDArchiverStateReturns ret =
-              try_write_to_decomp(to_dec_pipe,
-                                  chunk_remaining,
-                                  in_f,
-                                  read_buf,
-                                  read_buf_size,
-                                  hold_buf,
-                                  has_hold);
+            SDArchiverStateReturns ret = try_write_to_decomp(info);
             if (ret != SDAS_SUCCESS) {
               return ret;
             }
@@ -1487,22 +1642,22 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         } else if (read_ret != 2) {
           return SDAS_DECOMPRESSION_ERROR;
         } else {
-          *v5_to_skip = 0;
+          *info->v5_to_skip = 0;
         }
       }
       // Handling for 32-bit systems.
       // size_t and uintptr_t is 4 bytes on 32-bit systems.
       // Using 0x7FFFFFFF since 0xFFFFFFFF is too much for `read` when
       // compiling for 32-bit systems.
-      uint64_t read_amount = file_size - written_amt;
+      uint64_t read_amount = info->file_size - written_amt;
       if (sizeof(uintptr_t) == 4 && read_amount > 0x7FFFFFFF) {
-        read_ret = read(in_pipe, read_buf, 0x7FFFFFFF);
+        read_ret = read(info->in_pipe, info->read_buf, 0x7FFFFFFF);
       } else {
-        read_ret = read(in_pipe, read_buf, (size_t)read_amount);
+        read_ret = read(info->in_pipe, info->read_buf, (size_t)read_amount);
       }
       if (read_ret > 0) {
         if (out_fd) {
-          fwrite_ret = fwrite(read_buf, 1, (size_t)read_ret, out_fd);
+          fwrite_ret = fwrite(info->read_buf, 1, (size_t)read_ret, out_fd);
           if (fwrite_ret == (size_t)read_ret) {
             written_amt += fwrite_ret;
           } else if (ferror(out_fd)) {
@@ -1519,7 +1674,7 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
         }
       } else if (read_ret == 0) {
         // EOF.
-        if (written_amt < file_size) {
+        if (written_amt < info->file_size) {
           fprintf(stderr,
                   "ERROR Decompressed EOF while file needs more bytes!\n");
           return SDAS_DECOMPRESSION_ERROR;
@@ -1541,7 +1696,9 @@ SDArchiverStateReturns read_decomp_to_out_file(const char *out_filename,
     }
   }
 
-  return written_amt == file_size ? SDAS_SUCCESS : SDAS_DECOMPRESSION_ERROR;
+  return written_amt == info->file_size
+         ? SDAS_SUCCESS
+         : SDAS_DECOMPRESSION_ERROR;
 }
 
 void free_internal_file_info(void *data) {
@@ -2752,6 +2909,63 @@ SDArchiverStateRetStruct prefix_dirs_to_forced_ownership(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
+SDArchiverStateReturns internal_skip_chunked_encoded_chunk(
+    FILE *in_f,
+    uint64_t *compressed_size) {
+  uint64_t size_from_base10;
+  char c = 0;
+  char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
+  while (!feof(in_f) && !ferror(in_f)) {
+    size_from_base10 = 0;
+    size_t fread_amt = fread(&c, 1, 1, in_f);
+
+    // Get the base10 number.
+    while (c != '\n') {
+      if (fread_amt != 1) {
+        fprintf(stderr,
+                "ERROR: Failed to skip chunked-encoded chunk "
+                "(base10 size)!\n");
+        return SDAS_INVALID_FILE;
+      } else if (c < '0' || c > '9') {
+        fprintf(stderr,
+                "ERROR: Failed to skip chunked-encoded chunk "
+                "(base10 invalid char)!\n");
+        return SDAS_INVALID_FILE;
+      }
+      size_from_base10 = size_from_base10 * 10 + (uint64_t)(c - '0');
+      fread_amt = fread(&c, 1, 1, in_f);
+    }
+
+    // Break if end of chunk.
+    if (size_from_base10 == 0) {
+      break;
+    } else if (size_from_base10 > 32 * 1024) {
+      // Invalid chunk size: larger than 32KiB
+      fprintf(stderr,
+              "ERROR: \"mini-chunk\" (chunked-encoding) size is larger "
+              "than 32KiB!\n");
+      return SDAS_INVALID_FILE;
+    }
+
+    if (compressed_size) {
+      *compressed_size += size_from_base10;
+    }
+
+    // Read/skip the current mini-chunk.
+    while (size_from_base10 != 0) {
+      if (size_from_base10 > SIMPLE_ARCHIVER_BUFFER_SIZE) {
+        fread_amt = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, in_f);
+        size_from_base10 -= fread_amt;
+      } else {
+        fread_amt = fread(buf, 1, size_from_base10, in_f);
+        size_from_base10 -= fread_amt;
+      }
+    }
+  }
+
+  return SDAS_SUCCESS;
+}
+
 char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
   switch (error) {
     case SDAS_SUCCESS:
@@ -2786,6 +3000,8 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
       return "Error during compression";
     case SDAS_DECOMPRESSION_ERROR:
       return "Error during decompression";
+    case SDAS_CHUNKED_DECOMPRESSION_ERROR:
+      return "Error during chunked-encoding decompression";
     case SDAS_NON_DEC_EXTRACT_ERROR:
       return "Error during extraction of non-compressed data";
     case SDAS_FILE_CREATE_FAIL:
@@ -2880,9 +3096,10 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     }
     case 4:
     {
-      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6(out_f,
-                                                                  state,
-                                                                  write_state);
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6v7(
+          out_f,
+          state,
+          write_state);
       if (ret.ret == SDAS_SUCCESS) {
         internal_simple_archiver_parse_stats(write_state);
       }
@@ -2890,9 +3107,10 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     }
     case 5:
     {
-      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6(out_f,
-                                                                  state,
-                                                                  write_state);
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6v7(
+          out_f,
+          state,
+          write_state);
       if (ret.ret == SDAS_SUCCESS) {
         internal_simple_archiver_parse_stats(write_state);
       }
@@ -2900,9 +3118,21 @@ SDArchiverStateRetStruct simple_archiver_write_all(
     }
     case 6:
     {
-      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6(out_f,
-                                                                  state,
-                                                                  write_state);
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6v7(
+          out_f,
+          state,
+          write_state);
+      if (ret.ret == SDAS_SUCCESS) {
+        internal_simple_archiver_parse_stats(write_state);
+      }
+      return ret;
+    }
+    case 7:
+    {
+      SDArchiverStateRetStruct ret = simple_archiver_write_v4v5v6v7(
+          out_f,
+          state,
+          write_state);
       if (ret.ret == SDAS_SUCCESS) {
         internal_simple_archiver_parse_stats(write_state);
       }
@@ -6422,11 +6652,13 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
+SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
     FILE *out_f,
     SDArchiverState *state,
     SDArchiverHashMap *write_state) {
-  if (state->parsed->write_version == 6) {
+  if (state->parsed->write_version == 7) {
+    fprintf(stderr, "Writing archive of file format 7\n");
+  } else if (state->parsed->write_version == 6) {
     fprintf(stderr, "Writing archive of file format 6\n");
   } else if (state->parsed->write_version == 5) {
     fprintf(stderr, "Writing archive of file format 5\n");
@@ -6658,7 +6890,9 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
 
   char buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
-  if (state->parsed->write_version == 6) {
+  if (state->parsed->write_version == 7) {
+    u16 = 7;
+  } else if (state->parsed->write_version == 6) {
     u16 = 6;
   } else if (state->parsed->write_version == 5) {
     u16 = 5;
@@ -6830,7 +7064,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
         }
       }
       // Set bit 0x20 (second byte, second bit) if dir not empty.
-      if (state && state->parsed->write_version == 6) {
+      if (state && state->parsed->write_version >= 6) {
         int is_dir_empty = simple_archiver_helper_is_dir_empty(dir_path);
         if (is_dir_empty < 0) {
           fprintf(stderr,
@@ -7767,16 +8001,20 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
       ptrs_array[1] = NULL;
 
       __attribute__((cleanup(simple_archiver_helper_cleanup_FILE)))
-      FILE *temp_fd = simple_archiver_helper_temp_dir(state->parsed,
-                                                      &temp_filename);
-      ptrs_array[0] = temp_filename;
+      FILE *temp_fd = NULL;
 
-      if (!temp_fd) {
-        temp_fd = tmpfile();
+      if (state->parsed->write_version < 7) {
+        temp_fd =
+          simple_archiver_helper_temp_dir(state->parsed, &temp_filename);
+        ptrs_array[0] = temp_filename;
+
         if (!temp_fd) {
-          fprintf(stderr,
-                  "ERROR: Failed to create a temporary file for archival!\n");
-          return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
+          temp_fd = tmpfile();
+          if (!temp_fd) {
+            fprintf(stderr,
+                    "ERROR: Failed to create a temporary file for archival!\n");
+            return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
+          }
         }
       }
 
@@ -7957,12 +8195,78 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
             // EOF.
             to_temp_finished = 1;
           } else {
-            size_t fwrite_ret = fwrite(buf, 1, (size_t)read_ret, temp_fd);
-            if (fwrite_ret != (size_t)read_ret) {
-              fprintf(stderr,
-                      "ERROR: Reading from compressor, failed to write to "
-                      "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+            if (state->parsed->write_version < 7) {
+              size_t fwrite_ret = fwrite(buf, 1, (size_t)read_ret, temp_fd);
+              if (fwrite_ret != (size_t)read_ret) {
+                fprintf(stderr,
+                        "ERROR: Reading from compressor, failed to write to "
+                        "temporary file!\n");
+                return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+              }
+            } else {
+              // chunked-encoding
+              size_t idx = 0;
+              size_t read_amt = (size_t)read_ret;
+              while (read_amt > 0) {
+                if (read_amt < 32 * 1024) {
+                  __attribute__((cleanup(
+                      simple_archiver_helper_cleanup_c_string)))
+                  char *base10 =
+                      simple_archiver_helper_value_to_base10_with_newline(
+                        (uint64_t)read_amt);
+                  size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
+                  if (fwrite_ret != (size_t)strlen(base10)) {
+                    fprintf(stderr,
+                            "ERROR: Failed to write chunked-encoding "
+                            "(base10 size)!\n");
+                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+                  }
+                  fwrite_ret = fwrite(buf + idx,
+                                      1,
+                                      read_amt,
+                                      out_f);
+                  if (fwrite_ret != read_amt) {
+                    fprintf(stderr,
+                            "ERROR: Failed to write chunked-encoding "
+                            "(data)!\n");
+                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+                  }
+                  idx += read_amt;
+                  *files_compressed_size += read_amt;
+                  read_amt = 0;
+                } else {
+                  if (sizeof(buf) < 32 * 1024) {
+                    fprintf(stderr,
+                            "ERROR: buf should be able to hold 32KiB!\n");
+                    return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
+                  }
+                  __attribute__((cleanup(
+                      simple_archiver_helper_cleanup_c_string)))
+                  char *base10 =
+                      simple_archiver_helper_value_to_base10_with_newline(
+                        32 * 1024);
+                  size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
+                  if (fwrite_ret != (size_t)strlen(base10)) {
+                    fprintf(stderr,
+                            "ERROR: Failed to write chunked-encoding "
+                            "(base10 size)!\n");
+                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+                  }
+                  fwrite_ret = fwrite(buf + idx,
+                                      1,
+                                      32 * 1024,
+                                      out_f);
+                  if (fwrite_ret != 32 * 1024) {
+                    fprintf(stderr,
+                            "ERROR: Failed to write chunked-encoding "
+                            "(data)!\n");
+                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+                  }
+                  idx += 32 * 1024;
+                  *files_compressed_size += 32 * 1024;
+                  read_amt -= 32 * 1024;
+                }
+              }
             }
           }
         }
@@ -7992,64 +8296,100 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6(
             // EOF.
             break;
           } else {
-            size_t fwrite_ret = fwrite(buf, 1, (size_t)read_ret, temp_fd);
-            if (fwrite_ret != (size_t)read_ret) {
-              fprintf(stderr,
-                      "ERROR: Reading from compressor, failed to write to "
-                      "temporary file!\n");
-              return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+            if (state->parsed->write_version < 7) {
+              size_t fwrite_ret = fwrite(buf, 1, (size_t)read_ret, temp_fd);
+              if (fwrite_ret != (size_t)read_ret) {
+                fprintf(stderr,
+                        "ERROR: Reading from compressor, failed to write to "
+                        "temporary file!\n");
+                return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+              }
+            } else {
+              // chunked-encoding
+              __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
+              char *base10 =
+                  simple_archiver_helper_value_to_base10_with_newline(
+                    (uint64_t)read_ret);
+              size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
+              if (fwrite_ret != (size_t)strlen(base10)) {
+                fprintf(stderr,
+                        "ERROR: Failed to write chunked-encoding (base10 size)!"
+                        "\n");
+                return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+              }
+              fwrite_ret = fwrite(buf, 1, (size_t)read_ret, out_f);
+              if (fwrite_ret != (size_t)read_ret) {
+                fprintf(stderr,
+                        "ERROR: Failed to write chunked-encoding (data)!\n");
+                return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+              }
+              *files_compressed_size += (uint64_t)read_ret;
             }
           }
         }
       }
 
-      long comp_chunk_size = ftell(temp_fd);
-      if (comp_chunk_size < 0) {
-        fprintf(stderr,
-                "ERROR: Temp file reported negative size after compression!\n");
-        return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
-      }
-
-      // Write compressed chunk size.
-      uint64_t u64 = (uint64_t)comp_chunk_size;
-      simple_archiver_helper_64_bit_be(&u64);
-      if (fwrite(&u64, 8, 1, out_f) != 1) {
-        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
-      }
-      *files_compressed_size += (uint64_t)comp_chunk_size;
-
-      rewind(temp_fd);
-
-      size_t written_size = 0;
-
-      // Write compressed chunk.
-      while (!feof(temp_fd)) {
-        if (is_sig_int_occurred) {
-          return SDA_RET_STRUCT(SDAS_SIGINT);
-        } else if (ferror(temp_fd)) {
-          return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+      if (state->parsed->write_version < 7) {
+        long comp_chunk_size = ftell(temp_fd);
+        if (comp_chunk_size < 0) {
+          fprintf(stderr,
+                  "ERROR: Temp file reported negative size after compression!"
+                  "\n");
+          return SDA_RET_STRUCT(SDAS_COMPRESSION_ERROR);
         }
-        size_t fread_ret = fread(buf, 1, SIMPLE_ARCHIVER_BUFFER_SIZE, temp_fd);
-        if (fread_ret > 0) {
-          size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
-          written_size += fwrite_ret;
-          if (fwrite_ret != fread_ret) {
-            fprintf(stderr,
-                    "ERROR: Partial write of read bytes from temp file to "
-                    "output file!\n");
-            return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+
+        // Write compressed chunk size.
+        uint64_t u64 = (uint64_t)comp_chunk_size;
+        simple_archiver_helper_64_bit_be(&u64);
+        if (fwrite(&u64, 8, 1, out_f) != 1) {
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+        *files_compressed_size += (uint64_t)comp_chunk_size;
+
+        rewind(temp_fd);
+
+        size_t written_size = 0;
+
+        // Write compressed chunk.
+        while (!feof(temp_fd)) {
+          if (is_sig_int_occurred) {
+            return SDA_RET_STRUCT(SDAS_SIGINT);
+          } else if (ferror(temp_fd)) {
+            return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
+          }
+          size_t fread_ret = fread(buf,
+                                   1,
+                                   SIMPLE_ARCHIVER_BUFFER_SIZE,
+                                   temp_fd);
+          if (fread_ret > 0) {
+            size_t fwrite_ret = fwrite(buf, 1, fread_ret, out_f);
+            written_size += fwrite_ret;
+            if (fwrite_ret != fread_ret) {
+              fprintf(stderr,
+                      "ERROR: Partial write of read bytes from temp file to "
+                      "output file!\n");
+              return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+            }
           }
         }
-      }
 
-      if (written_size != (size_t)comp_chunk_size) {
-        fprintf(stderr,
-                "ERROR: Written chunk size is not actual chunk size!\n");
-        return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
-      }
+        if (written_size != (size_t)comp_chunk_size) {
+          fprintf(stderr,
+                  "ERROR: Written chunk size is not actual chunk size!\n");
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
 
-      // Cleanup and remove temp_fd.
-      simple_archiver_helper_cleanup_FILE(&temp_fd);
+        // Cleanup and remove temp_fd.
+        simple_archiver_helper_cleanup_FILE(&temp_fd);
+      } else {
+        // End of chunked-encoding
+        size_t fwrite_ret = fwrite("0\n", 1, 2, out_f);
+        if (fwrite_ret != 2) {
+          fprintf(stderr,
+                  "ERROR: Failed to write end of chunked-encoding!\n");
+          return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
+        }
+      }
     } else {
       // Is NOT compressing.
       if (!non_c_chunk_size) {
@@ -8215,28 +8555,37 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
   } else if (u16 == 4) {
     fprintf(stderr, "File format version 4\n");
     state->parsed->write_version = 4;
-    ret_struct = simple_archiver_parse_archive_version_4_5_6(in_f,
-                                                             do_extract,
-                                                             state,
-                                                             parse_state);
+    ret_struct = simple_archiver_parse_archive_version_4_5_6_7(in_f,
+                                                               do_extract,
+                                                               state,
+                                                               parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else if (u16 == 5) {
     fprintf(stderr, "File format version 5\n");
     state->parsed->write_version = 5;
-    ret_struct = simple_archiver_parse_archive_version_4_5_6(in_f,
-                                                             do_extract,
-                                                             state,
-                                                             parse_state);
+    ret_struct = simple_archiver_parse_archive_version_4_5_6_7(in_f,
+                                                               do_extract,
+                                                               state,
+                                                               parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else if (u16 == 6) {
     fprintf(stderr, "File format version 6\n");
     state->parsed->write_version = 6;
-    ret_struct = simple_archiver_parse_archive_version_4_5_6(in_f,
-                                                             do_extract,
-                                                             state,
-                                                             parse_state);
+    ret_struct = simple_archiver_parse_archive_version_4_5_6_7(in_f,
+                                                               do_extract,
+                                                               state,
+                                                               parse_state);
+    internal_simple_archiver_parse_stats(parse_state);
+    return ret_struct;
+  } else if (u16 == 7) {
+    fprintf(stderr, "File format version 7\n");
+    state->parsed->write_version = 7;
+    ret_struct = simple_archiver_parse_archive_version_4_5_6_7(in_f,
+                                                               do_extract,
+                                                               state,
+                                                               parse_state);
     internal_simple_archiver_parse_stats(parse_state);
     return ret_struct;
   } else {
@@ -10474,12 +10823,32 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
       ssize_t has_hold = -1;
 
+      SDArchiverDecompInfo decomp_info = (SDArchiverDecompInfo){
+        NULL,
+        (char*)buf,
+        SIMPLE_ARCHIVER_BUFFER_SIZE,
+        0,
+        &pipe_into_write,
+        &chunk_remaining,
+        in_f,
+        hold_buf,
+        &has_hold,
+        NULL,
+        &compressed_size,
+        pipe_outof_read,
+        state->parsed->write_version,
+        0
+      };
+
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
+
+        decomp_info.file_size = file_info->file_size;
+
         if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
@@ -10536,11 +10905,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              SDArchiverStateReturns ret = read_decomp_to_out_file(
-                  NULL, pipe_outof_read, (char *)buf,
-                  SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
-                  &pipe_into_write, &chunk_remaining, in_f, hold_buf,
-                  &has_hold, NULL);
+              SDArchiverStateReturns ret =
+                read_decomp_to_out_file(&decomp_info);
               if (ret != SDAS_SUCCESS) {
                 return SDA_RET_STRUCT(ret);
               }
@@ -10562,20 +10928,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             (state->parsed->flags & 0x800)
               ? state->parsed->gid
               : file_info->gid);
-          SDArchiverStateReturns ret = read_decomp_to_out_file(
-              file_info->prefixed_filename
-              ? file_info->prefixed_filename
-              : file_info->filename,
-              pipe_outof_read,
-              (char *)buf,
-              SIMPLE_ARCHIVER_BUFFER_SIZE,
-              file_info->file_size,
-              &pipe_into_write,
-              &chunk_remaining,
-              in_f,
-              hold_buf,
-              &has_hold,
-              NULL);
+          decomp_info.out_filename =
+            file_info->prefixed_filename
+            ? file_info->prefixed_filename
+            : file_info->filename;
+          SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
+          decomp_info.out_filename = NULL;
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -10616,18 +10974,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                     "    File size: %" PRIu64 "\n",
                     file_info->file_size);
           }
-          SDArchiverStateReturns ret = read_decomp_to_out_file(
-              NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold, NULL);
+          SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
         } else {
-          SDArchiverStateReturns ret = read_decomp_to_out_file(
-              NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold, NULL);
+          SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -12446,6 +12798,23 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       char hold_buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
       ssize_t has_hold = -1;
 
+      SDArchiverDecompInfo decomp_info = (SDArchiverDecompInfo){
+        NULL,
+        (char*)buf,
+        SIMPLE_ARCHIVER_BUFFER_SIZE,
+        0,
+        &pipe_into_write,
+        &chunk_remaining,
+        in_f,
+        hold_buf,
+        &has_hold,
+        NULL,
+        &compressed_size,
+        pipe_outof_read,
+        state->parsed->write_version,
+        0
+      };
+
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -12453,6 +12822,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
+
+        decomp_info.file_size = file_info->file_size;
+
         if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
@@ -12509,11 +12881,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              SDArchiverStateReturns ret = read_decomp_to_out_file(
-                  NULL, pipe_outof_read, (char *)buf,
-                  SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
-                  &pipe_into_write, &chunk_remaining, in_f, hold_buf,
-                  &has_hold, NULL);
+              SDArchiverStateReturns ret =
+                read_decomp_to_out_file(&decomp_info);
               if (ret != SDAS_SUCCESS) {
                 return SDA_RET_STRUCT(ret);
               }
@@ -12535,20 +12904,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
             (state->parsed->flags & 0x800)
               ? state->parsed->gid
               : file_info->gid);
-          SDArchiverStateReturns ret = read_decomp_to_out_file(
-              file_info->prefixed_filename
-              ? file_info->prefixed_filename
-              : file_info->filename,
-              pipe_outof_read,
-              (char *)buf,
-              SIMPLE_ARCHIVER_BUFFER_SIZE,
-              file_info->file_size,
-              &pipe_into_write,
-              &chunk_remaining,
-              in_f,
-              hold_buf,
-              &has_hold,
-              NULL);
+          decomp_info.out_filename =
+            file_info->prefixed_filename
+            ? file_info->prefixed_filename
+            : file_info->filename;
+          SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
+          decomp_info.out_filename = NULL;
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -12599,18 +12960,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                     "    File size: %" PRIu64 "\n",
                     file_info->file_size);
           }
-          SDArchiverStateReturns ret = read_decomp_to_out_file(
-              NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold, NULL);
+          SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
         } else {
-          SDArchiverStateReturns ret = read_decomp_to_out_file(
-              NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold, NULL);
+          SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -13207,7 +13562,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   return SDA_RET_STRUCT(SDAS_SUCCESS);
 }
 
-SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
+SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     FILE *in_f,
     int_fast8_t do_extract,
     const SDArchiverState *state,
@@ -14686,50 +15041,59 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
       compressed_bit_set = (v6_flags_bytes[0] & 1) ? 1 : 0;
     }
 
-    if (fread(&u64, 1, 8, in_f) != 8) {
-      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
-    }
-    simple_archiver_helper_64_bit_be(&u64);
-
-    const uint64_t chunk_size = u64;
-    uint64_t chunk_remaining = chunk_size;
+    uint64_t chunk_size = 0;
+    uint64_t chunk_remaining = 0;
     uint64_t chunk_idx = 0;
-    if (is_compressed && compressed_bit_set) {
-      compressed_size += u64;
-      fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
-    } else if (is_compressed) {
-      compressed_size += u64;
-      not_compressed_size += u64;
-      fprintf(stderr, "  chunk size (not compressed) %" PRIu64, chunk_size);
-    } else {
-      fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
+
+    if (state->parsed->write_version < 7
+        || !is_compressed
+        || !compressed_bit_set) {
+      if (fread(&u64, 1, 8, in_f) != 8) {
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      }
+      simple_archiver_helper_64_bit_be(&u64);
+
+      chunk_size = u64;
+      chunk_remaining = chunk_size;
+      chunk_idx = 0;
+      if (is_compressed && compressed_bit_set) {
+        compressed_size += u64;
+        fprintf(stderr, "  chunk size (compressed) %" PRIu64, chunk_size);
+      } else if (is_compressed) {
+        compressed_size += u64;
+        not_compressed_size += u64;
+        fprintf(stderr, "  chunk size (not compressed) %" PRIu64, chunk_size);
+      } else {
+        fprintf(stderr, "  chunk size %" PRIu64, chunk_size);
+      }
+      if (chunk_size > 1024) {
+        uint64_t hundredths = (chunk_size % 1024) * 100 / 1024;
+        fprintf(
+          stderr,
+          ", %" PRIu64 ".%02" PRIu64 " KiB",
+          chunk_size / 1024,
+          hundredths);
+      }
+      if (chunk_size > 1024 * 1024) {
+        uint64_t hundredths =
+          (chunk_size % (1024 * 1024)) * 100 / (1024 * 1024);
+        fprintf(
+          stderr,
+          ", %" PRIu64 ".%02" PRIu64 " MiB",
+          chunk_size / (1024 * 1024),
+          hundredths);
+      }
+      if (chunk_size > 1024 * 1024 * 1024) {
+        uint64_t hundredths =
+          (chunk_size % (1024 * 1024 * 1024)) * 100 / (1024 * 1024 * 1024);
+        fprintf(
+          stderr,
+          ", %" PRIu64 ".%02" PRIu64 " GiB",
+          chunk_size / (1024 * 1024 * 1024),
+          hundredths);
+      }
+      fprintf(stderr, "\n");
     }
-    if (chunk_size > 1024) {
-      uint64_t hundredths = (chunk_size % 1024) * 100 / 1024;
-      fprintf(
-        stderr,
-        ", %" PRIu64 ".%02" PRIu64 " KiB",
-        chunk_size / 1024,
-        hundredths);
-    }
-    if (chunk_size > 1024 * 1024) {
-      uint64_t hundredths = (chunk_size % (1024 * 1024)) * 100 / (1024 * 1024);
-      fprintf(
-        stderr,
-        ", %" PRIu64 ".%02" PRIu64 " MiB",
-        chunk_size / (1024 * 1024),
-        hundredths);
-    }
-    if (chunk_size > 1024 * 1024 * 1024) {
-      uint64_t hundredths =
-        (chunk_size % (1024 * 1024 * 1024)) * 100 / (1024 * 1024 * 1024);
-      fprintf(
-        stderr,
-        ", %" PRIu64 ".%02" PRIu64 " GiB",
-        chunk_size / (1024 * 1024 * 1024),
-        hundredths);
-    }
-    fprintf(stderr, "\n");
 
     int_fast8_t did_print_skipped_a = 0;
     int_fast8_t did_print_skipped_wb = 0;
@@ -14737,7 +15101,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
     SDArchiverLLNode *node = file_info_list->head;
     uint64_t file_idx = 0;
 
-    if (skip_chunk) {
+    if (skip_chunk && state->parsed->write_version < 7) {
       uint64_t chunk_read_amt = chunk_remaining;
       if (state->parsed->write_version >= 5
           && (!is_compressed || !compressed_bit_set)) {
@@ -14753,6 +15117,34 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         NULL);
       if (ret != SDAS_SUCCESS) {
         return SDA_RET_STRUCT(ret);
+      }
+    } else if (skip_chunk) {
+      // write version 7 but skipping chunk
+      uint64_t chunk_read_amt = chunk_remaining;
+      if (chunk_read_amt != 0) {
+        if (state->parsed->write_version >= 5
+            && (!is_compressed || !compressed_bit_set)) {
+          chunk_read_amt += 2;
+        }
+        fprintf(stderr, "Skipping chunk...\n");
+        SDArchiverStateReturns ret = read_buf_full_from_fd(
+          in_f,
+          (char *)buf,
+          SIMPLE_ARCHIVER_BUFFER_SIZE,
+          chunk_read_amt,
+          NULL,
+          NULL);
+        if (ret != SDAS_SUCCESS) {
+          return SDA_RET_STRUCT(ret);
+        }
+      } else {
+        // skip chunk that is using chunked-encoding
+        fprintf(stderr, "Skipping chunked-encoding chunk...\n");
+        SDArchiverStateReturns ret =
+          internal_skip_chunked_encoded_chunk(in_f, &compressed_size);
+        if (ret != SDAS_SUCCESS) {
+          return SDA_RET_STRUCT(ret);
+        }
       }
     } else if (is_compressed && compressed_bit_set) {
       // Start the decompressing process and read into files.
@@ -14793,7 +15185,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                         state->parsed->decompressor,
                                         &decompressor_pid) != 0) {
-          // Failed to spawn compressor.
+          // Failed to spawn decompressor.
           close(pipe_into_cmd[1]);
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
@@ -14804,7 +15196,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         if (simple_archiver_de_compress(pipe_into_cmd, pipe_outof_cmd,
                                         decompressor_cmd,
                                         &decompressor_pid) != 0) {
-          // Failed to spawn compressor.
+          // Failed to spawn decompressor.
           close(pipe_into_cmd[1]);
           close(pipe_outof_cmd[0]);
           fprintf(stderr,
@@ -14853,6 +15245,23 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
 
       int_fast8_t is_empty = 1;
 
+      SDArchiverDecompInfo decomp_info = (SDArchiverDecompInfo){
+        NULL,
+        (char*)buf,
+        SIMPLE_ARCHIVER_BUFFER_SIZE,
+        0,
+        &pipe_into_write,
+        &chunk_remaining,
+        in_f,
+        hold_buf,
+        &has_hold,
+        &v5_to_skip,
+        &compressed_size,
+        pipe_outof_read,
+        state->parsed->write_version,
+        0
+      };
+
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -14860,6 +15269,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
+
+        decomp_info.file_size = file_info->file_size;
+
         if ((file_info->other_flags & 6) == 6) {
           fprintf(stderr,
                   "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
@@ -14920,11 +15332,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
               fprintf(stderr,
                       "  WARNING: File already exists and "
                       "\"--overwrite-extract\" is not specified, skipping!\n");
-              SDArchiverStateReturns ret = read_decomp_to_out_file(
-                  NULL, pipe_outof_read, (char *)buf,
-                  SIMPLE_ARCHIVER_BUFFER_SIZE, file_info->file_size,
-                  &pipe_into_write, &chunk_remaining, in_f, hold_buf,
-                  &has_hold, &v5_to_skip);
+              SDArchiverStateReturns ret =
+                read_decomp_to_out_file(&decomp_info);
               if (ret != SDAS_SUCCESS) {
                 return SDA_RET_STRUCT(ret);
               }
@@ -14946,20 +15355,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
             (state->parsed->flags & 0x800)
               ? state->parsed->gid
               : file_info->gid);
-          SDArchiverStateReturns ret = read_decomp_to_out_file(
+          decomp_info.out_filename =
               file_info->prefixed_filename
               ? file_info->prefixed_filename
-              : file_info->filename,
-              pipe_outof_read,
-              (char *)buf,
-              SIMPLE_ARCHIVER_BUFFER_SIZE,
-              file_info->file_size,
-              &pipe_into_write,
-              &chunk_remaining,
-              in_f,
-              hold_buf,
-              &has_hold,
-              &v5_to_skip);
+              : file_info->filename;
+          SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
+          decomp_info.out_filename = NULL;
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -15010,18 +15411,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
                     "    File size: %" PRIu64 "\n",
                     file_info->file_size);
           }
-          SDArchiverStateReturns ret = read_decomp_to_out_file(
-              NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold, &v5_to_skip);
+          SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
         } else {
-          SDArchiverStateReturns ret = read_decomp_to_out_file(
-              NULL, pipe_outof_read, (char *)buf, SIMPLE_ARCHIVER_BUFFER_SIZE,
-              file_info->file_size, &pipe_into_write, &chunk_remaining, in_f,
-              hold_buf, &has_hold, &v5_to_skip);
+          SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
           if (ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(ret);
           }
@@ -15036,13 +15431,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6(
         uint64_t read_remaining = 2;
         while (remaining != 0) {
           SDArchiverStateReturns write_decomp_ret =
-            try_write_to_decomp(&pipe_into_write,
-                                &remaining,
-                                in_f,
-                                (char*)buf,
-                                SIMPLE_ARCHIVER_BUFFER_SIZE,
-                                hold_buf,
-                                &has_hold);
+            try_write_to_decomp(&decomp_info);
           if (write_decomp_ret != SDAS_SUCCESS) {
             return SDA_RET_STRUCT(write_decomp_ret);
           }

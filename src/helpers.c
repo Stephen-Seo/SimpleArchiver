@@ -1247,3 +1247,33 @@ int simple_archiver_helper_has_null_before_size(const char *s, size_t index) {
 
   return 0;
 }
+
+char *simple_archiver_helper_value_to_base10_with_newline(uint64_t value) {
+  if (value == 0) {
+    char *buf = malloc(3);
+    buf[0] = '0';
+    buf[1] = '\n';
+    buf[2] = 0;
+    return buf;
+  }
+
+  uint64_t temp = value;
+  size_t size = 2; // Extra 1 for newline, 1 for NULL terminator.
+  while (temp != 0) {
+    temp /= 10;
+    ++size;
+  }
+
+  char *buf = malloc(size);
+
+  size_t idx = size - 1;
+  buf[idx--] = 0;
+  buf[idx--] = '\n';
+
+  while (value != 0) {
+    buf[idx--] = (char)(value % 10) + '0';
+    value /= 10;
+  }
+
+  return buf;
+}
