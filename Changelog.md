@@ -2,6 +2,9 @@
 
 ## Upcoming Changes
 
+Archiving now shows some progress during the files processing steps (loading
+the files to be processed, before the actual storing files steps).
+
 ## Version 3.3.0
 
 Implement file format version 7.  
