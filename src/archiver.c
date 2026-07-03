@@ -6785,11 +6785,11 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
 
   if (start_time != (time_t)(-1) && end_time != (time_t)(-1)) {
     fprintf(stderr,
-            "INFO: Done getting absolute path(s). Took %jd seconds. "
+            "\nINFO: Done getting absolute path(s). Took %jd seconds. "
             "Continuing...\n",
             (intmax_t)(end_time - start_time));
   } else {
-    fprintf(stderr, "INFO: Done getting absolute path(s). Continuing...\n");
+    fprintf(stderr, "\nINFO: Done getting absolute path(s). Continuing...\n");
   }
 
   // Get a list of symlinks and a list of files.
@@ -6848,10 +6848,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
 
   if (start_time != (time_t)(-1) && end_time != (time_t)(-1)) {
     fprintf(stderr,
-            "INFO: Loaded. Took %jd seconds. Continuing...\n",
+            "\nINFO: Loaded. Took %jd seconds. Continuing...\n",
             (intmax_t)(end_time - start_time));
   } else {
-    fprintf(stderr, "INFO: Loaded. Continuing...\n");
+    fprintf(stderr, "\nINFO: Loaded. Continuing...\n");
   }
 
   simple_archiver_hash_map_insert(

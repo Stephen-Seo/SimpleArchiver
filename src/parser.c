@@ -2460,6 +2460,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
                 file_path);
       }
     }
+    fprintf(stderr, "\n");
   }
 
   return 0;
