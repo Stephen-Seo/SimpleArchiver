@@ -3220,12 +3220,14 @@ SDArchiverStateRetStruct simple_archiver_write_v0(
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
   {
     uint64_t progress_count = 0;
-    void **ptr_array = malloc(sizeof(void *) * 5);
+    time_t start_time = time(NULL);
+    void **ptr_array = malloc(sizeof(void *) * 6);
     ptr_array[0] = abs_filenames;
     ptr_array[1] = (void *)state->parsed->user_cwd;
     ptr_array[2] = NULL;
     ptr_array[3] = &progress_count;
     ptr_array[4] = &filenames_pruned->count;
+    ptr_array[5] = &start_time;
     if (simple_archiver_list_get(filenames_pruned,
                                  filenames_to_abs_map_fn,
                                  ptr_array)) {
