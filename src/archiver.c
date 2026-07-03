@@ -54,6 +54,8 @@
 // Must not be smaller than 32KiB.
 #define SIMPLE_ARCHIVER_BUFFER_SIZE SD_SA_32KiB
 
+#define SIMPLE_ARCHIVER_PROGRESS_INTERVAL 5
+
 volatile int is_sig_pipe_occurred = 0;
 volatile int is_sig_int_occurred = 0;
 
@@ -2034,6 +2036,21 @@ int symlinks_and_files_from_files(
   const SDArchiverState *state = ptr_array[5];
   uint64_t *from_files_count = ptr_array[6];
   uint64_t *files_actual_size = ptr_array[7];
+  uint64_t *progress_count = ptr_array[8];
+  time_t *start_time = ptr_array[9];
+  const size_t *count = ptr_array[10];
+
+  ++(*progress_count);
+
+  time_t current_time = time(NULL);
+  if (*start_time != (time_t)(-1)
+      && current_time != (time_t)(-1)
+      && (current_time - *start_time) >= SIMPLE_ARCHIVER_PROGRESS_INTERVAL) {
+    fprintf(stderr,
+            "%" PRIu64 "%%...",
+            (uint64_t)(100) * (*progress_count) / (uint64_t)(*count));
+    *start_time = current_time;
+  }
 
   if (is_sig_int_occurred) {
     fprintf(stderr, "Interrupt, stopping populating priority heap...\n");
@@ -3388,7 +3405,11 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
 
-  ptr_array = malloc(sizeof(void *) * 8);
+  uint64_t progress_count = 0;
+
+  time_t start_time = time(NULL);
+
+  ptr_array = malloc(sizeof(void *) * 11);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
@@ -3397,6 +3418,9 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   ptr_array[5] = state;
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
+  ptr_array[8] = &progress_count;
+  ptr_array[9] = &start_time;
+  ptr_array[10] = &state->parsed->working_files->count;
 
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
@@ -4388,7 +4412,11 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
 
-  ptr_array = malloc(sizeof(void *) * 8);
+  uint64_t progress_count = 0;
+
+  time_t start_time = time(NULL);
+
+  ptr_array = malloc(sizeof(void *) * 11);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
@@ -4397,6 +4425,9 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   ptr_array[5] = state;
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
+  ptr_array[8] = &progress_count;
+  ptr_array[9] = &start_time;
+  ptr_array[10] = &state->parsed->working_files->count;
 
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
@@ -5425,7 +5456,11 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
 
-  ptr_array = malloc(sizeof(void *) * 8);
+  uint64_t progress_count = 0;
+
+  time_t start_time = time(NULL);
+
+  ptr_array = malloc(sizeof(void *) * 11);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
@@ -5434,6 +5469,9 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   ptr_array[5] = state;
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
+  ptr_array[8] = &progress_count;
+  ptr_array[9] = &start_time;
+  ptr_array[10] = &state->parsed->working_files->count;
 
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
@@ -6722,7 +6760,11 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
 
-  ptr_array = malloc(sizeof(void *) * 8);
+  uint64_t progress_count = 0;
+
+  time_t other_time = time(NULL);
+
+  ptr_array = malloc(sizeof(void *) * 11);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
@@ -6731,8 +6773,12 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   ptr_array[5] = state;
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
+  ptr_array[8] = &progress_count;
+  ptr_array[9] = &other_time;
+  ptr_array[10] = &state->parsed->working_files->count;
 
   fprintf(stderr, "INFO: Loading filenames/symlinks from given path(s)...\n");
+  start_time = time(NULL);
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
                                     ptr_array)) {
@@ -6741,7 +6787,15 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
     return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(ptr_array);
-  fprintf(stderr, "INFO: Loaded. Continuing...\n");
+  end_time = time(NULL);
+
+  if (start_time != (time_t)(-1) && end_time != (time_t)(-1)) {
+    fprintf(stderr,
+            "INFO: Loaded. Took %jd seconds. Continuing...\n",
+            (intmax_t)(end_time - start_time));
+  } else {
+    fprintf(stderr, "INFO: Loaded. Continuing...\n");
+  }
 
   simple_archiver_hash_map_insert(
     write_state,
