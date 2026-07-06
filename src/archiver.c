@@ -49,8 +49,10 @@
 #define FILE_COUNTS_OUTPUT_FORMAT_STR_1 \
   "[%%%" PRIu64 "zu/%%%" PRIu64 PRIu64 "]\n"
 
+#define SD_SA_32KiB (32 * 1024)
+
 // Must not be smaller than 32KiB.
-#define SIMPLE_ARCHIVER_BUFFER_SIZE (1024 * 32)
+#define SIMPLE_ARCHIVER_BUFFER_SIZE SD_SA_32KiB
 
 volatile int is_sig_pipe_occurred = 0;
 volatile int is_sig_int_occurred = 0;
@@ -1401,7 +1403,7 @@ SDArchiverStateReturns try_write_to_decomp(SDArchiverDecompInfo *info) {
           *info->chunk_remaining = 0;
           *info->has_hold = -1;
           goto TRY_WRITE_TO_DECOMP_END;
-        } else if (size_from_base10 > 32 * 1024) {
+        } else if (size_from_base10 > SD_SA_32KiB) {
           // Invalid chunk size: larger than 32KiB
           fprintf(stderr,
                   "ERROR: \"mini-chunk\" (chunked-encoding) size is larger "
@@ -2939,7 +2941,7 @@ SDArchiverStateReturns internal_skip_chunked_encoded_chunk(
     // Break if end of chunk.
     if (size_from_base10 == 0) {
       break;
-    } else if (size_from_base10 > 32 * 1024) {
+    } else if (size_from_base10 > SD_SA_32KiB) {
       // Invalid chunk size: larger than 32KiB
       fprintf(stderr,
               "ERROR: \"mini-chunk\" (chunked-encoding) size is larger "
@@ -8208,7 +8210,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
               size_t idx = 0;
               size_t read_amt = (size_t)read_ret;
               while (read_amt > 0) {
-                if (read_amt < 32 * 1024) {
+                if (read_amt < SD_SA_32KiB) {
                   __attribute__((cleanup(
                       simple_archiver_helper_cleanup_c_string)))
                   char *base10 =
@@ -8235,7 +8237,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                   *files_compressed_size += read_amt;
                   read_amt = 0;
                 } else {
-                  if (sizeof(buf) < 32 * 1024) {
+                  if (sizeof(buf) < SD_SA_32KiB) {
                     fprintf(stderr,
                             "ERROR: buf should be able to hold 32KiB!\n");
                     return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
@@ -8244,7 +8246,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                       simple_archiver_helper_cleanup_c_string)))
                   char *base10 =
                       simple_archiver_helper_value_to_base10_with_newline(
-                        32 * 1024);
+                        SD_SA_32KiB);
                   size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
                   if (fwrite_ret != (size_t)strlen(base10)) {
                     fprintf(stderr,
@@ -8254,17 +8256,17 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                   }
                   fwrite_ret = fwrite(buf + idx,
                                       1,
-                                      32 * 1024,
+                                      SD_SA_32KiB,
                                       out_f);
-                  if (fwrite_ret != 32 * 1024) {
+                  if (fwrite_ret != SD_SA_32KiB) {
                     fprintf(stderr,
                             "ERROR: Failed to write chunked-encoding "
                             "(data)!\n");
                     return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
                   }
-                  idx += 32 * 1024;
-                  *files_compressed_size += 32 * 1024;
-                  read_amt -= 32 * 1024;
+                  idx += SD_SA_32KiB;
+                  *files_compressed_size += SD_SA_32KiB;
+                  read_amt -= SD_SA_32KiB;
                 }
               }
             }
