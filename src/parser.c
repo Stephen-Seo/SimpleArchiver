@@ -2051,7 +2051,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
       current_time = time(NULL);
       if (start_time != (time_t)(-1)
           && current_time != (time_t)(-1)
-          && (current_time - start_time) > PARSER_PROGRESS_INTERVAL) {
+          && (current_time - start_time) >= PARSER_PROGRESS_INTERVAL) {
         start_time = current_time;
         fprintf(stderr, "%" PRIu64 "paths...", (uint64_t)hash_map->count);
       }
@@ -2206,7 +2206,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
           current_time = time(NULL);
           if (start_time != (time_t)(-1)
               && current_time != (time_t)(-1)
-              && (current_time - start_time) > PARSER_PROGRESS_INTERVAL) {
+              && (current_time - start_time) >= PARSER_PROGRESS_INTERVAL) {
             start_time = current_time;
             fprintf(stderr, "%" PRIu64 "paths...", (uint64_t)hash_map->count);
           }
@@ -2229,7 +2229,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
             current_time = time(NULL);
             if (start_time != (time_t)(-1)
                 && current_time != (time_t)(-1)
-                && (current_time - start_time) > PARSER_PROGRESS_INTERVAL) {
+                && (current_time - start_time) >= PARSER_PROGRESS_INTERVAL) {
               start_time = current_time;
               fprintf(stderr,
                       "%" PRIu64 "paths...",
