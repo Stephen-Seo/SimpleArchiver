@@ -54,6 +54,8 @@
 // Must not be smaller than 32KiB.
 #define SIMPLE_ARCHIVER_BUFFER_SIZE SD_SA_32KiB
 
+#define SIMPLE_ARCHIVER_PROGRESS_INTERVAL 5
+
 volatile int is_sig_pipe_occurred = 0;
 volatile int is_sig_int_occurred = 0;
 
@@ -1093,6 +1095,34 @@ int filenames_to_abs_map_fn(void *val, void *ud) {
   void **ptr_array = ud;
   SDArchiverHashMap *abs_filenames = ptr_array[0];
   const char *user_cwd = ptr_array[1];
+  const size_t *count = ptr_array[2];
+  uint64_t *progress_count = ptr_array[3];
+  const uint64_t *u64_count = ptr_array[4];
+  time_t *start_time = ptr_array[5];
+
+  ++(*progress_count);
+
+  time_t current_time = time(NULL);
+
+  if (*start_time != (time_t)(-1)
+      && current_time != (time_t)(-1)
+      && (current_time - *start_time) >= SIMPLE_ARCHIVER_PROGRESS_INTERVAL) {
+    if (count) {
+      fprintf(stderr,
+              "%" PRIu64 "%%...",
+              (uint64_t)(100)
+                * (uint64_t)(*progress_count)
+                / (uint64_t)(*count));
+    } else if (u64_count) {
+      fprintf(stderr,
+              "%" PRIu64 "%%...",
+              (uint64_t)(100)
+                * (uint64_t)(*progress_count)
+                / (uint64_t)(*u64_count));
+    }
+    *start_time = current_time;
+  }
+
   __attribute__((cleanup(
       simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
   if (user_cwd) {
@@ -2034,6 +2064,21 @@ int symlinks_and_files_from_files(
   const SDArchiverState *state = ptr_array[5];
   uint64_t *from_files_count = ptr_array[6];
   uint64_t *files_actual_size = ptr_array[7];
+  uint64_t *progress_count = ptr_array[8];
+  time_t *start_time = ptr_array[9];
+  const size_t *count = ptr_array[10];
+
+  ++(*progress_count);
+
+  time_t current_time = time(NULL);
+  if (*start_time != (time_t)(-1)
+      && current_time != (time_t)(-1)
+      && (current_time - *start_time) >= SIMPLE_ARCHIVER_PROGRESS_INTERVAL) {
+    fprintf(stderr,
+            "%" PRIu64 "%%...",
+            (uint64_t)(100) * (*progress_count) / (uint64_t)(*count));
+    *start_time = current_time;
+  }
 
   if (is_sig_int_occurred) {
     fprintf(stderr, "Interrupt, stopping populating priority heap...\n");
@@ -3174,9 +3219,15 @@ SDArchiverStateRetStruct simple_archiver_write_v0(
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
   {
-    void **ptr_array = malloc(sizeof(void *) * 2);
+    uint64_t progress_count = 0;
+    time_t start_time = time(NULL);
+    void **ptr_array = malloc(sizeof(void *) * 6);
     ptr_array[0] = abs_filenames;
     ptr_array[1] = (void *)state->parsed->user_cwd;
+    ptr_array[2] = NULL;
+    ptr_array[3] = &progress_count;
+    ptr_array[4] = &filenames_pruned->count;
+    ptr_array[5] = &start_time;
     if (simple_archiver_list_get(filenames_pruned,
                                  filenames_to_abs_map_fn,
                                  ptr_array)) {
@@ -3360,9 +3411,16 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   // First create a "set" of absolute paths to given filenames.
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
-  void **ptr_array = malloc(sizeof(void *) * 2);
+  uint64_t progress_count = 0;
+  time_t start_time = time(NULL);
+  void **ptr_array = malloc(sizeof(void *) * 6);
   ptr_array[0] = abs_filenames;
   ptr_array[1] = (void *)state->parsed->user_cwd;
+  ptr_array[2] = &state->parsed->working_files->count;
+  ptr_array[3] = &progress_count;
+  ptr_array[4] = NULL;
+  ptr_array[5] = &start_time;
+
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     working_files_to_abs_map_fn,
                                     ptr_array)) {
@@ -3388,7 +3446,11 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
 
-  ptr_array = malloc(sizeof(void *) * 8);
+  progress_count = 0;
+
+  start_time = time(NULL);
+
+  ptr_array = malloc(sizeof(void *) * 11);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
@@ -3397,6 +3459,9 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   ptr_array[5] = state;
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
+  ptr_array[8] = &progress_count;
+  ptr_array[9] = &start_time;
+  ptr_array[10] = &state->parsed->working_files->count;
 
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
@@ -4358,9 +4423,15 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   // First create a "set" of absolute paths to given filenames.
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
-  void **ptr_array = malloc(sizeof(void *) * 2);
+  uint64_t progress_count = 0;
+  time_t start_time = time(NULL);
+  void **ptr_array = malloc(sizeof(void *) * 6);
   ptr_array[0] = abs_filenames;
   ptr_array[1] = (void *)state->parsed->user_cwd;
+  ptr_array[2] = &state->parsed->working_files->count;
+  ptr_array[3] = &progress_count;
+  ptr_array[4] = NULL;
+  ptr_array[5] = &start_time;
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     working_files_to_abs_map_fn,
                                     ptr_array)) {
@@ -4388,7 +4459,11 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
 
-  ptr_array = malloc(sizeof(void *) * 8);
+  progress_count = 0;
+
+  start_time = time(NULL);
+
+  ptr_array = malloc(sizeof(void *) * 11);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
@@ -4397,6 +4472,9 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   ptr_array[5] = state;
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
+  ptr_array[8] = &progress_count;
+  ptr_array[9] = &start_time;
+  ptr_array[10] = &state->parsed->working_files->count;
 
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
@@ -5395,9 +5473,15 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   // First create a "set" of absolute paths to given filenames.
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
-  void **ptr_array = malloc(sizeof(void *) * 2);
+  uint64_t progress_count = 0;
+  time_t start_time = time(NULL);
+  void **ptr_array = malloc(sizeof(void *) * 6);
   ptr_array[0] = abs_filenames;
   ptr_array[1] = (void *)state->parsed->user_cwd;
+  ptr_array[2] = &state->parsed->working_files->count;
+  ptr_array[3] = &progress_count;
+  ptr_array[4] = NULL;
+  ptr_array[5] = &start_time;
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     working_files_to_abs_map_fn,
                                     ptr_array)) {
@@ -5425,7 +5509,11 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
 
-  ptr_array = malloc(sizeof(void *) * 8);
+  progress_count = 0;
+
+  start_time = time(NULL);
+
+  ptr_array = malloc(sizeof(void *) * 11);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
@@ -5434,6 +5522,9 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   ptr_array[5] = state;
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
+  ptr_array[8] = &progress_count;
+  ptr_array[9] = &start_time;
+  ptr_array[10] = &state->parsed->working_files->count;
 
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
@@ -6670,11 +6761,20 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
 
   // First create a "set" of absolute paths to given filenames.
   fprintf(stderr, "INFO: Getting absolute path(s) from given path(s)...\n");
+
+  time_t start_time = time(NULL);
+
   __attribute__((cleanup(simple_archiver_hash_map_free)))
   SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
-  void **ptr_array = malloc(sizeof(void *) * 2);
+  uint64_t progress_count = 0;
+  time_t other_time = time(NULL);
+  void **ptr_array = malloc(sizeof(void *) * 6);
   ptr_array[0] = abs_filenames;
   ptr_array[1] = (void *)state->parsed->user_cwd;
+  ptr_array[2] = &state->parsed->working_files->count;
+  ptr_array[3] = &progress_count;
+  ptr_array[4] = NULL;
+  ptr_array[5] = &other_time;
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     working_files_to_abs_map_fn,
                                     ptr_array)) {
@@ -6682,7 +6782,17 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
     return SDA_RET_STRUCT(SDAS_FAILED_TO_CREATE_MAP);
   }
   free(ptr_array);
-  fprintf(stderr, "INFO: Done getting absolute path(s). Continuing...\n");
+
+  time_t end_time = time(NULL);
+
+  if (start_time != (time_t)(-1) && end_time != (time_t)(-1)) {
+    fprintf(stderr,
+            "\nINFO: Done getting absolute path(s). Took %jd seconds. "
+            "Continuing...\n",
+            (intmax_t)(end_time - start_time));
+  } else {
+    fprintf(stderr, "\nINFO: Done getting absolute path(s). Continuing...\n");
+  }
 
   // Get a list of symlinks and a list of files.
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -6709,7 +6819,11 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   uint64_t *files_actual_size = malloc(sizeof(uint64_t));
   *files_actual_size = 0;
 
-  ptr_array = malloc(sizeof(void *) * 8);
+  progress_count = 0;
+
+  other_time = time(NULL);
+
+  ptr_array = malloc(sizeof(void *) * 11);
   ptr_array[0] = symlinks_list;
   ptr_array[1] = files_list;
   ptr_array[2] = (void *)state->parsed->user_cwd;
@@ -6718,8 +6832,12 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   ptr_array[5] = state;
   ptr_array[6] = &from_files_count;
   ptr_array[7] = files_actual_size;
+  ptr_array[8] = &progress_count;
+  ptr_array[9] = &other_time;
+  ptr_array[10] = &state->parsed->working_files->count;
 
   fprintf(stderr, "INFO: Loading filenames/symlinks from given path(s)...\n");
+  start_time = time(NULL);
   if (simple_archiver_hash_map_iter(state->parsed->working_files,
                                     symlinks_and_files_from_files,
                                     ptr_array)) {
@@ -6728,7 +6846,15 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
     return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
   }
   free(ptr_array);
-  fprintf(stderr, "INFO: Loaded. Continuing...\n");
+  end_time = time(NULL);
+
+  if (start_time != (time_t)(-1) && end_time != (time_t)(-1)) {
+    fprintf(stderr,
+            "\nINFO: Loaded. Took %jd seconds. Continuing...\n",
+            (intmax_t)(end_time - start_time));
+  } else {
+    fprintf(stderr, "\nINFO: Loaded. Continuing...\n");
+  }
 
   simple_archiver_hash_map_insert(
     write_state,

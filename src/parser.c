@@ -18,11 +18,14 @@
 
 #include "parser.h"
 
+#define PARSER_PROGRESS_INTERVAL 5
+
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "platforms.h"
 #include "users.h"
@@ -2020,6 +2023,11 @@ int simple_archiver_parse_args(int argc, const char **argv,
 
   if ((out->flags & 0x3) == 0) {
     // Process working_files_list to get mapping of arg -> SDArchiverFileInfo.
+
+    // progress indicators
+    time_t start_time = time(NULL);
+    time_t current_time = start_time;
+
     // First change cwd.
     __attribute__((cleanup(
         simple_archiver_helper_cleanup_chdir_back))) char *original_cwd = NULL;
@@ -2040,6 +2048,14 @@ int simple_archiver_parse_args(int argc, const char **argv,
     for (SDArchiverLLNode *node = working_files_list->head->next;
          node != working_files_list->tail;
          node = node->next) {
+      current_time = time(NULL);
+      if (start_time != (time_t)(-1)
+          && current_time != (time_t)(-1)
+          && (current_time - start_time) >= PARSER_PROGRESS_INTERVAL) {
+        start_time = current_time;
+        fprintf(stderr, "%" PRIu64 "paths...", (uint64_t)hash_map->count);
+      }
+
       struct stat st;
       memset(&st, 0, sizeof(struct stat));
       char *file_path = node->data;
@@ -2187,6 +2203,13 @@ int simple_archiver_parse_args(int argc, const char **argv,
             simple_archiver_helper_datastructure_cleanup_nop);
         char *next;
         while (dir_list->count != 0) {
+          current_time = time(NULL);
+          if (start_time != (time_t)(-1)
+              && current_time != (time_t)(-1)
+              && (current_time - start_time) >= PARSER_PROGRESS_INTERVAL) {
+            start_time = current_time;
+            fprintf(stderr, "%" PRIu64 "paths...", (uint64_t)hash_map->count);
+          }
           simple_archiver_list_get(dir_list, list_get_last_fn, &next);
           if (!next) {
             break;
@@ -2203,6 +2226,15 @@ int simple_archiver_parse_args(int argc, const char **argv,
           struct dirent *dir_entry;
           uint_fast8_t is_dir_empty = 1;
           do {
+            current_time = time(NULL);
+            if (start_time != (time_t)(-1)
+                && current_time != (time_t)(-1)
+                && (current_time - start_time) >= PARSER_PROGRESS_INTERVAL) {
+              start_time = current_time;
+              fprintf(stderr,
+                      "%" PRIu64 "paths...",
+                      (uint64_t)hash_map->count);
+            }
             dir_entry = readdir(dir);
             if (dir_entry) {
               if (strcmp(dir_entry->d_name, ".") == 0 ||
@@ -2428,6 +2460,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
                 file_path);
       }
     }
+    fprintf(stderr, "\n");
   }
 
   return 0;
