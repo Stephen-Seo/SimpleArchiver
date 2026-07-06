@@ -131,6 +131,9 @@ instead as a fallback. Thus, `--temp-files-dir <dir>` changes the default dir
 to store the temporary compressed chunk. Note that `--force-tmpfile` exists to
 force simplearchiver to use `tmpfile()`.
 
+Note that file format version 7 does NOT use a temporary file. File formats 6
+and lower USE a temporary file.
+
 Note that temporary files are only created when using compression. This is due
 to the need to support "streaming". Or in other words, `simplearchiver` can
 create an archive and output it to standard-output (with `-f -`), or
