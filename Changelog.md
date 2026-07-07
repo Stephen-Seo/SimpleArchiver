@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.4.0
+
 Archiving compressed files with file format v7 now enforces keeping each
 mini-chunk's size to the maximum (32KiB) except the last mini-chunk.
 
