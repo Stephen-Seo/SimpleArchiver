@@ -8379,7 +8379,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                     memcpy(v7_hold_buf
                              + (is_first_half ? SD_SA_V7_2ND_OFFSET : 0),
                            v7_hold_buf
-                             + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
+                             + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET)
+                             + SD_SA_32KiB,
                            v7_hold_buf_idx - SD_SA_32KiB);
                     is_first_half = is_first_half ? 0 : 1;
                     v7_hold_buf_idx -= SD_SA_32KiB;
@@ -8492,7 +8493,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                     memcpy(v7_hold_buf
                              + (is_first_half ? SD_SA_V7_2ND_OFFSET : 0),
                            v7_hold_buf
-                             + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
+                             + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET)
+                             + SD_SA_32KiB,
                            v7_hold_buf_idx - SD_SA_32KiB);
                     is_first_half = is_first_half ? 0 : 1;
                     v7_hold_buf_idx -= SD_SA_32KiB;
