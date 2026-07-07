@@ -8340,60 +8340,19 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
               }
             } else {
               // chunked-encoding
-              if (state->parsed->flags & 0x100000) {
-                memcpy(v7_hold_buf
-                         + v7_hold_buf_idx
-                         + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
-                       buf,
-                       (size_t)read_ret);
-                v7_hold_buf_idx += (size_t)read_ret;
+              memcpy(v7_hold_buf
+                       + v7_hold_buf_idx
+                       + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
+                     buf,
+                     (size_t)read_ret);
+              v7_hold_buf_idx += (size_t)read_ret;
 
-                if (v7_hold_buf_idx >= SD_SA_32KiB) {
-                  __attribute__((cleanup(
-                      simple_archiver_helper_cleanup_c_string)))
-                  char *base10 =
-                      simple_archiver_helper_value_to_base10_with_newline(
-                        SD_SA_32KiB);
-                  size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
-                  if (fwrite_ret != (size_t)strlen(base10)) {
-                    fprintf(stderr,
-                            "ERROR: Failed to write chunked-encoding "
-                            "(base10 size)!\n");
-                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
-                  }
-
-                  fwrite_ret = fwrite(
-                      v7_hold_buf + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
-                      1,
-                      SD_SA_32KiB,
-                      out_f);
-                  if (fwrite_ret != SD_SA_32KiB) {
-                    fprintf(stderr,
-                            "ERROR: Failed to write chunked-encoding data!\n");
-                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
-                  }
-
-                  *files_compressed_size += SD_SA_32KiB;
-
-                  if (v7_hold_buf_idx > SD_SA_32KiB) {
-                    memcpy(v7_hold_buf
-                             + (is_first_half ? SD_SA_V7_2ND_OFFSET : 0),
-                           v7_hold_buf
-                             + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET)
-                             + SD_SA_32KiB,
-                           v7_hold_buf_idx - SD_SA_32KiB);
-                    is_first_half = is_first_half ? 0 : 1;
-                    v7_hold_buf_idx -= SD_SA_32KiB;
-                  } else {
-                    v7_hold_buf_idx = 0;
-                  }
-                }
-              } else {
+              if (v7_hold_buf_idx >= SD_SA_32KiB) {
                 __attribute__((cleanup(
                     simple_archiver_helper_cleanup_c_string)))
                 char *base10 =
                     simple_archiver_helper_value_to_base10_with_newline(
-                      (uint64_t)read_ret);
+                      SD_SA_32KiB);
                 size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
                 if (fwrite_ret != (size_t)strlen(base10)) {
                   fprintf(stderr,
@@ -8403,17 +8362,30 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                 }
 
                 fwrite_ret = fwrite(
-                  buf,
-                  1,
-                  (size_t)read_ret,
-                  out_f);
-                if (fwrite_ret != (size_t)read_ret) {
+                    v7_hold_buf + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
+                    1,
+                    SD_SA_32KiB,
+                    out_f);
+                if (fwrite_ret != SD_SA_32KiB) {
                   fprintf(stderr,
                           "ERROR: Failed to write chunked-encoding data!\n");
                   return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
                 }
 
-                *files_compressed_size += (uint64_t)read_ret;
+                *files_compressed_size += SD_SA_32KiB;
+
+                if (v7_hold_buf_idx > SD_SA_32KiB) {
+                  memcpy(v7_hold_buf
+                           + (is_first_half ? SD_SA_V7_2ND_OFFSET : 0),
+                         v7_hold_buf
+                           + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET)
+                           + SD_SA_32KiB,
+                         v7_hold_buf_idx - SD_SA_32KiB);
+                  is_first_half = is_first_half ? 0 : 1;
+                  v7_hold_buf_idx -= SD_SA_32KiB;
+                } else {
+                  v7_hold_buf_idx = 0;
+                }
               }
             }
           }
@@ -8454,60 +8426,19 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
               }
             } else {
               // chunked-encoding
-              if (state->parsed->flags & 0x100000) {
-                memcpy(v7_hold_buf
-                         + v7_hold_buf_idx
-                         + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
-                       buf,
-                       (size_t)read_ret);
-                v7_hold_buf_idx += (size_t)read_ret;
+              memcpy(v7_hold_buf
+                       + v7_hold_buf_idx
+                       + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
+                     buf,
+                     (size_t)read_ret);
+              v7_hold_buf_idx += (size_t)read_ret;
 
-                if (v7_hold_buf_idx >= SD_SA_32KiB) {
-                  __attribute__((cleanup(
-                      simple_archiver_helper_cleanup_c_string)))
-                  char *base10 =
-                      simple_archiver_helper_value_to_base10_with_newline(
-                        SD_SA_32KiB);
-                  size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
-                  if (fwrite_ret != (size_t)strlen(base10)) {
-                    fprintf(stderr,
-                            "ERROR: Failed to write chunked-encoding "
-                            "(base10 size)!\n");
-                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
-                  }
-
-                  fwrite_ret = fwrite(
-                      v7_hold_buf + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
-                      1,
-                      SD_SA_32KiB,
-                      out_f);
-                  if (fwrite_ret != SD_SA_32KiB) {
-                    fprintf(stderr,
-                            "ERROR: Failed to write chunked-encoding data!\n");
-                    return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
-                  }
-
-                  *files_compressed_size += SD_SA_32KiB;
-
-                  if (v7_hold_buf_idx > SD_SA_32KiB) {
-                    memcpy(v7_hold_buf
-                             + (is_first_half ? SD_SA_V7_2ND_OFFSET : 0),
-                           v7_hold_buf
-                             + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET)
-                             + SD_SA_32KiB,
-                           v7_hold_buf_idx - SD_SA_32KiB);
-                    is_first_half = is_first_half ? 0 : 1;
-                    v7_hold_buf_idx -= SD_SA_32KiB;
-                  } else {
-                    v7_hold_buf_idx = 0;
-                  }
-                }
-              } else {
+              if (v7_hold_buf_idx >= SD_SA_32KiB) {
                 __attribute__((cleanup(
                     simple_archiver_helper_cleanup_c_string)))
                 char *base10 =
                     simple_archiver_helper_value_to_base10_with_newline(
-                      (uint64_t)read_ret);
+                      SD_SA_32KiB);
                 size_t fwrite_ret = fwrite(base10, 1, strlen(base10), out_f);
                 if (fwrite_ret != (size_t)strlen(base10)) {
                   fprintf(stderr,
@@ -8517,17 +8448,30 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                 }
 
                 fwrite_ret = fwrite(
-                  buf,
-                  1,
-                  (size_t)read_ret,
-                  out_f);
-                if (fwrite_ret != (size_t)read_ret) {
+                    v7_hold_buf + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET),
+                    1,
+                    SD_SA_32KiB,
+                    out_f);
+                if (fwrite_ret != SD_SA_32KiB) {
                   fprintf(stderr,
                           "ERROR: Failed to write chunked-encoding data!\n");
                   return SDA_RET_STRUCT(SDAS_COMPRESSED_WRITE_FAIL);
                 }
 
-                *files_compressed_size += (uint64_t)read_ret;
+                *files_compressed_size += SD_SA_32KiB;
+
+                if (v7_hold_buf_idx > SD_SA_32KiB) {
+                  memcpy(v7_hold_buf
+                           + (is_first_half ? SD_SA_V7_2ND_OFFSET : 0),
+                         v7_hold_buf
+                           + (is_first_half ? 0 : SD_SA_V7_2ND_OFFSET)
+                           + SD_SA_32KiB,
+                         v7_hold_buf_idx - SD_SA_32KiB);
+                  is_first_half = is_first_half ? 0 : 1;
+                  v7_hold_buf_idx -= SD_SA_32KiB;
+                } else {
+                  v7_hold_buf_idx = 0;
+                }
               }
             }
           }
@@ -8588,7 +8532,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
         simple_archiver_helper_cleanup_FILE(&temp_fd);
       } else {
         // Write remaining chunked-encoding data if exists
-        if ((state->parsed->flags & 0x100000) && v7_hold_buf_idx != 0) {
+        if (v7_hold_buf_idx != 0) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_c_string)))
           char *base10 =
@@ -8615,7 +8559,6 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
 
           *files_compressed_size += v7_hold_buf_idx;
         }
-
         // End of chunked-encoding
         size_t fwrite_ret = fwrite("0\n", 1, 2, out_f);
         if (fwrite_ret != 2) {

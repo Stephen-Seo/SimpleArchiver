@@ -385,9 +385,6 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--v6-remove-leaf-dirs : Also remove leaf dirs even if they normally "
           "would be kept\n");
-  fprintf(stderr,
-          "--v7-full-mini-chunks : Force max-size of all mini-chunks except "
-          "last \n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -1972,8 +1969,6 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x200000;
       } else if (strcmp(argv[0], "--v6-remove-leaf-dirs") == 0) {
         out->flags |= 0x400000;
-      } else if (strcmp(argv[0], "--v7-full-mini-chunks") == 0) {
-        out->flags |= 0x100000;
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);
