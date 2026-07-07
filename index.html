@@ -130,16 +130,19 @@ extracted file.</p>
 files are only created when creating and archive and when compression is
 being used such that the temporary file is a compressed file/chunk and
 is stored into the archive after the file/chunk has been fully
-compressed. Naturally, these temporary files should be automatically
-deleted by <strong>simplearchiver</strong> after they are used. By
-default, the directory used is the directory holding the output archive.
-If the output is standard-output, then tmpfile(3) is used instead.</p>
+compressed. The exception is that file format 7 never uses temporary
+files, even when compressing. Naturally, these temporary files should be
+automatically deleted by <strong>simplearchiver</strong> after they are
+used. By default, the directory used is the directory holding the output
+archive. If the output is standard-output, then tmpfile(3) is used
+instead.</p>
 </dd>
 <dt><strong>--force-tmpfile</strong></dt>
 <dd>
 <p>Forces temporary files to use tmpfile(3) when they are created. Note
 that this option is mutually exclusive with
-<strong>--temp-files-dir</strong>.</p>
+<strong>--temp-files-dir</strong>. Note that when using file format 7,
+temporary files are never created, even when compressing.</p>
 </dd>
 <dt><strong>--write-version</strong>
 <strong><em>version_number</em></strong> |
@@ -475,6 +478,14 @@ behavior are:</p>
 </dl>
 <p><strong>--temp-files-dir</strong></p>
 <p><strong>--force-tmpfile</strong></p>
+<p>Note that file format 7 never uses temporary files, even when
+compressing. This is due to the fact that file format 7 is designed to
+write "mini-chunks" of each "chunk" with "chunked encoding" (like how
+http 1.1 defines it). It works by storing the size of the "mini-chunk",
+then it stores the "mini-chunk" data immediately after. By doing this,
+the size is stored with the data, causing two things: removing the need
+for a temporary file to store size, and needing to parse every
+"mini-chunk" to get the full size of the "chunk".</p>
 <dl>
 <dt><strong>Chunks</strong></dt>
 <dd>
