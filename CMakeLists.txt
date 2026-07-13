@@ -8,6 +8,7 @@ set(SimpleArchiver_SOURCES
     src/helpers.c
     src/archiver.c
     src/data_structures/linked_list.c
+    src/data_structures/string_list.c
     src/data_structures/hash_map.c
     src/data_structures/chunked_array.c
     src/data_structures/list_array.c
