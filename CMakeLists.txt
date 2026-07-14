@@ -4,7 +4,6 @@ project(SimpleArchiver C)
 set(SimpleArchiver_VERSION 3.4.0)
 
 set(SimpleArchiver_SOURCES
-    src/main.c
     src/parser.c
     src/helpers.c
     src/archiver.c
@@ -50,7 +49,36 @@ else()
     set(ENABLE_LIBCAP_LIB "OFF")
 endif()
 
-add_executable(simplearchiver ${SimpleArchiver_SOURCES})
+add_library(simplearchiver_LIB STATIC ${SimpleArchiver_SOURCES})
+
+target_compile_options(simplearchiver_LIB PUBLIC
+    -Wall -Wformat -Wformat=2 -Wconversion -Wimplicit-fallthrough
+    -Werror=format-security
+    -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3
+    -D_GLIBCXX_ASSERTIONS
+    -fstack-clash-protection -fstack-protector-strong
+    -Wl,-z,nodlopen -Wl,-z,noexecstack
+    -Wl,-z,relro -Wl,-z,now
+    -Wl,--as-needed -Wl,--no-copy-dt-needed-entries
+    -fPIE -pie
+    $<IF:$<STREQUAL:"${ENABLE_LIBCAP_LIB}","ON">,-DENABLE_LIBCAP,>
+)
+
+target_link_options(simplearchiver_LIB PUBLIC
+    -Wall -Wformat -Wformat=2 -Wconversion -Wimplicit-fallthrough
+    -Werror=format-security
+    -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3
+    -D_GLIBCXX_ASSERTIONS
+    -fstack-clash-protection -fstack-protector-strong
+    -Wl,-z,nodlopen -Wl,-z,noexecstack
+    -Wl,-z,relro -Wl,-z,now
+    -Wl,--as-needed -Wl,--no-copy-dt-needed-entries
+    -fPIE -pie
+)
+
+add_executable(simplearchiver
+    src/main.c
+)
 
 target_compile_options(simplearchiver PUBLIC
     -Wall -Wformat -Wformat=2 -Wconversion -Wimplicit-fallthrough
@@ -76,6 +104,8 @@ target_link_options(simplearchiver PUBLIC
     -Wl,--as-needed -Wl,--no-copy-dt-needed-entries
     -fPIE -pie
 )
+
+target_link_libraries(simplearchiver PRIVATE simplearchiver_LIB)
 
 if(ENABLE_LIBCAP_LIB_LINK)
     target_link_libraries(simplearchiver PRIVATE cap)
@@ -103,31 +133,20 @@ set_source_files_properties(src/archiver.c
 
 add_executable(test_datastructures
     src/data_structures/test.c
-    src/data_structures/linked_list.c
-    src/data_structures/hash_map.c
-    src/data_structures/chunked_array.c
-    src/data_structures/list_array.c
-    src/data_structures/priority_heap.c
-    src/algorithms/linear_congruential_gen.c
-    src/helpers.c
 )
+
+target_link_libraries(test_datastructures PRIVATE simplearchiver_LIB)
+
 if(ENABLE_LIBCAP_LIB_LINK)
     target_link_libraries(test_datastructures PRIVATE cap)
 endif()
 
 add_executable(test_simplearchiver
     src/test.c
-    src/parser.c
-    src/helpers.c
-    src/archiver.c
-    src/algorithms/linear_congruential_gen.c
-    src/data_structures/linked_list.c
-    src/data_structures/hash_map.c
-    src/data_structures/chunked_array.c
-    src/data_structures/list_array.c
-    src/data_structures/priority_heap.c
-    src/users.c
 )
+
+target_link_libraries(test_simplearchiver PRIVATE simplearchiver_LIB)
+
 if(ENABLE_LIBCAP_LIB_LINK)
     target_link_libraries(test_simplearchiver PRIVATE cap)
 endif()
@@ -155,8 +174,7 @@ elseif(EXISTS /usr/bin/git AND EXISTS /usr/bin/sh AND EXISTS /usr/bin/tr)
 
     add_custom_target(VersionStringCMD
         DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/VersionString.h")
-    add_dependencies(simplearchiver VersionStringCMD)
-    add_dependencies(test_simplearchiver VersionStringCMD)
+    add_dependencies(simplearchiver_LIB VersionStringCMD)
 else()
     message(WARNING "Unable to generate ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h, which is generated to include the current commit short-hash as part of the programs \"--version\" output")
 endif()

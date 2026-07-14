@@ -814,7 +814,7 @@ int main(void) {
   // Test helpers cut substr.
   {
     const char *s = "one two three.";
-    uint32_t s_len = strlen(s);
+    size_t s_len = strlen(s);
     // Invalid range.
     char *out = simple_archiver_helper_cut_substr(s, 1, 0);
     CHECK_FALSE(out);
@@ -892,7 +892,7 @@ int main(void) {
 
 TEST_HELPERS_PREFIX_END:
     rmdir("/tmp/fifty");
-    chdir(cwd);
+    CHECK_TRUE(chdir(cwd) == 0);
     free(cwd);
   }
 

@@ -210,7 +210,7 @@ int main(void) {
     {
       int32_t *value, *key;
 
-      for (uint32_t idx = 0; idx < 20; ++idx) {
+      for (int32_t idx = 0; idx < 20; ++idx) {
         value = malloc(sizeof(int32_t));
         key = malloc(sizeof(int32_t));
         *value = idx;
@@ -552,7 +552,7 @@ int main(void) {
     }
 
     for (int idx = 0; idx < 110; ++idx) {
-      int_ptr = simple_archiver_chunked_array_at(&chunked_array, idx);
+      int_ptr = simple_archiver_chunked_array_at(&chunked_array, (uint64_t)idx);
       if (idx < 100) {
         CHECK_TRUE(int_ptr);
         CHECK_TRUE(*int_ptr == idx);
@@ -605,7 +605,7 @@ int main(void) {
     }
 
     for (int idx = 0; idx < 110; ++idx) {
-      int_ptr = simple_archiver_chunked_array_at(&chunked_array, idx);
+      int_ptr = simple_archiver_chunked_array_at(&chunked_array, (uint64_t)idx);
       if (idx < 100) {
         CHECK_TRUE(int_ptr);
         CHECK_TRUE(*int_ptr == idx);
@@ -678,7 +678,7 @@ int main(void) {
       }
     }
     for (int idx = 0; idx < 128; ++idx) {
-      test_struct_ptr = simple_archiver_list_array_at(&la, idx);
+      test_struct_ptr = simple_archiver_list_array_at(&la, (uint64_t)idx);
       CHECK_TRUE(*test_struct_ptr->first == 1 + idx * 2);
       CHECK_TRUE(*test_struct_ptr->second == 2 + idx * 2);
     }
@@ -692,7 +692,8 @@ int main(void) {
       CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
     }
     for (int idx = 0; idx < 128; ++idx) {
-      const int *int_ptr = simple_archiver_list_array_at_const(&la, idx);
+      const int *int_ptr = simple_archiver_list_array_at_const(&la,
+                                                               (uint64_t)idx);
       CHECK_TRUE(*int_ptr == idx);
     }
 
@@ -706,7 +707,8 @@ int main(void) {
       CHECK_TRUE(simple_archiver_list_array_size(&la) == (uint64_t)idx + 1);
     }
     for (int idx = 0; idx < 128; ++idx) {
-      const int *int_ptr = simple_archiver_list_array_at_const(&la, idx);
+      const int *int_ptr = simple_archiver_list_array_at_const(&la,
+                                                               (uint64_t)idx);
       CHECK_TRUE(*int_ptr == idx);
     }
 
@@ -879,8 +881,8 @@ int main(void) {
     }
 
     // Deterministic randomization.
-    for (uint32_t idx = max - 1; idx-- > 0;) {
-      uint32_t other_idx =
+    for (uint64_t idx = max - 1; idx-- > 0;) {
+      uint64_t other_idx =
           simple_archiver_algo_lcg_defaults(idx) % (uint64_t)(idx + 1);
       if (max - 1 != other_idx) {
         uint32_t temp = array[max - 1];
@@ -947,8 +949,8 @@ int main(void) {
     }
 
     // Deterministic randomization.
-    for (uint32_t idx = max - 1; idx-- > 0;) {
-      uint32_t other_idx =
+    for (uint64_t idx = max - 1; idx-- > 0;) {
+      uint64_t other_idx =
           simple_archiver_algo_lcg_defaults(idx) % (uint64_t)(idx + 1);
       if (max - 1 != other_idx) {
         uint32_t temp = array[max - 1];
