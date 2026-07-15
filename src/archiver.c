@@ -2063,7 +2063,7 @@ int symlinks_and_files_from_files(
   SDArchiverLinkedList *files_list = ptr_array[1];
   const char *user_cwd = ptr_array[2];
   SDArchiverPHeap *pheap = ptr_array[3];
-  SDArchiverLinkedList *dirs_list = ptr_array[4];
+  SDArchiverStringList *dirs_list = ptr_array[4];
   const SDArchiverState *state = ptr_array[5];
   uint64_t *from_files_count = ptr_array[6];
   uint64_t *files_actual_size = ptr_array[7];
@@ -2102,9 +2102,7 @@ int symlinks_and_files_from_files(
       simple_archiver_slist_add(symlinks_list, file_info->filename);
     } else if (dirs_list && (file_info->flags & 1) != 0) {
       // Is a directory.
-      simple_archiver_list_add(
-          dirs_list, file_info->filename,
-          simple_archiver_helper_datastructure_cleanup_nop);
+      simple_archiver_slist_add(dirs_list, file_info->filename);
     } else {
       // Is a file.
       SDArchiverInternalFileInfo *file_info_struct =
@@ -2283,8 +2281,7 @@ void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
   }
 }
 
-int internal_write_dir_entries_v2_v3_v4_v5_v6(void *data, void *ud) {
-  const char *dir = data;
+int internal_write_dir_entries_v2_v3_v4_v5_v6(const char *dir, void *ud) {
   void **ptrs = ud;
   FILE *out_f = ptrs[0];
   const SDArchiverState *state = ptrs[1];
@@ -4447,8 +4444,8 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   SDArchiverStringList *symlinks_list = simple_archiver_slist_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
-  __attribute__((cleanup(simple_archiver_list_free)))
-  SDArchiverLinkedList *dirs_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_slist_free)))
+  SDArchiverStringList *dirs_list = simple_archiver_slist_init();
   __attribute__((cleanup(simple_archiver_priority_heap_free)))
   SDArchiverPHeap *files_pheap = NULL;
   if (state->parsed->flags & 0x80000) {
@@ -5456,9 +5453,9 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   void_ptrs[0] = out_f;
   void_ptrs[1] = state;
 
-  if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4_v5_v6,
-                               void_ptrs)) {
+  if (simple_archiver_slist_get(dirs_list,
+                                internal_write_dir_entries_v2_v3_v4_v5_v6,
+                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
   }
@@ -5498,8 +5495,8 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   SDArchiverStringList *symlinks_list = simple_archiver_slist_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
-  __attribute__((cleanup(simple_archiver_list_free)))
-  SDArchiverLinkedList *dirs_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_slist_free)))
+  SDArchiverStringList *dirs_list = simple_archiver_slist_init();
   __attribute__((cleanup(simple_archiver_priority_heap_free)))
   SDArchiverPHeap *files_pheap = NULL;
   if (state->parsed->flags & 0x80000) {
@@ -6738,9 +6735,9 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   void_ptrs[0] = out_f;
   void_ptrs[1] = state;
 
-  if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4_v5_v6,
-                               void_ptrs)) {
+  if (simple_archiver_slist_get(dirs_list,
+                                internal_write_dir_entries_v2_v3_v4_v5_v6,
+                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
   }
@@ -6805,8 +6802,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   SDArchiverLinkedList *non_comp_files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
-  __attribute__((cleanup(simple_archiver_list_free)))
-  SDArchiverLinkedList *dirs_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_slist_free)))
+  SDArchiverStringList *dirs_list = simple_archiver_slist_init();
   __attribute__((cleanup(simple_archiver_priority_heap_free)))
   SDArchiverPHeap *files_pheap = NULL;
   if (state->parsed->write_version >= 6) {
@@ -8657,9 +8654,9 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   void_ptrs[0] = out_f;
   void_ptrs[1] = state;
 
-  if (simple_archiver_list_get(dirs_list,
-                               internal_write_dir_entries_v2_v3_v4_v5_v6,
-                               void_ptrs)) {
+  if (simple_archiver_slist_get(dirs_list,
+                                internal_write_dir_entries_v2_v3_v4_v5_v6,
+                                void_ptrs)) {
     free(void_ptrs);
     return SDA_RET_STRUCT(SDAS_DIR_ENTRY_WRITE_FAIL);
   }
