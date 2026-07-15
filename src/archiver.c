@@ -39,6 +39,7 @@
 // Local includes.
 #include "data_structures/hash_map.h"
 #include "data_structures/linked_list.h"
+#include "data_structures/string_list.h"
 #include "data_structures/priority_heap.h"
 #include "helpers.h"
 #include "parser.h"
@@ -2058,7 +2059,7 @@ int symlinks_and_files_from_files(
     void *ud) {
   const SDArchiverFileInfo *file_info = val;
   void **ptr_array = ud;
-  SDArchiverLinkedList *symlinks_list = ptr_array[0];
+  SDArchiverStringList *symlinks_list = ptr_array[0];
   SDArchiverLinkedList *files_list = ptr_array[1];
   const char *user_cwd = ptr_array[2];
   SDArchiverPHeap *pheap = ptr_array[3];
@@ -2098,9 +2099,7 @@ int symlinks_and_files_from_files(
 
     if (file_info->link_dest) {
       // Is a symbolic link.
-      simple_archiver_list_add(
-          symlinks_list, file_info->filename,
-          simple_archiver_helper_datastructure_cleanup_nop);
+      simple_archiver_slist_add(symlinks_list, file_info->filename);
     } else if (dirs_list && (file_info->flags & 1) != 0) {
       // Is a directory.
       simple_archiver_list_add(
@@ -3432,8 +3431,8 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   free(ptr_array);
 
   // Get a list of symlinks and a list of files.
-  __attribute__((cleanup(simple_archiver_list_free)))
-  SDArchiverLinkedList *symlinks_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_slist_free)))
+  SDArchiverStringList *symlinks_list = simple_archiver_slist_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_priority_heap_free)))
@@ -3592,10 +3591,11 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
                                ? strlen(state->parsed->prefix)
                                : 0;
   {
-    const SDArchiverLLNode *node = symlinks_list->head;
+    const SDArchiverSLNode *node = symlinks_list->head;
     for (u32 = 0;
          u32 < (uint32_t)symlinks_list->count && node != symlinks_list->tail;) {
       node = node->next;
+      const char *node_str = ((const char*)node) + sizeof(SDArchiverSLNode);
       ++u32;
       memset(buf, 0, 2);
 
@@ -3608,7 +3608,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
       if ((state->parsed->flags & 0x100) != 0) {
         // Preserve symlink target.
         char *path_buf = malloc(1024);
-        ssize_t ret = readlink(node->data, path_buf, 1023);
+        ssize_t ret = readlink(node_str, path_buf, 1023);
         if (ret == -1) {
           fprintf(stderr, "WARNING: Failed to get symlink's target!\n");
           free(path_buf);
@@ -3623,12 +3623,12 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
           }
         }
       } else {
-        abs_path = realpath(node->data, NULL);
+        abs_path = realpath(node_str, NULL);
         // Check if symlink points to thing to be stored into archive.
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_helper_real_path_to_name(node->data);
+              simple_archiver_helper_real_path_to_name(node_str);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -3651,7 +3651,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
                   "WARNING: \"%s\" points to outside of archived files (or is "
                   "invalid) and \"--no-safe-links\" not specified, will not "
                   "store abs/rel-links to this entry!\n",
-                  (const char *)node->data);
+                  node_str);
         } else {
           // Safe links disabled, set preference to absolute path.
           buf[0] |= 1;
@@ -3660,13 +3660,13 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
                  (state->parsed->flags & 0x80) == 0 && !is_invalid) {
         __attribute__((cleanup(
             simple_archiver_helper_cleanup_c_string))) char *target_realpath =
-            realpath(node->data, NULL);
+            realpath(node_str, NULL);
         if (!target_realpath) {
           fprintf(
               stderr,
               "WARNING: \"%s\" is an invalid symlink and \"--no-safe-links\" "
               "not specified, will skip this symlink!\n",
-              (const char *)node->data);
+              (const char *)node_str);
           is_invalid = 1;
         } else if (!simple_archiver_hash_map_get(abs_filenames, target_realpath,
                                                  strlen(target_realpath) + 1)) {
@@ -3674,7 +3674,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
               stderr,
               "WARNING: \"%s\" points to outside of archived files and "
               "\"--no-safe-links\" not specified, will skip this symlink!\n",
-              (const char *)node->data);
+              (const char *)node_str);
           is_invalid = 1;
         }
       }
@@ -3684,7 +3684,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         fprintf(stderr,
                 "WARNING: \"%s\" is an invalid symlink, will not store rel/abs "
                 "link paths!\n",
-                (const char *)node->data);
+                (const char *)node_str);
         is_invalid = 1;
       }
 
@@ -3692,7 +3692,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
       struct stat stat_buf;
       memset(&stat_buf, 0, sizeof(struct stat));
       int stat_status =
-          fstatat(AT_FDCWD, node->data, &stat_buf, AT_SYMLINK_NOFOLLOW);
+          fstatat(AT_FDCWD, node_str, &stat_buf, AT_SYMLINK_NOFOLLOW);
       if (stat_status != 0) {
         return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
@@ -3733,7 +3733,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
-      const size_t link_length = strlen(node->data);
+      const size_t link_length = strlen(node_str);
       size_t len = link_length;
       if (state->parsed->prefix) {
         len += prefix_length;
@@ -3754,11 +3754,11 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
                                    1,
                                    prefix_length,
                                    out_f);
-        fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
+        fwrite_ret += fwrite(node_str, 1, link_length + 1, out_f);
         if (fwrite_ret != (size_t)u16 + 1) {
           return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
-      } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+      } else if (fwrite(node_str, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
@@ -3767,7 +3767,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *abs_path_prefixed =
             simple_archiver_helper_insert_prefix_in_link_path(
-              state->parsed->prefix, node->data, abs_path);
+              state->parsed->prefix, node_str, abs_path);
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to abs symlink!\n");
@@ -3820,7 +3820,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *rel_path_prefixed =
             simple_archiver_helper_insert_prefix_in_link_path(
-              state->parsed->prefix, node->data, rel_path);
+              state->parsed->prefix, node_str, rel_path);
           if (!rel_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to relative symlink!\n");
@@ -4443,8 +4443,8 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   free(ptr_array);
 
   // Get a list of symlinks and a list of files.
-  __attribute__((cleanup(simple_archiver_list_free)))
-  SDArchiverLinkedList *symlinks_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_slist_free)))
+  SDArchiverStringList *symlinks_list = simple_archiver_slist_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -4615,10 +4615,11 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   }
 
   {
-    const SDArchiverLLNode *node = symlinks_list->head;
+    const SDArchiverSLNode *node = symlinks_list->head;
     for (u32 = 0;
          u32 < (uint32_t)symlinks_list->count && node != symlinks_list->tail;) {
       node = node->next;
+      const char *node_str = ((const char*)node) + sizeof(SDArchiverSLNode);
       ++u32;
       memset(buf, 0, 2);
 
@@ -4631,7 +4632,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
       if ((state->parsed->flags & 0x100) != 0) {
         // Preserve symlink target.
         char *path_buf = malloc(1024);
-        ssize_t ret = readlink(node->data, path_buf, 1023);
+        ssize_t ret = readlink(node_str, path_buf, 1023);
         if (ret == -1) {
           fprintf(stderr, "WARNING: Failed to get symlink's target!\n");
           free(path_buf);
@@ -4646,12 +4647,12 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
           }
         }
       } else {
-        abs_path = realpath(node->data, NULL);
+        abs_path = realpath(node_str, NULL);
         // Check if symlink points to thing to be stored into archive.
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_helper_real_path_to_name(node->data);
+              simple_archiver_helper_real_path_to_name(node_str);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -4674,7 +4675,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
                   "WARNING: \"%s\" points to outside of archived files (or is "
                   "invalid) and \"--no-safe-links\" not specified, will not "
                   "store abs/rel-links to this entry!\n",
-                  (const char *)node->data);
+                  node_str);
         } else {
           // Safe links disabled, set preference to absolute path.
           buf[0] |= 1;
@@ -4683,13 +4684,13 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
                  (state->parsed->flags & 0x80) == 0 && !is_invalid) {
         __attribute__((cleanup(
             simple_archiver_helper_cleanup_c_string))) char *target_realpath =
-            realpath(node->data, NULL);
+            realpath(node_str, NULL);
         if (!target_realpath) {
           fprintf(
               stderr,
               "WARNING: \"%s\" is an invalid symlink and \"--no-safe-links\" "
               "not specified, will skip this symlink!\n",
-              (const char *)node->data);
+              (const char *)node_str);
           is_invalid = 1;
         } else if (!simple_archiver_hash_map_get(abs_filenames, target_realpath,
                                                  strlen(target_realpath) + 1)) {
@@ -4697,7 +4698,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
               stderr,
               "WARNING: \"%s\" points to outside of archived files and "
               "\"--no-safe-links\" not specified, will skip this symlink!\n",
-              (const char *)node->data);
+              (const char *)node_str);
           is_invalid = 1;
         }
       }
@@ -4707,7 +4708,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         fprintf(stderr,
                 "WARNING: \"%s\" is an invalid symlink, will not store rel/abs "
                 "link paths!\n",
-                (const char *)node->data);
+                (const char *)node_str);
         is_invalid = 1;
       }
 
@@ -4715,7 +4716,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
       struct stat stat_buf;
       memset(&stat_buf, 0, sizeof(struct stat));
       int stat_status =
-          fstatat(AT_FDCWD, node->data, &stat_buf, AT_SYMLINK_NOFOLLOW);
+          fstatat(AT_FDCWD, node_str, &stat_buf, AT_SYMLINK_NOFOLLOW);
       if (stat_status != 0) {
         return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
@@ -4756,7 +4757,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
-      const size_t link_length = strlen(node->data);
+      const size_t link_length = strlen(node_str);
       size_t len = link_length;
       if (state->parsed->prefix) {
         len += prefix_length;
@@ -4777,11 +4778,11 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
                                    1,
                                    prefix_length,
                                    out_f);
-        fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
+        fwrite_ret += fwrite(node_str, 1, link_length + 1, out_f);
         if (fwrite_ret != (size_t)u16 + 1) {
           return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
-      } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+      } else if (fwrite(node_str, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
@@ -4790,7 +4791,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *abs_path_prefixed =
             simple_archiver_helper_insert_prefix_in_link_path(
-              state->parsed->prefix, node->data, abs_path);
+              state->parsed->prefix, node_str, abs_path);
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to abs symlink!\n");
@@ -4843,7 +4844,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *rel_path_prefixed =
             simple_archiver_helper_insert_prefix_in_link_path(
-              state->parsed->prefix, node->data, rel_path);
+              state->parsed->prefix, node_str, rel_path);
           if (!rel_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to relative symlink!\n");
@@ -5493,8 +5494,8 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   free(ptr_array);
 
   // Get a list of symlinks and a list of files.
-  __attribute__((cleanup(simple_archiver_list_free)))
-  SDArchiverLinkedList *symlinks_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_slist_free)))
+  SDArchiverStringList *symlinks_list = simple_archiver_slist_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -5665,11 +5666,12 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   }
 
   {
-    const SDArchiverLLNode *node = symlinks_list->head;
+    const SDArchiverSLNode *node = symlinks_list->head;
     uint32_t idx;
     for (idx = 0;
          idx < (uint32_t)symlinks_list->count && node != symlinks_list->tail;) {
       node = node->next;
+      const char *node_str = ((const char*)node) + sizeof(SDArchiverSLNode);
       ++idx;
       memset(buf, 0, 2);
 
@@ -5682,7 +5684,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
       if ((state->parsed->flags & 0x100) != 0) {
         // Preserve symlink target.
         char *path_buf = malloc(1024);
-        ssize_t ret = readlink(node->data, path_buf, 1023);
+        ssize_t ret = readlink(node_str, path_buf, 1023);
         if (ret == -1) {
           fprintf(stderr, "WARNING: Failed to get symlink's target!\n");
           free(path_buf);
@@ -5697,12 +5699,12 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
           }
         }
       } else {
-        abs_path = realpath(node->data, NULL);
+        abs_path = realpath(node_str, NULL);
         // Check if symlink points to thing to be stored into archive.
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_helper_real_path_to_name(node->data);
+              simple_archiver_helper_real_path_to_name(node_str);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -5725,7 +5727,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
                   "WARNING: \"%s\" points to outside of archived files (or is "
                   "invalid) and \"--no-safe-links\" not specified, will not "
                   "store abs/rel-links to this entry!\n",
-                  (const char *)node->data);
+                  (const char *)node_str);
         } else {
           // Safe links disabled, set preference to absolute path.
           buf[0] |= 1;
@@ -5734,13 +5736,13 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
                  (state->parsed->flags & 0x80) == 0 && !is_invalid) {
         __attribute__((cleanup(
             simple_archiver_helper_cleanup_c_string))) char *target_realpath =
-            realpath(node->data, NULL);
+            realpath(node_str, NULL);
         if (!target_realpath) {
           fprintf(
               stderr,
               "WARNING: \"%s\" is an invalid symlink and \"--no-safe-links\" "
               "not specified, will skip this symlink!\n",
-              (const char *)node->data);
+              (const char *)node_str);
           is_invalid = 1;
         } else if (!simple_archiver_hash_map_get(abs_filenames, target_realpath,
                                                  strlen(target_realpath) + 1)) {
@@ -5748,7 +5750,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
               stderr,
               "WARNING: \"%s\" points to outside of archived files and "
               "\"--no-safe-links\" not specified, will skip this symlink!\n",
-              (const char *)node->data);
+              (const char *)node_str);
           is_invalid = 1;
         }
       }
@@ -5758,7 +5760,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         fprintf(stderr,
                 "WARNING: \"%s\" is an invalid symlink, will not store rel/abs "
                 "link paths!\n",
-                (const char *)node->data);
+                (const char *)node_str);
         is_invalid = 1;
       }
 
@@ -5766,7 +5768,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
       struct stat stat_buf;
       memset(&stat_buf, 0, sizeof(struct stat));
       int stat_status =
-          fstatat(AT_FDCWD, node->data, &stat_buf, AT_SYMLINK_NOFOLLOW);
+          fstatat(AT_FDCWD, node_str, &stat_buf, AT_SYMLINK_NOFOLLOW);
       if (stat_status != 0) {
         return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
@@ -5807,7 +5809,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
-      const size_t link_length = strlen(node->data);
+      const size_t link_length = strlen(node_str);
       size_t len = link_length;
       if (state->parsed->prefix) {
         len += prefix_length;
@@ -5828,11 +5830,11 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
                                    1,
                                    prefix_length,
                                    out_f);
-        fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
+        fwrite_ret += fwrite(node_str, 1, link_length + 1, out_f);
         if (fwrite_ret != (size_t)u16 + 1) {
           return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
-      } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+      } else if (fwrite(node_str, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
@@ -5841,7 +5843,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *abs_path_prefixed =
             simple_archiver_helper_insert_prefix_in_link_path(
-              state->parsed->prefix, node->data, abs_path);
+              state->parsed->prefix, node_str, abs_path);
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to abs symlink!\n");
@@ -5894,7 +5896,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *rel_path_prefixed =
             simple_archiver_helper_insert_prefix_in_link_path(
-              state->parsed->prefix, node->data, rel_path);
+              state->parsed->prefix, node_str, rel_path);
           if (!rel_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to relative symlink!\n");
@@ -6797,8 +6799,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   }
 
   // Get a list of symlinks and a list of files.
-  __attribute__((cleanup(simple_archiver_list_free)))
-  SDArchiverLinkedList *symlinks_list = simple_archiver_list_init();
+  __attribute__((cleanup(simple_archiver_slist_free)))
+  SDArchiverStringList *symlinks_list = simple_archiver_slist_init();
   __attribute__((cleanup(simple_archiver_list_free)))
   SDArchiverLinkedList *non_comp_files_list = simple_archiver_list_init();
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -7379,11 +7381,12 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   }
 
   {
-    const SDArchiverLLNode *node = symlinks_list->head;
+    const SDArchiverSLNode *node = symlinks_list->head;
     uint64_t idx;
     for (idx = 0;
          idx < symlinks_list->count && node != symlinks_list->tail;) {
       node = node->next;
+      const char *node_str = ((const char*)node) + sizeof(SDArchiverSLNode);
       ++idx;
       memset(buf, 0, 2);
 
@@ -7396,7 +7399,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
       if ((state->parsed->flags & 0x100) != 0) {
         // Preserve symlink target.
         char *path_buf = malloc(1024);
-        ssize_t ret = readlink(node->data, path_buf, 1023);
+        ssize_t ret = readlink(node_str, path_buf, 1023);
         if (ret == -1) {
           fprintf(stderr, "WARNING: Failed to get symlink's target!\n");
           free(path_buf);
@@ -7411,12 +7414,12 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
           }
         }
       } else {
-        abs_path = realpath(node->data, NULL);
+        abs_path = realpath(node_str, NULL);
         // Check if symlink points to thing to be stored into archive.
         if (abs_path) {
           __attribute__((cleanup(
               simple_archiver_helper_cleanup_malloced))) void *link_abs_path =
-              simple_archiver_helper_real_path_to_name(node->data);
+              simple_archiver_helper_real_path_to_name(node_str);
           if (!link_abs_path) {
             fprintf(stderr, "WARNING: Failed to get absolute path to link!\n");
           } else {
@@ -7439,7 +7442,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                   "WARNING: \"%s\" points to outside of archived files (or is "
                   "invalid) and \"--no-safe-links\" not specified, will not "
                   "store abs/rel-links to this entry!\n",
-                  (const char *)node->data);
+                  node_str);
         } else {
           // Safe links disabled, set preference to absolute path.
           buf[0] |= 1;
@@ -7448,13 +7451,13 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                  (state->parsed->flags & 0x80) == 0 && !is_invalid) {
         __attribute__((cleanup(
             simple_archiver_helper_cleanup_c_string))) char *target_realpath =
-            realpath(node->data, NULL);
+            realpath(node_str, NULL);
         if (!target_realpath) {
           fprintf(
               stderr,
               "WARNING: \"%s\" is an invalid symlink and \"--no-safe-links\" "
               "not specified, will skip this symlink!\n",
-              (const char *)node->data);
+              node_str);
           is_invalid = 1;
         } else if (!simple_archiver_hash_map_get(abs_filenames, target_realpath,
                                                  strlen(target_realpath) + 1)) {
@@ -7462,7 +7465,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
               stderr,
               "WARNING: \"%s\" points to outside of archived files and "
               "\"--no-safe-links\" not specified, will skip this symlink!\n",
-              (const char *)node->data);
+              node_str);
           is_invalid = 1;
         }
       }
@@ -7472,7 +7475,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
         fprintf(stderr,
                 "WARNING: \"%s\" is an invalid symlink, will not store rel/abs "
                 "link paths!\n",
-                (const char *)node->data);
+                node_str);
         is_invalid = 1;
       }
 
@@ -7480,7 +7483,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
       struct stat stat_buf;
       memset(&stat_buf, 0, sizeof(struct stat));
       int stat_status =
-          fstatat(AT_FDCWD, node->data, &stat_buf, AT_SYMLINK_NOFOLLOW);
+          fstatat(AT_FDCWD, node_str, &stat_buf, AT_SYMLINK_NOFOLLOW);
       if (stat_status != 0) {
         return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
       }
@@ -7521,7 +7524,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
-      const size_t link_length = strlen(node->data);
+      const size_t link_length = strlen(node_str);
       size_t len = link_length;
       if (state->parsed->prefix) {
         len += prefix_length;
@@ -7542,11 +7545,11 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
                                    1,
                                    prefix_length,
                                    out_f);
-        fwrite_ret += fwrite(node->data, 1, link_length + 1, out_f);
+        fwrite_ret += fwrite(node_str, 1, link_length + 1, out_f);
         if (fwrite_ret != (size_t)u16 + 1) {
           return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
-      } else if (fwrite(node->data, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
+      } else if (fwrite(node_str, 1, u16 + 1, out_f) != (size_t)u16 + 1) {
         return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
       }
 
@@ -7555,7 +7558,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *abs_path_prefixed =
             simple_archiver_helper_insert_prefix_in_link_path(
-              state->parsed->prefix, node->data, abs_path);
+              state->parsed->prefix, node_str, abs_path);
           if (!abs_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to abs symlink!\n");
@@ -7608,7 +7611,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
           __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
           char *rel_path_prefixed =
             simple_archiver_helper_insert_prefix_in_link_path(
-              state->parsed->prefix, node->data, rel_path);
+              state->parsed->prefix, node_str, rel_path);
           if (!rel_path_prefixed) {
             fprintf(stderr,
                     "ERROR: Failed to add prefix to relative symlink!\n");
