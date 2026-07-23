@@ -27,12 +27,15 @@
 #include "../algorithms/linear_congruential_gen.h"
 #include "hash_map.h"
 #include "linked_list.h"
+#include "string_list.h"
 #include "chunked_array.h"
 #include "list_array.h"
 #include "priority_heap.h"
 #include "../helpers.h"
 
 #define SDARCHIVER_DS_TEST_HASH_MAP_ITER_SIZE 100
+
+#define SDAR_UNUSED __attribute__((unused))
 
 static int32_t checks_checked = 0;
 static int32_t checks_passed = 0;
@@ -150,6 +153,34 @@ int internal_pheap_less_generic_ud(void *left, void *right, void *ud) {
   } else {
     return 0;
   }
+}
+
+int internal_string_list_check_order(const char *str, void *ud) {
+  void **ptrs = ud;
+  size_t *idx = ptrs[0];
+  int *matches = ptrs[1];
+  const char **strings = ptrs[2];
+
+  if (strcmp(str, strings[*idx]) == 0) {
+    ++(*matches);
+  }
+
+  ++(*idx);
+
+  return 0;
+}
+
+int internal_string_list_matches(const char *str, void *ud) {
+  if (strcmp(str, ud) == 0) {
+    return 1;
+  }
+
+  return 0;
+}
+
+int internal_slist_always_return_one(
+    SDAR_UNUSED const char *str, SDAR_UNUSED void *ud) {
+  return 1;
 }
 
 int main(void) {
@@ -1136,6 +1167,105 @@ int main(void) {
     }
 
     simple_archiver_priority_heap_free(&priority_heap);
+  }
+
+  // Test data-structure string-list
+  {
+    SDArchiverStringList *slist = simple_archiver_slist_init();
+    simple_archiver_slist_free(&slist);
+    CHECK_TRUE(slist == NULL);
+
+    slist = simple_archiver_slist_init();
+    CHECK_TRUE(simple_archiver_slist_add(slist, "one") == 0);
+    CHECK_TRUE(simple_archiver_slist_add(slist, "two") == 0);
+    CHECK_TRUE(simple_archiver_slist_add(slist, "three") == 0);
+    CHECK_TRUE(simple_archiver_slist_add(slist, "four") == 0);
+
+    CHECK_TRUE(slist->count == 4);
+
+    size_t idx = 0;
+    int matches = 0;
+    const char *strings[4] = {
+      "one",
+      "two",
+      "three",
+      "four"
+    };
+
+    __attribute__((cleanup(simple_archiver_helper_cleanup_malloced)))
+    void *ptrs_data = malloc(sizeof(void*) * 3);
+    void **ptrs = ptrs_data;
+    ptrs[0] = &idx;
+    ptrs[1] = &matches;
+    ptrs[2] = strings;
+
+    simple_archiver_slist_get(slist,
+                              internal_string_list_check_order,
+                              ptrs_data);
+
+    CHECK_TRUE(idx == 4);
+    CHECK_TRUE(matches == 4);
+
+    idx = 0;
+    matches = 0;
+
+    simple_archiver_slist_remove(slist,
+                                 internal_string_list_matches,
+                                 "three");
+    simple_archiver_slist_get(slist,
+                              internal_string_list_check_order,
+                              ptrs_data);
+
+    CHECK_TRUE(idx == 3);
+    CHECK_TRUE(matches == 2);
+
+    idx = 0;
+    matches = 0;
+
+    simple_archiver_slist_remove_once(slist,
+                                      internal_string_list_matches,
+                                      "four");
+    simple_archiver_slist_get(slist,
+                              internal_string_list_check_order,
+                              ptrs_data);
+
+    CHECK_TRUE(idx == 2);
+    CHECK_TRUE(matches == 2);
+
+    idx = 0;
+    matches = 0;
+
+    simple_archiver_slist_remove(slist,
+                                 internal_slist_always_return_one,
+                                 NULL);
+    simple_archiver_slist_get(slist,
+                              internal_string_list_check_order,
+                              ptrs_data);
+
+    CHECK_TRUE(idx == 0);
+    CHECK_TRUE(matches == 0);
+
+    idx = 0;
+    matches = 0;
+
+    CHECK_TRUE(simple_archiver_slist_add(slist, "two") == 0);
+    simple_archiver_slist_get(slist,
+                              internal_string_list_check_order,
+                              ptrs_data);
+    CHECK_TRUE(idx == 1);
+    CHECK_TRUE(matches == 0);
+
+    idx = 0;
+    matches = 0;
+
+    CHECK_TRUE(simple_archiver_slist_add_front(slist, "one") == 0);
+    simple_archiver_slist_get(slist,
+                              internal_string_list_check_order,
+                              ptrs_data);
+    CHECK_TRUE(idx == 2);
+    CHECK_TRUE(matches == 2);
+
+    simple_archiver_slist_free(&slist);
   }
 
   printf("Checks checked: %" PRId32 "\n", checks_checked);

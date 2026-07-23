@@ -1,13 +1,14 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 3.4.0)
+set(SimpleArchiver_VERSION 3.4.1)
 
 set(SimpleArchiver_SOURCES
     src/parser.c
     src/helpers.c
     src/archiver.c
     src/data_structures/linked_list.c
+    src/data_structures/string_list.c
     src/data_structures/hash_map.c
     src/data_structures/chunked_array.c
     src/data_structures/list_array.c
