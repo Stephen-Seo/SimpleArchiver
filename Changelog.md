@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Fix cosmopolitan Makefile (related to "string-list").
+
 ## Version 3.4.1
 
 Update CMakeLists.txt for more efficient compiling of sources (compile sources
