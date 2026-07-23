@@ -6,6 +6,9 @@ Update CMakeLists.txt for more efficient compiling of sources (compile sources
 used by multiple build targets into a static library to avoid recompiling the
 same sources per target).
 
+Backend: add a new data-structure that is used in `simplearchiver`
+(string-list).
+
 ## Version 3.4.0
 
 Archiving compressed files with file format v7 now enforces keeping each
