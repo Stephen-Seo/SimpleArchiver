@@ -14,6 +14,7 @@ SOURCES = \
 		../src/archiver.c \
 		../src/algorithms/linear_congruential_gen.c \
 		../src/data_structures/linked_list.c \
+		../src/data_structures/string_list.c \
 		../src/data_structures/hash_map.c \
 		../src/data_structures/chunked_array.c \
 		../src/data_structures/list_array.c \
@@ -27,6 +28,7 @@ HEADERS = \
 		../src/archiver.h \
 		../src/algorithms/linear_congruential_gen.h \
 		../src/data_structures/linked_list.h \
+		../src/data_structures/string_list.h \
 		../src/data_structures/hash_map.h \
 		../src/data_structures/chunked_array.h \
 		../src/data_structures/list_array.h \
