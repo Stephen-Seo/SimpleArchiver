@@ -144,6 +144,10 @@ uint_fast8_t simple_archiver_helper_string_ends(const char *cstring,
 
 // Returns non-zero if "cstring" is allowed by lists.
 // "case_i" stands for "case-insensitive".
+//
+// Note that "case_i" should always be: parsed->flags & 0x20000 ? 1 : 0
+// Since it is being used by unit tests to check case-insensitive and not, this
+// must not be removed.
 uint_fast8_t simple_archiver_helper_string_allowed_lists(
   const char *cstring,
   uint_fast8_t case_i,

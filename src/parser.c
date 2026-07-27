@@ -2191,19 +2191,47 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_parser_internal_remove_end_slash(file_path);
 
           if (file_path[0] == '/') {
+            uint_fast8_t has_been_not_allowed = 0;
             dir_path = realpath(file_path, NULL);
             for (size_t idx = 0; dir_path[idx] != 0; ++idx) {
               if (dir_path[idx] == '/' && idx > 0) {
                 char *outer = strdup(dir_path);
                 outer[idx] = 0;
+                if (simple_archiver_helper_string_allowed_lists(
+                      outer, out->flags & 0x20000 ? 1 : 0, out) == 0) {
+                  // Not allowed by white/black-lists
+                  free(outer);
+                  has_been_not_allowed = 1;
+                  break;
+                }
                 simple_archiver_list_add(out->working_dirs, outer, NULL);
               }
             }
+            if (has_been_not_allowed) {
+              continue;
+            } else if (simple_archiver_helper_string_allowed_lists(
+                  dir_path, out->flags & 0x20000 ? 1 : 0, out) == 0) {
+              // Not allowed by white/black-lists
+              continue;
+            }
             simple_archiver_list_add(out->working_dirs, dir_path, NULL);
           } else {
+            if (!(file_path[0] == '.' && file_path[1] == 0)
+                && simple_archiver_helper_string_allowed_lists(
+                  file_path, out->flags & 0x20000 ? 1 : 0, out) == 0) {
+              // Not allowed by white/black-lists
+              continue;
+            }
             dir_path = strdup(file_path);
             simple_archiver_list_add(out->working_dirs, dir_path, NULL);
           }
+        }
+
+        if (!(file_path[0] == '.' && file_path[1] == 0)
+            && simple_archiver_helper_string_allowed_lists(
+              file_path, out->flags & 0x20000 ? 1 : 0, out) == 0) {
+          // Not allowed by white/black-lists, do not recurse into directory
+          continue;
         }
 
         __attribute__((cleanup(simple_archiver_list_free)))
@@ -2270,6 +2298,14 @@ int simple_archiver_parse_args(int argc, const char **argv,
                 combined_path = new_path;
                 combined_size -= valid_idx;
               }
+
+              if (simple_archiver_helper_string_allowed_lists(
+                    combined_path, out->flags & 0x20000 ? 1 : 0, out) == 0) {
+                // Not allowed by white/black-lists
+                free(combined_path);
+                continue;
+              }
+
               memset(&st, 0, sizeof(struct stat));
               fstatat(AT_FDCWD, combined_path, &st, AT_SYMLINK_NOFOLLOW);
               if ((st.st_mode & S_IFMT) == S_IFREG ||
