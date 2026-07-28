@@ -5663,6 +5663,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   }
 
   {
+    fprintf(stderr, "Archiving Symlinks\n");
     const SDArchiverSLNode *node = symlinks_list->head;
     uint32_t idx;
     for (idx = 0;
@@ -6083,6 +6084,14 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         if (fwrite(&u16, 2, 1, out_f) != 1) {
           return SDA_RET_STRUCT(SDAS_FAILED_TO_WRITE);
         }
+      }
+
+      if (!is_invalid) {
+        fprintf(stderr,
+                "  SYMLINK: %7" PRIu32 " of %7" PRIu64 ": %s\n",
+                idx,
+                symlinks_list->count,
+                node_str);
       }
     }
     if (idx != (uint32_t)symlinks_list->count) {
