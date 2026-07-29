@@ -371,6 +371,9 @@ void simple_archiver_print_usage(void) {
           "--wb-case-insensitive : Makes white/black-list checking case "
           "insensitive.\n");
   fprintf(stderr,
+          "--archive-exclude-dir <dir> | --archive-exclude-dir=<dir> : "
+          "exclude listed dir when archiving, can be used multiple times.\n");
+  fprintf(stderr,
           "--print-file-exts-preset : Prints the preset extensions to stderr "
           "and stops simplearchiver.\n");
   fprintf(stderr,
@@ -444,6 +447,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.blacklist_begins = NULL;
   parsed.blacklist_ends = NULL;
   parsed.not_to_compress_file_extensions = simple_archiver_hash_map_init();
+  parsed.exclude_dirs = simple_archiver_hash_map_init();
 
   return parsed;
 }
@@ -1910,6 +1914,34 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
       } else if (strcmp(argv[0], "--wb-case-insensitive") == 0) {
         out->flags |= 0x20000;
+      } else if (strcmp(argv[0], "--archive-exclude-dir") == 0
+          || strncmp(argv[0], "--archive-exclude-dir=", 22) == 0) {
+        int_fast8_t is_separate =
+          strcmp(argv[0], "--archive-exclude-dir") == 0 ? 1 : 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr,
+                  "ERROR: --archive-exclude-dir expects an argument!\n");
+          simple_archiver_print_usage();
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 22;
+        }
+
+        simple_archiver_hash_map_insert(
+            out->exclude_dirs,
+            (void*)1,
+            strdup(str),
+            strlen(str) + 1,
+            simple_archiver_helper_datastructure_cleanup_nop,
+            NULL);
+
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
       } else if (strcmp(argv[0], "--print-file-exts-preset") == 0) {
         for (char **ext = SDSA_NOT_TO_COMPRESS_FILE_EXTS;
             *ext != NULL;
@@ -2270,6 +2302,16 @@ int simple_archiver_parse_args(int argc, const char **argv,
                 combined_path = new_path;
                 combined_size -= valid_idx;
               }
+
+              if (simple_archiver_hash_map_get(
+                    out->exclude_dirs,
+                    combined_path,
+                    strlen(combined_path) + 1)) {
+                // dir path is in exclude_dirs, skipping...
+                free(combined_path);
+                continue;
+              }
+
               memset(&st, 0, sizeof(struct stat));
               fstatat(AT_FDCWD, combined_path, &st, AT_SYMLINK_NOFOLLOW);
               if ((st.st_mode & S_IFMT) == S_IFREG ||
@@ -2585,6 +2627,9 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   }
   if (parsed->not_to_compress_file_extensions) {
     simple_archiver_hash_map_free(&parsed->not_to_compress_file_extensions);
+  }
+  if (parsed->exclude_dirs) {
+    simple_archiver_hash_map_free(&parsed->exclude_dirs);
   }
 
   parsed->flags = 0;
