@@ -4,6 +4,11 @@
 
 Fix cosmopolitan Makefile (related to "string-list").
 
+Output names of symlinks when archiving (v1 to v7).
+
+Add validation for when write-version is set to 0 (since it can be set to 0
+with an invalid argument).
+
 ## Version 3.4.1
 
 Update CMakeLists.txt for more efficient compiling of sources (compile sources
