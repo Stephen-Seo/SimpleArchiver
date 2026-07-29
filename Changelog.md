@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.4.2
+
 Fix cosmopolitan Makefile (related to "string-list").
 
 Output names of symlinks when archiving (v1 to v7).
