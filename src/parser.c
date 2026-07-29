@@ -1930,13 +1930,17 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 22;
         }
 
-        simple_archiver_hash_map_insert(
-            out->exclude_dirs,
-            (void*)1,
-            strdup(str),
-            strlen(str) + 1,
-            simple_archiver_helper_datastructure_cleanup_nop,
-            NULL);
+        if (!simple_archiver_hash_map_get(out->exclude_dirs,
+                                          str,
+                                          strlen(str) + 1)) {
+          simple_archiver_hash_map_insert(
+              out->exclude_dirs,
+              (void*)1,
+              strdup(str),
+              strlen(str) + 1,
+              simple_archiver_helper_datastructure_cleanup_nop,
+              NULL);
+        }
 
         if (is_separate) {
           --argc;
