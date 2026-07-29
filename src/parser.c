@@ -697,6 +697,16 @@ int simple_archiver_parse_args(int argc, const char **argv,
           simple_archiver_print_usage();
           return 1;
         }
+
+        if (version == 0
+            && (strlen(str) != 1 || !(str[0] == '0' && str[1] == 0))) {
+          fprintf(stderr,
+                  "ERROR: Invalid --write-version , must be 0, 1, 2, 3, 4, 5, "
+                  "6, or 7!\n");
+          simple_archiver_print_usage();
+          return 1;
+        }
+
         out->write_version = (uint32_t)version;
         if (is_separate) {
           --argc;
