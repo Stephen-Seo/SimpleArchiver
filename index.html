@@ -412,6 +412,16 @@ specified texts will be blocked/blacklisted.</p>
 <p>Makes any whitelist/blacklist option case-insensitive (applies only
 to ASCII characters).</p>
 </dd>
+<dt><strong>--archive-exclude-dir</strong> <strong><em>dir</em></strong>
+| <strong>--archive-exclude-dir=<em>dir</em></strong></dt>
+<dd>
+<p>Excludes an entire directory during archival. Nested dirs expect a
+"/" between each directory segment and no "/" at the end. This works
+differently from white/black-lists such that this arg takes effect
+during directory traversal in parser.c while white/black-lists work in
+archiver.c after all the files/symlinks/empty-dirs have been
+enumerated.</p>
+</dd>
 <dt><strong>--print-file-exts-preset</strong></dt>
 <dd>
 <p>Prints to stderr the preset used by
