@@ -2,6 +2,12 @@
 
 ## Upcoming Changes
 
+Add arg `--archive-exclude-dir=<dir>`. This allows for excluding directories
+from being archived, including their contents. This works differently from
+white/black-lists such that it takes effect during checking directories. The
+white/black-lists checking takes effect after all files/symlinks/empty-dirs have
+been enumerated.
+
 ## Version 3.4.2
 
 Fix cosmopolitan Makefile (related to "string-list").
