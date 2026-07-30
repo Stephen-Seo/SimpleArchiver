@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.5.0
+
 Add arg `--archive-exclude-dir=<dir>`. This allows for excluding directories
 from being archived, including their contents. This works differently from
 white/black-lists such that it takes effect during checking directories. The
