@@ -142,6 +142,7 @@ typedef struct SDArchiverParsed {
   SDArchiverLinkedList *blacklist_begins;
   SDArchiverLinkedList *blacklist_ends;
   SDArchiverHashMap *not_to_compress_file_extensions;
+  SDArchiverHashMap *exclude_dirs;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {
