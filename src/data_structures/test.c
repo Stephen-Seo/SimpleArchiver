@@ -1284,15 +1284,18 @@ int main(void) {
   {
     // test init and free
     SDArchiverSKeyHashMap *map = simple_archiver_skey_hash_map_init();
+    CHECK_TRUE(map->count == 0);
     simple_archiver_skey_hash_map_free_single_ptr(map);
 
     map = simple_archiver_skey_hash_map_init();
+    CHECK_TRUE(map->count == 0);
     simple_archiver_skey_hash_map_free(&map);
 
     CHECK_TRUE(map == NULL);
 
     // test insert and get and remove
     map = simple_archiver_skey_hash_map_init();
+    CHECK_TRUE(map->count == 0);
 
     simple_archiver_skey_hash_map_insert(
         map,
@@ -1301,6 +1304,8 @@ int main(void) {
         simple_archiver_helper_datastructure_cleanup_nop);
     simple_archiver_skey_hash_map_insert(map, strdup("VALUE_1"), "KEY_1", NULL);
     simple_archiver_skey_hash_map_insert(map, strdup("VALUE_2"), "KEY_2", NULL);
+
+    CHECK_TRUE(map->count == 3);
 
     char *value = simple_archiver_skey_hash_map_get(map, "KEY_0");
     CHECK_TRUE(value);
@@ -1332,6 +1337,7 @@ int main(void) {
     simple_archiver_skey_hash_map_insert(map, strdup("VALUE_6"), "KEY_6", NULL);
     simple_archiver_skey_hash_map_insert(map, strdup("VALUE_7"), "KEY_7", NULL);
     simple_archiver_skey_hash_map_insert(map, strdup("VALUE_8"), "KEY_8", NULL);
+    CHECK_TRUE(map->count == 9);
 
     simple_archiver_skey_hash_map_iter(map,
                                        internal_skey_map_check_fn,
@@ -1351,6 +1357,7 @@ int main(void) {
       snprintf(buf_val, 16, "VAL_%zu", idx);
 
       simple_archiver_skey_hash_map_insert(map, strdup(buf_val), buf_key, NULL);
+      CHECK_TRUE(map->count == idx + 1);
     }
 
     for (size_t idx = 0; idx < 1000; ++idx) {
@@ -1361,6 +1368,7 @@ int main(void) {
       CHECK_TRUE(val);
       CHECK_TRUE(strcmp(val, buf_val) == 0);
       simple_archiver_skey_hash_map_remove(map, buf_key);
+      CHECK_TRUE(map->count == 999 - idx);
     }
 
     simple_archiver_skey_hash_map_free(&map);
