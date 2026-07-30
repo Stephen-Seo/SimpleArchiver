@@ -26,6 +26,7 @@
 // Local includes.
 #include "../algorithms/linear_congruential_gen.h"
 #include "hash_map.h"
+#include "skey_hash_map.h"
 #include "linked_list.h"
 #include "string_list.h"
 #include "chunked_array.h"
@@ -181,6 +182,17 @@ int internal_string_list_matches(const char *str, void *ud) {
 int internal_slist_always_return_one(
     SDAR_UNUSED const char *str, SDAR_UNUSED void *ud) {
   return 1;
+}
+
+int internal_skey_map_check_fn(const char *key,
+                               const void *value,
+                               SDAR_UNUSED void *ud) {
+  CHECK_TRUE(strncmp("KEY_", key, 4) == 0);
+  const char *val_str = value;
+  CHECK_TRUE(strncmp("VALUE_", value, 6) == 0);
+  CHECK_TRUE(key[4] == val_str[6]);
+
+  return 0;
 }
 
 int main(void) {
@@ -1266,6 +1278,93 @@ int main(void) {
     CHECK_TRUE(matches == 2);
 
     simple_archiver_slist_free(&slist);
+  }
+
+  // Test data structure SKeyHashMap
+  {
+    // test init and free
+    SDArchiverSKeyHashMap *map = simple_archiver_skey_hash_map_init();
+    simple_archiver_skey_hash_map_free_single_ptr(map);
+
+    map = simple_archiver_skey_hash_map_init();
+    simple_archiver_skey_hash_map_free(&map);
+
+    CHECK_TRUE(map == NULL);
+
+    // test insert and get and remove
+    map = simple_archiver_skey_hash_map_init();
+
+    simple_archiver_skey_hash_map_insert(
+        map,
+        "VALUE_0",
+        "KEY_0",
+        simple_archiver_helper_datastructure_cleanup_nop);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_1"), "KEY_1", NULL);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_2"), "KEY_2", NULL);
+
+    char *value = simple_archiver_skey_hash_map_get(map, "KEY_0");
+    CHECK_TRUE(value);
+    CHECK_TRUE(strcmp(value, "VALUE_0") == 0);
+
+    value = simple_archiver_skey_hash_map_get(map, "KEY_1");
+    CHECK_TRUE(value);
+    CHECK_TRUE(strcmp(value, "VALUE_1") == 0);
+
+    value = simple_archiver_skey_hash_map_get(map, "KEY_2");
+    CHECK_TRUE(value);
+    CHECK_TRUE(strcmp(value, "VALUE_2") == 0);
+
+    simple_archiver_skey_hash_map_remove(map, "KEY_1");
+    value = simple_archiver_skey_hash_map_get(map, "KEY_1");
+    CHECK_TRUE(!value);
+
+    simple_archiver_skey_hash_map_free(&map);
+    CHECK_TRUE(map == NULL);
+
+    // test iter
+    map = simple_archiver_skey_hash_map_init();
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_0"), "KEY_0", NULL);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_1"), "KEY_1", NULL);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_2"), "KEY_2", NULL);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_3"), "KEY_3", NULL);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_4"), "KEY_4", NULL);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_5"), "KEY_5", NULL);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_6"), "KEY_6", NULL);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_7"), "KEY_7", NULL);
+    simple_archiver_skey_hash_map_insert(map, strdup("VALUE_8"), "KEY_8", NULL);
+
+    simple_archiver_skey_hash_map_iter(map,
+                                       internal_skey_map_check_fn,
+                                       NULL);
+
+    simple_archiver_skey_hash_map_free(&map);
+    CHECK_TRUE(map == NULL);
+
+    // stress test
+
+    map = simple_archiver_skey_hash_map_init();
+
+    char buf_key[16];
+    char buf_val[16];
+    for (size_t idx = 0; idx < 1000; ++idx) {
+      snprintf(buf_key, 16, "KEY_%zu", idx);
+      snprintf(buf_val, 16, "VAL_%zu", idx);
+
+      simple_archiver_skey_hash_map_insert(map, strdup(buf_val), buf_key, NULL);
+    }
+
+    for (size_t idx = 0; idx < 1000; ++idx) {
+      snprintf(buf_key, 16, "KEY_%zu", idx);
+      snprintf(buf_val, 16, "VAL_%zu", idx);
+
+      const char *val = simple_archiver_skey_hash_map_get(map, buf_key);
+      CHECK_TRUE(val);
+      CHECK_TRUE(strcmp(val, buf_val) == 0);
+      simple_archiver_skey_hash_map_remove(map, buf_key);
+    }
+
+    simple_archiver_skey_hash_map_free(&map);
+    CHECK_TRUE(map == NULL);
   }
 
   printf("Checks checked: %" PRId32 "\n", checks_checked);
