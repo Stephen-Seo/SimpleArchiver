@@ -1358,6 +1358,7 @@ int main(void) {
 
       simple_archiver_skey_hash_map_insert(map, strdup(buf_val), buf_key, NULL);
       CHECK_TRUE(map->count == idx + 1);
+      CHECK_TRUE(map->buckets_size >= map->count);
     }
 
     for (size_t idx = 0; idx < 1000; ++idx) {
@@ -1369,6 +1370,7 @@ int main(void) {
       CHECK_TRUE(strcmp(val, buf_val) == 0);
       simple_archiver_skey_hash_map_remove(map, buf_key);
       CHECK_TRUE(map->count == 999 - idx);
+      CHECK_TRUE(map->buckets_size >= map->count);
     }
 
     simple_archiver_skey_hash_map_free(&map);
