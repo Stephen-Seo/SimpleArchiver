@@ -25,6 +25,7 @@
 
 // Local includes.
 #include "data_structures/hash_map.h"
+#include "data_structures/skey_hash_map.h"
 #include "data_structures/linked_list.h"
 #include "parser.h"
 
@@ -34,7 +35,7 @@ typedef struct SDArchiverState {
   uint32_t flags;
   SDArchiverParsed *parsed;
   FILE *out_f;
-  SDArchiverHashMap *map;
+  SDArchiverSKeyHashMap *map;
   size_t count;
   uint64_t max;
   uint64_t digits;
@@ -107,27 +108,27 @@ SDArchiverStateRetStruct simple_archiver_write_all(
 SDArchiverStateRetStruct simple_archiver_write_v0(
   FILE *out_f,
   SDArchiverState *state,
-  SDArchiverHashMap *write_state);
+  SDArchiverSKeyHashMap *write_state);
 
 SDArchiverStateRetStruct simple_archiver_write_v1(
   FILE *out_f,
   SDArchiverState *state,
-  SDArchiverHashMap *write_state);
+  SDArchiverSKeyHashMap *write_state);
 
 SDArchiverStateRetStruct simple_archiver_write_v2(
   FILE *out_f,
   SDArchiverState *state,
-  SDArchiverHashMap *write_state);
+  SDArchiverSKeyHashMap *write_state);
 
 SDArchiverStateRetStruct simple_archiver_write_v3(
   FILE *out_f,
   SDArchiverState *state,
-  SDArchiverHashMap *write_state);
+  SDArchiverSKeyHashMap *write_state);
 
 SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   FILE *out_f,
   SDArchiverState *state,
-  SDArchiverHashMap *write_state);
+  SDArchiverSKeyHashMap *write_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_info(
@@ -140,35 +141,35 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
   FILE *in_f,
   int_fast8_t do_extract,
   const SDArchiverState *state,
-  SDArchiverHashMap *parse_state);
+  SDArchiverSKeyHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
   FILE *in_f,
   int_fast8_t do_extract,
   const SDArchiverState *state,
-  SDArchiverHashMap *parse_state);
+  SDArchiverSKeyHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
   FILE *in_f,
   int_fast8_t do_extract,
   const SDArchiverState *state,
-  SDArchiverHashMap *parse_state);
+  SDArchiverSKeyHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   FILE *in_f,
   int_fast8_t do_extract,
   const SDArchiverState *state,
-  SDArchiverHashMap *parse_state);
+  SDArchiverSKeyHashMap *parse_state);
 
 /// Returns zero in "ret" field on success.
 SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
   FILE *in_f,
   int_fast8_t do_extract,
   const SDArchiverState *state,
-  SDArchiverHashMap *parse_state);
+  SDArchiverSKeyHashMap *parse_state);
 
 /// Returns zero on success.
 int simple_archiver_de_compress(int pipe_fd_in[2], int pipe_fd_out[2],
@@ -191,6 +192,6 @@ int simple_archiver_validate_file_path(const char *filepath);
 /// Removes links from "links_list" in cwd if it is not valid or does not point
 /// to a file in "files_map".
 void simple_archiver_safe_links_enforce(SDArchiverLinkedList *links_list,
-                                        SDArchiverHashMap *files_map);
+                                        SDArchiverSKeyHashMap *files_map);
 
 #endif

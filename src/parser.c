@@ -446,8 +446,8 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.blacklist_contains_all = NULL;
   parsed.blacklist_begins = NULL;
   parsed.blacklist_ends = NULL;
-  parsed.not_to_compress_file_extensions = simple_archiver_hash_map_init();
-  parsed.exclude_dirs = simple_archiver_hash_map_init();
+  parsed.not_to_compress_file_extensions = simple_archiver_skey_hash_map_init();
+  parsed.exclude_dirs = simple_archiver_skey_hash_map_init();
 
   return parsed;
 }
@@ -1562,26 +1562,24 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
 
         if (!out->whitelist_exact) {
-          out->whitelist_exact = simple_archiver_hash_map_init();
+          out->whitelist_exact = simple_archiver_skey_hash_map_init();
         }
-        simple_archiver_hash_map_insert(
+        simple_archiver_skey_hash_map_insert(
             out->whitelist_exact,
             (void*)1,
-            strdup(str),
-            strlen(str),
-            simple_archiver_helper_datastructure_cleanup_nop,
-            NULL);
+            str,
+            simple_archiver_helper_datastructure_cleanup_nop);
 
         if (!out->whitelist_exact_case_i) {
-          out->whitelist_exact_case_i = simple_archiver_hash_map_init();
+          out->whitelist_exact_case_i = simple_archiver_skey_hash_map_init();
         }
-        simple_archiver_hash_map_insert(
+        const char *lower = simple_archiver_helper_to_lower(str);
+        simple_archiver_skey_hash_map_insert(
             out->whitelist_exact_case_i,
             (void*)1,
-            simple_archiver_helper_to_lower(str),
-            strlen(str),
-            simple_archiver_helper_datastructure_cleanup_nop,
-            NULL);
+            lower,
+            simple_archiver_helper_datastructure_cleanup_nop);
+        free((void*)lower);
 
         if (is_separate) {
           --argc;
@@ -1747,26 +1745,24 @@ int simple_archiver_parse_args(int argc, const char **argv,
         }
 
         if (!out->blacklist_exact) {
-          out->blacklist_exact = simple_archiver_hash_map_init();
+          out->blacklist_exact = simple_archiver_skey_hash_map_init();
         }
-        simple_archiver_hash_map_insert(
+        simple_archiver_skey_hash_map_insert(
             out->blacklist_exact,
             (void*)1,
-            strdup(str),
-            strlen(str),
-            simple_archiver_helper_datastructure_cleanup_nop,
-            NULL);
+            str,
+            simple_archiver_helper_datastructure_cleanup_nop);
 
         if (!out->blacklist_exact_case_i) {
-          out->blacklist_exact_case_i = simple_archiver_hash_map_init();
+          out->blacklist_exact_case_i = simple_archiver_skey_hash_map_init();
         }
-        simple_archiver_hash_map_insert(
+        const char *lower = simple_archiver_helper_to_lower(str);
+        simple_archiver_skey_hash_map_insert(
             out->blacklist_exact_case_i,
             (void*)1,
-            simple_archiver_helper_to_lower(str),
-            strlen(str),
-            simple_archiver_helper_datastructure_cleanup_nop,
-            NULL);
+            lower,
+            simple_archiver_helper_datastructure_cleanup_nop);
+        free((void *)lower);
 
         if (is_separate) {
           --argc;
@@ -1930,16 +1926,13 @@ int simple_archiver_parse_args(int argc, const char **argv,
           str = argv[0] + 22;
         }
 
-        if (!simple_archiver_hash_map_get(out->exclude_dirs,
-                                          str,
-                                          strlen(str) + 1)) {
-          simple_archiver_hash_map_insert(
+        if (!simple_archiver_skey_hash_map_get(out->exclude_dirs,
+                                               str)) {
+          simple_archiver_skey_hash_map_insert(
               out->exclude_dirs,
               (void*)1,
-              strdup(str),
-              strlen(str) + 1,
-              simple_archiver_helper_datastructure_cleanup_nop,
-              NULL);
+              str,
+              simple_archiver_helper_datastructure_cleanup_nop);
         }
 
         if (is_separate) {
@@ -1959,17 +1952,14 @@ int simple_archiver_parse_args(int argc, const char **argv,
             *ext != NULL;
             ++ext) {
           char *str = simple_archiver_helper_to_lower(*ext);
-          if (!simple_archiver_hash_map_get(
+          if (!simple_archiver_skey_hash_map_get(
                 out->not_to_compress_file_extensions,
-                str,
-                strlen(str))) {
-            simple_archiver_hash_map_insert(
+                str)) {
+            simple_archiver_skey_hash_map_insert(
                 out->not_to_compress_file_extensions,
                 (void*)1,
                 str,
-                strlen(str),
-                simple_archiver_helper_datastructure_cleanup_nop,
-                NULL);
+                simple_archiver_helper_datastructure_cleanup_nop);
           } else {
             free(str);
           }
@@ -1988,24 +1978,21 @@ int simple_archiver_parse_args(int argc, const char **argv,
         } else {
           str = argv[0] + 15;
         }
-        char *to_lower = simple_archiver_helper_to_lower(str);
-        if (!simple_archiver_hash_map_get(
+        const char *to_lower = simple_archiver_helper_to_lower(str);
+        if (!simple_archiver_skey_hash_map_get(
               out->not_to_compress_file_extensions,
-              to_lower,
-              strlen(to_lower))) {
-          simple_archiver_hash_map_insert(
+              to_lower)) {
+          simple_archiver_skey_hash_map_insert(
               out->not_to_compress_file_extensions,
               (void*)1,
               to_lower,
-              strlen(to_lower),
-              simple_archiver_helper_datastructure_cleanup_nop,
-              NULL);
+              simple_archiver_helper_datastructure_cleanup_nop);
         } else {
           fprintf(stderr,
                   "WARNING: File extension \"%s\" already added.\n",
                   str);
-          free(to_lower);
         }
+        free((void *)to_lower);
 
         if (is_separate) {
           --argc;
@@ -2087,8 +2074,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
       }
     }
     // Setup data structures.
-    __attribute__((cleanup(simple_archiver_hash_map_free)))
-    SDArchiverHashMap *hash_map = simple_archiver_hash_map_init();
+    __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+    SDArchiverSKeyHashMap *hash_map = simple_archiver_skey_hash_map_init();
     int hash_map_sentinel = 1;
     // Work with each file.
     for (SDArchiverLLNode *node = working_files_list->head->next;
@@ -2112,7 +2099,7 @@ int simple_archiver_parse_args(int argc, const char **argv,
         size_t len = strlen(file_path) + 1;
         char *filename = malloc(len);
         strncpy(filename, file_path, len);
-        if (simple_archiver_hash_map_get(hash_map, filename, len - 1) == NULL) {
+        if (simple_archiver_skey_hash_map_get(hash_map, filename) == NULL) {
           SDArchiverFileInfo *file_info = malloc(sizeof(SDArchiverFileInfo));
           file_info->filename = filename;
           file_info->link_dest = NULL;
@@ -2159,10 +2146,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
             }
           }
           // Store unprocessed filename in map to avoid duplicates.
-          simple_archiver_hash_map_insert(
-              hash_map, &hash_map_sentinel, strdup(filename), len - 1,
-              simple_archiver_helper_datastructure_cleanup_nop,
-              NULL);
+          simple_archiver_skey_hash_map_insert(
+              hash_map, &hash_map_sentinel, filename,
+              simple_archiver_helper_datastructure_cleanup_nop);
           // Remove leading "./" entries from files_list.
           size_t idx =
             simple_archiver_parser_internal_get_first_non_current_idx(
@@ -2307,10 +2293,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
                 combined_size -= valid_idx;
               }
 
-              if (simple_archiver_hash_map_get(
+              if (simple_archiver_skey_hash_map_get(
                     out->exclude_dirs,
-                    combined_path,
-                    strlen(combined_path) + 1)) {
+                    combined_path)) {
                 // dir path is in exclude_dirs, skipping...
                 free(combined_path);
                 continue;
@@ -2321,8 +2306,8 @@ int simple_archiver_parse_args(int argc, const char **argv,
               if ((st.st_mode & S_IFMT) == S_IFREG ||
                   (st.st_mode & S_IFMT) == S_IFLNK) {
                 // Is a file or a symbolic link.
-                if (simple_archiver_hash_map_get(hash_map, combined_path,
-                                                 combined_size - 1) == NULL) {
+                if (simple_archiver_skey_hash_map_get(hash_map, combined_path)
+                    == NULL) {
                   SDArchiverFileInfo *file_info =
                       malloc(sizeof(SDArchiverFileInfo));
                   file_info->filename = combined_path;
@@ -2372,11 +2357,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
                   }
 
                   // Store unprocessed filename in map to avoid duplicates.
-                  simple_archiver_hash_map_insert(
-                      hash_map, &hash_map_sentinel, strdup(combined_path),
-                      combined_size - 1,
-                      simple_archiver_helper_datastructure_cleanup_nop,
-                      NULL);
+                  simple_archiver_skey_hash_map_insert(
+                      hash_map, &hash_map_sentinel, combined_path,
+                      simple_archiver_helper_datastructure_cleanup_nop);
                   // Remove leading "./" entries from files_list.
                   size_t idx =
                     simple_archiver_parser_internal_get_first_non_current_idx(
@@ -2594,10 +2577,10 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
   }
 
   if (parsed->whitelist_exact) {
-    simple_archiver_hash_map_free(&parsed->whitelist_exact);
+    simple_archiver_skey_hash_map_free(&parsed->whitelist_exact);
   }
   if (parsed->whitelist_exact_case_i) {
-    simple_archiver_hash_map_free(&parsed->whitelist_exact_case_i);
+    simple_archiver_skey_hash_map_free(&parsed->whitelist_exact_case_i);
   }
   if (parsed->whitelist_contains_any) {
     simple_archiver_list_free(&parsed->whitelist_contains_any);
@@ -2612,10 +2595,10 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     simple_archiver_list_free(&parsed->whitelist_ends);
   }
   if (parsed->blacklist_exact) {
-    simple_archiver_hash_map_free(&parsed->blacklist_exact);
+    simple_archiver_skey_hash_map_free(&parsed->blacklist_exact);
   }
   if (parsed->blacklist_exact_case_i) {
-    simple_archiver_hash_map_free(&parsed->blacklist_exact_case_i);
+    simple_archiver_skey_hash_map_free(&parsed->blacklist_exact_case_i);
   }
   if (parsed->blacklist_contains_any) {
     simple_archiver_list_free(&parsed->blacklist_contains_any);
@@ -2630,10 +2613,10 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     simple_archiver_list_free(&parsed->blacklist_ends);
   }
   if (parsed->not_to_compress_file_extensions) {
-    simple_archiver_hash_map_free(&parsed->not_to_compress_file_extensions);
+    simple_archiver_skey_hash_map_free(&parsed->not_to_compress_file_extensions);
   }
   if (parsed->exclude_dirs) {
-    simple_archiver_hash_map_free(&parsed->exclude_dirs);
+    simple_archiver_skey_hash_map_free(&parsed->exclude_dirs);
   }
 
   parsed->flags = 0;
