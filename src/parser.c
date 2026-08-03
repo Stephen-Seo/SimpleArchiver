@@ -2613,7 +2613,8 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     simple_archiver_list_free(&parsed->blacklist_ends);
   }
   if (parsed->not_to_compress_file_extensions) {
-    simple_archiver_skey_hash_map_free(&parsed->not_to_compress_file_extensions);
+    simple_archiver_skey_hash_map_free(
+      &parsed->not_to_compress_file_extensions);
   }
   if (parsed->exclude_dirs) {
     simple_archiver_skey_hash_map_free(&parsed->exclude_dirs);
