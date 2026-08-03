@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Update `cosmopolitan/Makefile` to build with the recently added data-structure.
+
 ## Version 3.6.0
 
 Update the default "write-version" to use file format version 7 (from 6).
