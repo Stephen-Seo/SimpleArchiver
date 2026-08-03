@@ -1065,22 +1065,20 @@ TEST_HELPERS_PREFIX_END:
                                                            &parsed) == 1);
 
     // blacklist exact.
-    parsed.blacklist_exact = simple_archiver_hash_map_init();
-    simple_archiver_hash_map_insert(
+    parsed.blacklist_exact = simple_archiver_skey_hash_map_init();
+    simple_archiver_skey_hash_map_insert(
         parsed.blacklist_exact,
         (void*)1,
         "the_TEST_string",
-        15,
-        simple_archiver_helper_datastructure_cleanup_nop,
         simple_archiver_helper_datastructure_cleanup_nop);
-    parsed.blacklist_exact_case_i = simple_archiver_hash_map_init();
-    simple_archiver_hash_map_insert(
+    parsed.blacklist_exact_case_i = simple_archiver_skey_hash_map_init();
+    const char *lower = simple_archiver_helper_to_lower("the_TEST_string");
+    simple_archiver_skey_hash_map_insert(
         parsed.blacklist_exact_case_i,
-        (void*)1,
-        simple_archiver_helper_to_lower("the_TEST_string"),
-        15,
-        simple_archiver_helper_datastructure_cleanup_nop,
-        NULL);
+        (void *)1,
+        lower,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    free((void *)lower);
 
     CHECK_TRUE(
         simple_archiver_helper_string_allowed_lists("the_TEST_string",
@@ -1100,22 +1098,20 @@ TEST_HELPERS_PREFIX_END:
                                                     &parsed) == 0);
 
     // whitelist that has more precedence over blacklist
-    parsed.whitelist_exact = simple_archiver_hash_map_init();
-    simple_archiver_hash_map_insert(
+    parsed.whitelist_exact = simple_archiver_skey_hash_map_init();
+    simple_archiver_skey_hash_map_insert(
         parsed.whitelist_exact,
         (void*)1,
         "the_TEST_string",
-        15,
-        simple_archiver_helper_datastructure_cleanup_nop,
         simple_archiver_helper_datastructure_cleanup_nop);
-    parsed.whitelist_exact_case_i = simple_archiver_hash_map_init();
-    simple_archiver_hash_map_insert(
+    parsed.whitelist_exact_case_i = simple_archiver_skey_hash_map_init();
+    lower = simple_archiver_helper_to_lower("the_TEST_string");
+    simple_archiver_skey_hash_map_insert(
         parsed.whitelist_exact_case_i,
-        (void*)1,
-        simple_archiver_helper_to_lower("the_TEST_string"),
-        15,
-        simple_archiver_helper_datastructure_cleanup_nop,
-        NULL);
+        (void *)1,
+        lower,
+        simple_archiver_helper_datastructure_cleanup_nop);
+    free((void *)lower);
 
     CHECK_TRUE(
         simple_archiver_helper_string_allowed_lists("the_TEST_string",
@@ -1134,10 +1130,10 @@ TEST_HELPERS_PREFIX_END:
                                                     1,
                                                     &parsed) != 0);
 
-    simple_archiver_hash_map_free(&parsed.whitelist_exact);
-    simple_archiver_hash_map_free(&parsed.whitelist_exact_case_i);
-    simple_archiver_hash_map_free(&parsed.blacklist_exact);
-    simple_archiver_hash_map_free(&parsed.blacklist_exact_case_i);
+    simple_archiver_skey_hash_map_free(&parsed.whitelist_exact);
+    simple_archiver_skey_hash_map_free(&parsed.whitelist_exact_case_i);
+    simple_archiver_skey_hash_map_free(&parsed.blacklist_exact);
+    simple_archiver_skey_hash_map_free(&parsed.blacklist_exact_case_i);
 
     // no white/black-lists, defaults to allowed
     CHECK_TRUE(
@@ -1436,10 +1432,10 @@ TEST_HELPERS_PREFIX_END:
     free(buf);
 
     // cleanup
-    simple_archiver_hash_map_free(&parsed.whitelist_exact);
-    simple_archiver_hash_map_free(&parsed.whitelist_exact_case_i);
-    simple_archiver_hash_map_free(&parsed.blacklist_exact);
-    simple_archiver_hash_map_free(&parsed.blacklist_exact_case_i);
+    simple_archiver_skey_hash_map_free(&parsed.whitelist_exact);
+    simple_archiver_skey_hash_map_free(&parsed.whitelist_exact_case_i);
+    simple_archiver_skey_hash_map_free(&parsed.blacklist_exact);
+    simple_archiver_skey_hash_map_free(&parsed.blacklist_exact_case_i);
     simple_archiver_list_free(&parsed.whitelist_contains_any);
     simple_archiver_list_free(&parsed.whitelist_contains_all);
     simple_archiver_list_free(&parsed.whitelist_begins);

@@ -2,6 +2,10 @@
 
 ## Upcoming Changes
 
+Update the default "write-version" to use file format version 7 (from 6).
+
+Use a different data-structure internally for more efficiency.
+
 ## Version 3.5.0
 
 Add arg `--archive-exclude-dir=<dir>`. This allows for excluding directories

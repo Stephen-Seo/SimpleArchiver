@@ -25,6 +25,7 @@
 // Local includes.
 #include "data_structures/linked_list.h"
 #include "data_structures/hash_map.h"
+#include "data_structures/skey_hash_map.h"
 #include "users.h"
 
 extern char *SDSA_NOT_TO_COMPRESS_FILE_EXTS[];
@@ -129,20 +130,20 @@ typedef struct SDArchiverParsed {
     uint32_t gid;
     char *groupname;
   } prefix_group;
-  SDArchiverHashMap *whitelist_exact;
-  SDArchiverHashMap *whitelist_exact_case_i;
+  SDArchiverSKeyHashMap *whitelist_exact;
+  SDArchiverSKeyHashMap *whitelist_exact_case_i;
   SDArchiverLinkedList *whitelist_contains_any;
   SDArchiverLinkedList *whitelist_contains_all;
   SDArchiverLinkedList *whitelist_begins;
   SDArchiverLinkedList *whitelist_ends;
-  SDArchiverHashMap *blacklist_exact;
-  SDArchiverHashMap *blacklist_exact_case_i;
+  SDArchiverSKeyHashMap *blacklist_exact;
+  SDArchiverSKeyHashMap *blacklist_exact_case_i;
   SDArchiverLinkedList *blacklist_contains_any;
   SDArchiverLinkedList *blacklist_contains_all;
   SDArchiverLinkedList *blacklist_begins;
   SDArchiverLinkedList *blacklist_ends;
-  SDArchiverHashMap *not_to_compress_file_extensions;
-  SDArchiverHashMap *exclude_dirs;
+  SDArchiverSKeyHashMap *not_to_compress_file_extensions;
+  SDArchiverSKeyHashMap *exclude_dirs;
 } SDArchiverParsed;
 
 typedef struct SDArchiverFileInfo {

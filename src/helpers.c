@@ -744,17 +744,15 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
       || parsed->whitelist_ends) {
     // Whitelist exists, check whitelists.
     if (!case_i && parsed->whitelist_exact) {
-      if (simple_archiver_hash_map_get(parsed->whitelist_exact,
-                                       cstring,
-                                       strlen(cstring))) {
+      if (simple_archiver_skey_hash_map_get(parsed->whitelist_exact,
+                                            cstring)) {
         return 1;
       }
     } else if (case_i && parsed->whitelist_exact_case_i) {
       __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
       char *lower = simple_archiver_helper_to_lower(cstring);
-      if (simple_archiver_hash_map_get(parsed->whitelist_exact_case_i,
-                                       lower,
-                                       strlen(lower))) {
+      if (simple_archiver_skey_hash_map_get(parsed->whitelist_exact_case_i,
+                                            lower)) {
         return 1;
       }
     }
@@ -817,17 +815,15 @@ uint_fast8_t simple_archiver_helper_string_allowed_lists(
   } else {
     // No whitelist exists, check blacklists.
     if (!case_i && parsed->blacklist_exact) {
-      if (simple_archiver_hash_map_get(parsed->blacklist_exact,
-                                       cstring,
-                                       strlen(cstring))) {
+      if (simple_archiver_skey_hash_map_get(parsed->blacklist_exact,
+                                            cstring)) {
         return 0;
       }
     } else if (case_i && parsed->blacklist_exact_case_i) {
       __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
       char *lower = simple_archiver_helper_to_lower(cstring);
-      if (simple_archiver_hash_map_get(parsed->blacklist_exact_case_i,
-                                       lower,
-                                       strlen(lower))) {
+      if (simple_archiver_skey_hash_map_get(parsed->blacklist_exact_case_i,
+                                            lower)) {
         return 0;
       }
     }

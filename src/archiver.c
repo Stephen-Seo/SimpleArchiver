@@ -39,6 +39,7 @@
 // Local includes.
 #include "data_structures/hash_map.h"
 #include "data_structures/linked_list.h"
+#include "data_structures/skey_hash_map.h"
 #include "data_structures/string_list.h"
 #include "data_structures/priority_heap.h"
 #include "helpers.h"
@@ -904,8 +905,7 @@ int write_files_fn_file_v0(void *data, void *ud) {
     // Check if absolute path refers to one of the filenames.
     if (abs_path && (state->parsed->flags & 0x20) == 0 &&
         (state->parsed->flags & 0x100) == 0 &&
-        !simple_archiver_hash_map_get(state->map, abs_path,
-                                      strlen(abs_path) + 1)) {
+        !simple_archiver_skey_hash_map_get(state->map, abs_path)) {
       // Is not a filename being archived.
       ((uint8_t *)temp_to_write->buf)[1] |= 0x10;
       if ((state->parsed->flags & 0x80) != 0) {
@@ -937,8 +937,8 @@ int write_files_fn_file_v0(void *data, void *ud) {
                   "(Use \"--no-safe-links\" to disable this behavior)\n",
                   file_info->filename);
           ((uint8_t *)temp_to_write->buf)[1] |= 0x8;
-        } else if (!simple_archiver_hash_map_get(state->map, resolved_path,
-                                                 strlen(resolved_path) + 1)) {
+        } else if (!simple_archiver_skey_hash_map_get(state->map,
+                                                      resolved_path)) {
           fprintf(stderr,
                   "WARNING: Symlink \"%s\" points to outside archive contents, "
                   "will not be stored! (Use \"--no-safe-links\" to disable "
@@ -1096,7 +1096,7 @@ int write_files_fn_file_v0(void *data, void *ud) {
 int filenames_to_abs_map_fn(void *val, void *ud) {
   const SDArchiverFileInfo *file_info = val;
   void **ptr_array = ud;
-  SDArchiverHashMap *abs_filenames = ptr_array[0];
+  SDArchiverSKeyHashMap *abs_filenames = ptr_array[0];
   const char *user_cwd = ptr_array[1];
   const size_t *count = ptr_array[2];
   uint64_t *progress_count = ptr_array[3];
@@ -1142,9 +1142,7 @@ int filenames_to_abs_map_fn(void *val, void *ud) {
     return 1;
   }
 
-  simple_archiver_hash_map_insert(
-      abs_filenames, fullpath, fullpath, strlen(fullpath) + 1,
-      simple_archiver_helper_datastructure_cleanup_nop, NULL);
+  simple_archiver_skey_hash_map_insert(abs_filenames, fullpath, fullpath, NULL);
 
   // Try putting all parent dirs up to current working directory.
   // First get absolute path to current working directory.
@@ -1178,12 +1176,10 @@ int filenames_to_abs_map_fn(void *val, void *ud) {
       char *fullpath_dirname_copy = malloc(strlen(fullpath_dirname) + 1);
       strncpy(fullpath_dirname_copy, fullpath_dirname,
               strlen(fullpath_dirname) + 1);
-      if (!simple_archiver_hash_map_get(abs_filenames, fullpath_dirname_copy,
-                                        strlen(fullpath_dirname_copy) + 1)) {
-        simple_archiver_hash_map_insert(
-            abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy,
-            strlen(fullpath_dirname_copy) + 1,
-            simple_archiver_helper_datastructure_cleanup_nop, NULL);
+      if (!simple_archiver_skey_hash_map_get(abs_filenames,
+                                             fullpath_dirname_copy)) {
+        simple_archiver_skey_hash_map_insert(
+            abs_filenames, fullpath_dirname_copy, fullpath_dirname_copy, NULL);
       } else {
         free(fullpath_dirname_copy);
       }
@@ -2258,24 +2254,25 @@ int internal_strcmp_less_fn(void *a, void *b) {
   return strcmp(a_finfo->filename, b_finfo->filename) < 0;
 }
 
-void simple_archiver_internal_paths_to_files_map(SDArchiverHashMap *files_map,
-                                                 const char *filename) {
-  simple_archiver_hash_map_insert(
-      files_map, (void *)1, strdup((const char *)filename),
-      strlen((const char *)filename) + 1,
-      simple_archiver_helper_datastructure_cleanup_nop, NULL);
+void simple_archiver_internal_paths_to_files_map(
+    SDArchiverSKeyHashMap *files_map, const char *filename) {
+  simple_archiver_skey_hash_map_insert(
+      files_map,
+      (void *)1,
+      filename,
+      simple_archiver_helper_datastructure_cleanup_nop);
   __attribute__((
       cleanup(simple_archiver_helper_cleanup_c_string))) char *filename_copy =
       strdup(filename);
   char *filename_dirname = dirname(filename_copy);
 
   while (strcmp(filename_dirname, ".") != 0) {
-    if (!simple_archiver_hash_map_get(files_map, filename_dirname,
-                                      strlen(filename_dirname) + 1)) {
-      simple_archiver_hash_map_insert(
-          files_map, (void *)1, strdup(filename_dirname),
-          strlen(filename_dirname) + 1,
-          simple_archiver_helper_datastructure_cleanup_nop, NULL);
+    if (!simple_archiver_skey_hash_map_get(files_map, filename_dirname)) {
+      simple_archiver_skey_hash_map_insert(
+          files_map,
+          (void *)1,
+          filename_dirname,
+          simple_archiver_helper_datastructure_cleanup_nop);
     }
     filename_dirname = dirname(filename_dirname);
   }
@@ -2618,11 +2615,9 @@ int simple_archiver_internal_prune_filenames_v0(
   return 0;
 }
 
-void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
+void internal_simple_archiver_parse_stats(SDArchiverSKeyHashMap *parse_state) {
   uint64_t *cmp_size =
-    simple_archiver_hash_map_get(parse_state,
-                                 SDA_PSTATE_CMP_SIZE_KEY,
-                                 SDA_PSTATE_CMP_SIZE_KEY_SIZE);
+    simple_archiver_skey_hash_map_get(parse_state, SDA_PSTATE_CMP_SIZE_KEY);
   if (cmp_size && *cmp_size!= 0) {
     fprintf(stderr, "Compressed (archived) size is %" PRIu64, *cmp_size);
     if (*cmp_size > 1024) {
@@ -2650,10 +2645,7 @@ void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
     fprintf(stderr, "\n");
   }
   uint64_t *act_size =
-    simple_archiver_hash_map_get(
-      parse_state,
-      SDA_PSTATE_ACT_SIZE_KEY,
-      SDA_PSTATE_ACT_SIZE_KEY_SIZE);
+    simple_archiver_skey_hash_map_get(parse_state, SDA_PSTATE_ACT_SIZE_KEY);
   if (act_size && *act_size != 0) {
     fprintf(stderr, "Actual size is %" PRIu64, *act_size);
     if (*act_size > 1024) {
@@ -2682,10 +2674,7 @@ void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
   }
 
   uint64_t *ncmp_size =
-    simple_archiver_hash_map_get(
-      parse_state,
-      SDA_PSTATE_NOT_CMP_SIZE_KEY,
-      SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE);
+    simple_archiver_skey_hash_map_get(parse_state, SDA_PSTATE_NOT_CMP_SIZE_KEY);
   if (ncmp_size && *ncmp_size != 0
       && cmp_size && *cmp_size != 0
       && act_size && *act_size != 0) {
@@ -2748,7 +2737,7 @@ void internal_simple_archiver_parse_stats(SDArchiverHashMap *parse_state) {
 }
 
 int internal_pheap_file_ext_less_fn(void *a, void *b, void *ud) {
-  SDArchiverHashMap *exts = ud;
+  SDArchiverSKeyHashMap *exts = ud;
   SDArchiverInternalFileInfo *file_a = a;
   SDArchiverInternalFileInfo *file_b = b;
 
@@ -2773,7 +2762,7 @@ int internal_pheap_file_ext_less_fn(void *a, void *b, void *ud) {
   } else if (a_ext && !b_ext) {
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *a_ext_lower = simple_archiver_helper_to_lower(a_ext);
-    if (simple_archiver_hash_map_get(exts, a_ext_lower, strlen(a_ext_lower))) {
+    if (simple_archiver_skey_hash_map_get(exts, a_ext_lower)) {
       return 1;
     } else {
       return 0;
@@ -2786,9 +2775,8 @@ int internal_pheap_file_ext_less_fn(void *a, void *b, void *ud) {
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *b_ext_lower = simple_archiver_helper_to_lower(b_ext);
 
-    if (simple_archiver_hash_map_get(exts, a_ext_lower, strlen(a_ext_lower))) {
-      if (simple_archiver_hash_map_get(
-          exts, b_ext_lower, strlen(b_ext_lower))) {
+    if (simple_archiver_skey_hash_map_get(exts, a_ext_lower)) {
+      if (simple_archiver_skey_hash_map_get(exts, b_ext_lower)) {
         return 0;
       } else {
         return 1;
@@ -3095,8 +3083,8 @@ SDArchiverStateRetStruct simple_archiver_write_all(
   simple_archiver_helper_set_signal_action(SIGHUP, handle_sig_int);
   simple_archiver_helper_set_signal_action(SIGTERM, handle_sig_int);
 
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *write_state = simple_archiver_hash_map_init();
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *write_state = simple_archiver_skey_hash_map_init();
 
   switch (state->parsed->write_version) {
     case 0:
@@ -3193,7 +3181,7 @@ SDArchiverStateRetStruct simple_archiver_write_all(
 SDArchiverStateRetStruct simple_archiver_write_v0(
     FILE *out_f,
     SDArchiverState *state,
-    SDArchiverHashMap *write_state) {
+    SDArchiverSKeyHashMap *write_state) {
   fprintf(stderr, "Writing archive of file format 0\n");
 
   // Prune filenames based on white/black-lists.
@@ -3214,8 +3202,9 @@ SDArchiverStateRetStruct simple_archiver_write_v0(
   }
 
   // First create a "set" of absolute paths to given filenames.
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *abs_filenames = simple_archiver_skey_hash_map_init();
+
   {
     uint64_t progress_count = 0;
     time_t start_time = time(NULL);
@@ -3379,21 +3368,17 @@ SDArchiverStateRetStruct simple_archiver_write_v0(
 
   fprintf(stderr, "End archiving.\n");
 
-  simple_archiver_hash_map_insert(
+  simple_archiver_skey_hash_map_insert(
     write_state,
     files_actual_size,
     SDA_PSTATE_ACT_SIZE_KEY,
-    SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-    NULL,
-    simple_archiver_helper_datastructure_cleanup_nop);
+    NULL);
   if (*files_compressed_size != 0) {
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       write_state,
       files_compressed_size,
       SDA_PSTATE_CMP_SIZE_KEY,
-      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   } else {
     free(files_compressed_size);
   }
@@ -3404,11 +3389,11 @@ SDArchiverStateRetStruct simple_archiver_write_v0(
 SDArchiverStateRetStruct simple_archiver_write_v1(
     FILE *out_f,
     SDArchiverState *state,
-    SDArchiverHashMap *write_state) {
+    SDArchiverSKeyHashMap *write_state) {
   fprintf(stderr, "Writing archive of file format 1\n");
   // First create a "set" of absolute paths to given filenames.
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *abs_filenames = simple_archiver_skey_hash_map_init();
   uint64_t progress_count = 0;
   time_t start_time = time(NULL);
   void **ptr_array = malloc(sizeof(void *) * 6);
@@ -3470,13 +3455,11 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   }
   free(ptr_array);
 
-  simple_archiver_hash_map_insert(
+  simple_archiver_skey_hash_map_insert(
     write_state,
     files_actual_size,
     SDA_PSTATE_ACT_SIZE_KEY,
-    SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-    NULL,
-    simple_archiver_helper_datastructure_cleanup_nop);
+    NULL);
 
   if (files_pheap) {
     while (simple_archiver_priority_heap_size(files_pheap) > 0) {
@@ -3638,8 +3621,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 &&
           (state->parsed->flags & 0x100) == 0 &&
-          !simple_archiver_hash_map_get(abs_filenames, abs_path,
-                                        strlen(abs_path) + 1)) {
+          !simple_archiver_skey_hash_map_get(abs_filenames, abs_path)) {
         // Is not a filename being archived.
         buf[1] |= 0x8;
         if ((state->parsed->flags & 0x80) == 0) {
@@ -3666,8 +3648,8 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
               "not specified, will skip this symlink!\n",
               (const char *)node_str);
           is_invalid = 1;
-        } else if (!simple_archiver_hash_map_get(abs_filenames, target_realpath,
-                                                 strlen(target_realpath) + 1)) {
+        } else if (!simple_archiver_skey_hash_map_get(abs_filenames,
+                                                      target_realpath)) {
           fprintf(
               stderr,
               "WARNING: \"%s\" points to outside of archived files and "
@@ -4407,13 +4389,11 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   if (*files_compressed_size != 0) {
     uint64_t *compressed_size_ptr = files_compressed_size;
     files_compressed_size = NULL;
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       write_state,
       compressed_size_ptr,
       SDA_PSTATE_CMP_SIZE_KEY,
-      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
 
   return SDA_RET_STRUCT(SDAS_SUCCESS);
@@ -4422,15 +4402,15 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
 SDArchiverStateRetStruct simple_archiver_write_v2(
     FILE *out_f,
     SDArchiverState *state,
-    SDArchiverHashMap *write_state) {
+    SDArchiverSKeyHashMap *write_state) {
   fprintf(stderr, "Writing archive of file format 2\n");
   // Because of some differences between version 1 and version 2, version 1's
   // write function cannot be called directly, so there will be some duplicate
   // code between that function and this one.
 
   // First create a "set" of absolute paths to given filenames.
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *abs_filenames = simple_archiver_skey_hash_map_init();
   uint64_t progress_count = 0;
   time_t start_time = time(NULL);
   void **ptr_array = malloc(sizeof(void *) * 6);
@@ -4493,13 +4473,11 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   }
   free(ptr_array);
 
-  simple_archiver_hash_map_insert(
+  simple_archiver_skey_hash_map_insert(
     write_state,
     files_actual_size,
     SDA_PSTATE_ACT_SIZE_KEY,
-    SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-    NULL,
-    simple_archiver_helper_datastructure_cleanup_nop);
+    NULL);
 
   if (files_pheap) {
     while (simple_archiver_priority_heap_size(files_pheap) > 0) {
@@ -4671,8 +4649,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 &&
           (state->parsed->flags & 0x100) == 0 &&
-          !simple_archiver_hash_map_get(abs_filenames, abs_path,
-                                        strlen(abs_path) + 1)) {
+          !simple_archiver_skey_hash_map_get(abs_filenames, abs_path)) {
         // Is not a filename being archived.
         buf[1] |= 0x8;
         if ((state->parsed->flags & 0x80) == 0) {
@@ -4699,8 +4676,8 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
               "not specified, will skip this symlink!\n",
               (const char *)node_str);
           is_invalid = 1;
-        } else if (!simple_archiver_hash_map_get(abs_filenames, target_realpath,
-                                                 strlen(target_realpath) + 1)) {
+        } else if (!simple_archiver_skey_hash_map_get(abs_filenames,
+                                                      target_realpath)) {
           fprintf(
               stderr,
               "WARNING: \"%s\" points to outside of archived files and "
@@ -5440,13 +5417,11 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   if (*files_compressed_size != 0) {
     uint64_t *compressed_size_ptr = files_compressed_size;
     files_compressed_size = NULL;
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       write_state,
       compressed_size_ptr,
       SDA_PSTATE_CMP_SIZE_KEY,
-      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
 
   // Write directory entries.
@@ -5485,12 +5460,12 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
 SDArchiverStateRetStruct simple_archiver_write_v3(
     FILE *out_f,
     SDArchiverState *state,
-    SDArchiverHashMap *write_state) {
+    SDArchiverSKeyHashMap *write_state) {
   fprintf(stderr, "Writing archive of file format 3\n");
 
   // First create a "set" of absolute paths to given filenames.
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *abs_filenames = simple_archiver_skey_hash_map_init();
   uint64_t progress_count = 0;
   time_t start_time = time(NULL);
   void **ptr_array = malloc(sizeof(void *) * 6);
@@ -5553,13 +5528,11 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   }
   free(ptr_array);
 
-  simple_archiver_hash_map_insert(
+  simple_archiver_skey_hash_map_insert(
     write_state,
     files_actual_size,
     SDA_PSTATE_ACT_SIZE_KEY,
-    SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-    NULL,
-    simple_archiver_helper_datastructure_cleanup_nop);
+    NULL);
 
   if (files_pheap) {
     while (simple_archiver_priority_heap_size(files_pheap) > 0) {
@@ -5732,8 +5705,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 &&
           (state->parsed->flags & 0x100) == 0 &&
-          !simple_archiver_hash_map_get(abs_filenames, abs_path,
-                                        strlen(abs_path) + 1)) {
+          !simple_archiver_skey_hash_map_get(abs_filenames, abs_path)) {
         // Is not a filename being archived.
         buf[1] |= 8;
         if ((state->parsed->flags & 0x80) == 0) {
@@ -5760,8 +5732,8 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
               "not specified, will skip this symlink!\n",
               (const char *)node_str);
           is_invalid = 1;
-        } else if (!simple_archiver_hash_map_get(abs_filenames, target_realpath,
-                                                 strlen(target_realpath) + 1)) {
+        } else if (!simple_archiver_skey_hash_map_get(abs_filenames,
+                                                      target_realpath)) {
           fprintf(
               stderr,
               "WARNING: \"%s\" points to outside of archived files and "
@@ -6732,13 +6704,11 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   if (*files_compressed_size != 0) {
     uint64_t *compressed_size_ptr = files_compressed_size;
     files_compressed_size = NULL;
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       write_state,
       compressed_size_ptr,
       SDA_PSTATE_CMP_SIZE_KEY,
-      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
 
   // Write directory entries.
@@ -6776,7 +6746,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
 SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
     FILE *out_f,
     SDArchiverState *state,
-    SDArchiverHashMap *write_state) {
+    SDArchiverSKeyHashMap *write_state) {
   if (state->parsed->write_version == 7) {
     fprintf(stderr, "Writing archive of file format 7\n");
   } else if (state->parsed->write_version == 6) {
@@ -6792,8 +6762,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
 
   time_t start_time = time(NULL);
 
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *abs_filenames = simple_archiver_hash_map_init();
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *abs_filenames = simple_archiver_skey_hash_map_init();
   uint64_t progress_count = 0;
   time_t other_time = time(NULL);
   void **ptr_array = malloc(sizeof(void *) * 6);
@@ -6884,13 +6854,11 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
     fprintf(stderr, "\nINFO: Loaded. Continuing...\n");
   }
 
-  simple_archiver_hash_map_insert(
+  simple_archiver_skey_hash_map_insert(
     write_state,
     files_actual_size,
     SDA_PSTATE_ACT_SIZE_KEY,
-    SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-    NULL,
-    simple_archiver_helper_datastructure_cleanup_nop);
+    NULL);
 
   int_fast8_t has_non_compressible_chunk = 0;
   if (files_pheap) {
@@ -6917,10 +6885,9 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
           }
         }
         if (ext
-            && simple_archiver_hash_map_get(
+            && simple_archiver_skey_hash_map_get(
                   state->parsed->not_to_compress_file_extensions,
-                  ext,
-                  strlen(ext))) {
+                  ext)) {
           has_non_compressible_chunk = 1;
           simple_archiver_priority_heap_insert(
               name_pheap,
@@ -7456,8 +7423,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
 
       if (abs_path && (state->parsed->flags & 0x20) == 0 &&
           (state->parsed->flags & 0x100) == 0 &&
-          !simple_archiver_hash_map_get(abs_filenames, abs_path,
-                                        strlen(abs_path) + 1)) {
+          !simple_archiver_skey_hash_map_get(abs_filenames, abs_path)) {
         // Is not a filename being archived.
         buf[1] |= 8;
         if ((state->parsed->flags & 0x80) == 0) {
@@ -7484,8 +7450,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
               "not specified, will skip this symlink!\n",
               node_str);
           is_invalid = 1;
-        } else if (!simple_archiver_hash_map_get(abs_filenames, target_realpath,
-                                                 strlen(target_realpath) + 1)) {
+        } else if (!simple_archiver_skey_hash_map_get(abs_filenames,
+                                                      target_realpath)) {
           fprintf(
               stderr,
               "WARNING: \"%s\" points to outside of archived files and "
@@ -8125,13 +8091,11 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
       if (is_first_chunk && !compressed_bit_set) {
         uint64_t *temp = malloc(sizeof(uint64_t));
         memcpy(temp, non_c_chunk_size, sizeof(uint64_t));
-        simple_archiver_hash_map_insert(
+        simple_archiver_skey_hash_map_insert(
           write_state,
           temp,
           SDA_PSTATE_NOT_CMP_SIZE_KEY,
-          SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
-          NULL,
-          simple_archiver_helper_datastructure_cleanup_nop);
+          NULL);
       }
 
       is_first_chunk = 0;
@@ -8661,13 +8625,11 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   if (*files_compressed_size != 0) {
     uint64_t *compressed_size_ptr = files_compressed_size;
     files_compressed_size = NULL;
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       write_state,
       compressed_size_ptr,
       SDA_PSTATE_CMP_SIZE_KEY,
-      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
 
   if (state->parsed->write_version >= 6) {
@@ -8721,8 +8683,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_info(
     return SDA_RET_STRUCT(SDAS_INVALID_FILE);
   }
 
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *parse_state = simple_archiver_hash_map_init();
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *parse_state = simple_archiver_skey_hash_map_init();
 
   SDArchiverStateRetStruct ret_struct;
 
@@ -8811,7 +8773,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     FILE *in_f,
     int_fast8_t do_extract,
     const SDArchiverState *state,
-    SDArchiverHashMap *parsed_state) {
+    SDArchiverSKeyHashMap *parsed_state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -8941,11 +8903,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       state && state->parsed && (state->parsed->flags & 0x80)
           ? NULL
           : simple_archiver_list_init();
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *files_map =
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *files_map =
       state && state->parsed && (state->parsed->flags & 0x80)
           ? NULL
-          : simple_archiver_hash_map_init();
+          : simple_archiver_skey_hash_map_init();
 
   int_fast8_t did_print_skipped_a = 0;
   int_fast8_t did_print_skipped_wb = 0;
@@ -10097,24 +10059,20 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
   if (compressed_size != 0) {
     uint64_t *cmp_size_ptr = malloc(sizeof(uint64_t));
     memcpy(cmp_size_ptr, &compressed_size, sizeof(uint64_t));
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       parsed_state,
       cmp_size_ptr,
       SDA_PSTATE_CMP_SIZE_KEY,
-      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
   if (actual_size != 0) {
     uint64_t *act_size_ptr = malloc(sizeof(uint64_t));
     memcpy(act_size_ptr, &actual_size, sizeof(uint64_t));
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       parsed_state,
       act_size_ptr,
       SDA_PSTATE_ACT_SIZE_KEY,
-      SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
 
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
@@ -10127,7 +10085,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     FILE *in_f,
     int_fast8_t do_extract,
     const SDArchiverState *state,
-    SDArchiverHashMap *parsed_state) {
+    SDArchiverSKeyHashMap *parsed_state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -10151,11 +10109,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       state && state->parsed && state->parsed->flags & 0x80
           ? NULL
           : simple_archiver_list_init();
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *files_map =
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *files_map =
       state && state->parsed && state->parsed->flags & 0x80
           ? NULL
-          : simple_archiver_hash_map_init();
+          : simple_archiver_skey_hash_map_init();
 
   __attribute__((
       cleanup(simple_archiver_helper_cleanup_c_string))) char *cwd_realpath =
@@ -11405,24 +11363,20 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
   if (compressed_size != 0) {
     uint64_t *temp = malloc(sizeof(uint64_t));
     memcpy(temp, &compressed_size, sizeof(uint64_t));
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       parsed_state,
       temp,
       SDA_PSTATE_CMP_SIZE_KEY,
-      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
   if (actual_size != 0) {
     uint64_t *temp = malloc(sizeof(uint64_t));
     memcpy(temp, &actual_size, sizeof(uint64_t));
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       parsed_state,
       temp,
       SDA_PSTATE_ACT_SIZE_KEY,
-      SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
 
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
@@ -11436,7 +11390,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
     FILE *in_f,
     int_fast8_t do_extract,
     const SDArchiverState *state,
-    SDArchiverHashMap *parsed_state) {
+    SDArchiverSKeyHashMap *parsed_state) {
   int_fast8_t not_tested_once = (state->parsed->flags & 0x3) == 2 ? 1 : 0;
   {
     SDArchiverStateRetStruct ret =
@@ -11736,7 +11690,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     FILE *in_f,
     int_fast8_t do_extract,
     const SDArchiverState *state,
-    SDArchiverHashMap *parsed_state) {
+    SDArchiverSKeyHashMap *parsed_state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -11760,11 +11714,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       do_extract && state && state->parsed && state->parsed->flags & 0x80
           ? NULL
           : simple_archiver_list_init();
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *files_map =
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *files_map =
       do_extract && state && state->parsed && state->parsed->flags & 0x80
           ? NULL
-          : simple_archiver_hash_map_init();
+          : simple_archiver_skey_hash_map_init();
 
   __attribute__((
       cleanup(simple_archiver_helper_cleanup_c_string))) char *cwd_realpath =
@@ -13749,24 +13703,20 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   if (compressed_size != 0) {
     uint64_t *temp = malloc(sizeof(uint64_t));
     memcpy(temp, &compressed_size, sizeof(uint64_t));
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       parsed_state,
       temp,
       SDA_PSTATE_CMP_SIZE_KEY,
-      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
   if (actual_size != 0) {
     uint64_t *temp = malloc(sizeof(uint64_t));
     memcpy(temp, &actual_size, sizeof(uint64_t));
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       parsed_state,
       temp,
       SDA_PSTATE_ACT_SIZE_KEY,
-      SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
 
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
@@ -13779,7 +13729,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     FILE *in_f,
     int_fast8_t do_extract,
     const SDArchiverState *state,
-    SDArchiverHashMap *parsed_state) {
+    SDArchiverSKeyHashMap *parsed_state) {
   uint8_t buf[SIMPLE_ARCHIVER_BUFFER_SIZE];
   uint16_t u16;
   uint32_t u32;
@@ -13803,11 +13753,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
       do_extract && state && state->parsed && state->parsed->flags & 0x80
           ? NULL
           : simple_archiver_list_init();
-  __attribute__((cleanup(simple_archiver_hash_map_free)))
-  SDArchiverHashMap *files_map =
+  __attribute__((cleanup(simple_archiver_skey_hash_map_free)))
+  SDArchiverSKeyHashMap *files_map =
       do_extract && state && state->parsed && state->parsed->flags & 0x80
           ? NULL
-          : simple_archiver_hash_map_init();
+          : simple_archiver_skey_hash_map_init();
 
   __attribute__((
       cleanup(simple_archiver_helper_cleanup_c_string))) char *cwd_realpath =
@@ -15972,35 +15922,29 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     if (compressed_size != 0) {
       uint64_t *temp = malloc(sizeof(uint64_t));
       memcpy(temp, &compressed_size, sizeof(uint64_t));
-      simple_archiver_hash_map_insert(
+      simple_archiver_skey_hash_map_insert(
         parsed_state,
         temp,
         SDA_PSTATE_CMP_SIZE_KEY,
-        SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-        NULL,
-        simple_archiver_helper_datastructure_cleanup_nop);
+        NULL);
     }
     if (actual_size != 0) {
       uint64_t *temp = malloc(sizeof(uint64_t));
       memcpy(temp, &actual_size, sizeof(uint64_t));
-      simple_archiver_hash_map_insert(
+      simple_archiver_skey_hash_map_insert(
         parsed_state,
         temp,
         SDA_PSTATE_ACT_SIZE_KEY,
-        SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-        NULL,
-        simple_archiver_helper_datastructure_cleanup_nop);
+        NULL);
     }
     if (not_compressed_size != 0) {
       uint64_t *temp = malloc(sizeof(uint64_t));
       memcpy(temp, &not_compressed_size, sizeof(uint64_t));
-      simple_archiver_hash_map_insert(
+      simple_archiver_skey_hash_map_insert(
         parsed_state,
         temp,
         SDA_PSTATE_NOT_CMP_SIZE_KEY,
-        SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
-        NULL,
-        simple_archiver_helper_datastructure_cleanup_nop);
+        NULL);
     }
 
     SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
@@ -16365,35 +16309,29 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
   if (compressed_size != 0) {
     uint64_t *temp = malloc(sizeof(uint64_t));
     memcpy(temp, &compressed_size, sizeof(uint64_t));
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       parsed_state,
       temp,
       SDA_PSTATE_CMP_SIZE_KEY,
-      SDA_PSTATE_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
   if (actual_size != 0) {
     uint64_t *temp = malloc(sizeof(uint64_t));
     memcpy(temp, &actual_size, sizeof(uint64_t));
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       parsed_state,
       temp,
       SDA_PSTATE_ACT_SIZE_KEY,
-      SDA_PSTATE_ACT_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
   if (not_compressed_size != 0) {
     uint64_t *temp = malloc(sizeof(uint64_t));
     memcpy(temp, &not_compressed_size, sizeof(uint64_t));
-    simple_archiver_hash_map_insert(
+    simple_archiver_skey_hash_map_insert(
       parsed_state,
       temp,
       SDA_PSTATE_NOT_CMP_SIZE_KEY,
-      SDA_PSTATE_NOT_CMP_SIZE_KEY_SIZE,
-      NULL,
-      simple_archiver_helper_datastructure_cleanup_nop);
+      NULL);
   }
 
   SDA_RET_ON_ERROR_FN(prefix_dirs_to_forced_ownership(state));
@@ -16534,7 +16472,7 @@ int simple_archiver_validate_file_path(const char *filepath) {
 }
 
 void simple_archiver_safe_links_enforce(SDArchiverLinkedList *links_list,
-                                        SDArchiverHashMap *files_map) {
+                                        SDArchiverSKeyHashMap *files_map) {
   uint_fast8_t need_to_print_note = 1;
   // safe-links: Check that every link maps to a file in the files_map.
   __attribute__((
@@ -16568,8 +16506,7 @@ void simple_archiver_safe_links_enforce(SDArchiverLinkedList *links_list,
           simple_archiver_helper_cleanup_c_string))) char *link_localpath =
           simple_archiver_filenames_to_relative_path(path_to_cwd,
                                                      link_realpath);
-      if (!simple_archiver_hash_map_get(files_map, link_localpath,
-                                        strlen(link_localpath) + 1)) {
+      if (!simple_archiver_skey_hash_map_get(files_map, link_localpath)) {
         // Invalid symlink.
         fprintf(stderr,
                 "Symlink \"%s\" is invalid (not pointing to archived file), "
