@@ -328,6 +328,12 @@ are removed regardless of whether or not they were empty leaf dirs during
 archival. Thus, if there exists a tree of directories with no files after file
 extraction, then they will be removed.
 .TP
+.BR --test-max-depth " " \fIdepth\fR " | " --test-max-depth=\fIdepth\fR
+When testing (\-t) an archive, restrict output of files/symlinks/dirs to those
+with \fIdepth\fR slashes in its name (or less). A \fIdepth\fR of 0 will restrict
+output to only names with no slashes, and a \fIdepth\fR of 1 will restrict
+output to names with 1 slash or none.
+.TP
 .BR --version
 Prints the current version of \fBsimplearchiver\fR.
 .TP
