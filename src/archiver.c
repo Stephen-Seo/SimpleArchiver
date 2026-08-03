@@ -94,6 +94,7 @@ typedef struct SDArchiverInternalFileInfo {
   /// xxxx xxx1 - is invalid.
   /// xxxx xx1x - white/black-list allowed.
   /// xxxx x1xx - arg allowed.
+  /// xxxx 1xxx - max depth allowed.
   int_fast8_t other_flags;
 } SDArchiverInternalFileInfo;
 
@@ -8935,6 +8936,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
 
     int_fast8_t arg_allowed;
     uint_fast8_t lists_allowed;
+    uint_fast8_t max_depth_allowed = 0;
 
     if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
       if (fread(buf, 1, u16 + 1, in_f) != (size_t)u16 + 1) {
@@ -8974,7 +8976,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         not_tested_once = 0;
       }
 
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed
+          && lists_allowed
+          && (do_extract
+              || simple_archiver_helper_str_slash_count((const char*)buf)
+                 <= state->parsed->test_max_depth)) {
+        max_depth_allowed = 1;
         fprintf(stderr, format_str, idx + 1, size);
         fprintf(stderr, "  Filename: %s\n", buf);
       }
@@ -9078,7 +9085,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         state->parsed->flags & 0x20000 ? 1 : 0,
         state->parsed);
 
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed
+          && lists_allowed
+          && (do_extract
+              || simple_archiver_helper_str_slash_count(
+                   (const char *)uc_heap_buf)
+                 <= state->parsed->test_max_depth)) {
+        max_depth_allowed = 1;
         fprintf(stderr, format_str, idx + 1, size);
         fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
       }
@@ -9171,37 +9184,52 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
 
     mode_t permissions = 0;
 
-    if (!do_extract && arg_allowed && lists_allowed) {
+    if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
       fprintf(stderr, "  Permissions: ");
     }
 
     if ((buf[0] & 0x2) != 0) {
       permissions |= S_IRUSR;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
         fprintf(stderr, "r");
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "-");
     }
     if ((buf[0] & 0x4) != 0) {
       permissions |= S_IWUSR;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract
+          && arg_allowed
+          && lists_allowed
+          && max_depth_allowed) {
         fprintf(stderr, "w");
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "-");
     }
     if ((buf[0] & 0x8) != 0) {
       permissions |= S_IXUSR;
       if ((buf[1] & 0x20) != 0) {
         permissions |= S_ISUID;
-        if (!do_extract && arg_allowed && lists_allowed) {
+        if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
           fprintf(stderr, "s");
         }
-      } else if (!do_extract && arg_allowed && lists_allowed) {
+      } else if (!do_extract
+                 && arg_allowed
+                 && lists_allowed
+                 && max_depth_allowed) {
         fprintf(stderr, "x");
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       if ((buf[1] & 0x20) != 0) {
         permissions |= S_ISUID;
         fprintf(stderr, "S");
@@ -9211,31 +9239,43 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     }
     if ((buf[0] & 0x10) != 0) {
       permissions |= S_IRGRP;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
         fprintf(stderr, "r");
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "-");
     }
     if ((buf[0] & 0x20) != 0) {
       permissions |= S_IWGRP;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
         fprintf(stderr, "w");
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "-");
     }
     if ((buf[0] & 0x40) != 0) {
       permissions |= S_IXGRP;
       if ((buf[1] & 0x40) != 0) {
         permissions |= S_ISGID;
-        if (!do_extract && arg_allowed && lists_allowed) {
+        if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
           fprintf(stderr, "s");
         }
-      } else if (!do_extract && arg_allowed && lists_allowed) {
+      } else if (!do_extract
+                 && arg_allowed
+                 && lists_allowed
+                 && max_depth_allowed) {
         fprintf(stderr, "x");
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       if ((buf[1] & 0x40) != 0) {
         permissions |= S_ISGID;
         fprintf(stderr, "S");
@@ -9245,31 +9285,43 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     }
     if ((buf[0] & 0x80) != 0) {
       permissions |= S_IROTH;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
         fprintf(stderr, "r");
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "-");
     }
     if ((buf[1] & 0x1) != 0) {
       permissions |= S_IWOTH;
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
         fprintf(stderr, "w");
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "-");
     }
     if ((buf[1] & 0x2) != 0) {
       permissions |= S_IXOTH;
       if ((buf[1] & 0x80) != 0) {
         permissions |= S_ISVTX;
-        if (!do_extract && arg_allowed && lists_allowed) {
+        if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
           fprintf(stderr, "t");
         }
-      } else if (!do_extract && arg_allowed && lists_allowed) {
+      } else if (!do_extract
+                 && arg_allowed
+                 && lists_allowed
+                 && max_depth_allowed) {
         fprintf(stderr, "x");
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       if ((buf[1] & 0x80) != 0) {
         permissions |= S_ISVTX;
         fprintf(stderr, "T");
@@ -9278,7 +9330,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       }
     }
 
-    if (!do_extract && arg_allowed && lists_allowed) {
+    if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
       fprintf(stderr, "\n");
     }
 
@@ -9299,7 +9351,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_64_bit_be(&u64);
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         if (is_compressed) {
           fprintf(stderr, "  File size (compressed): %" PRIu64 "\n", u64);
         } else {
@@ -9660,7 +9712,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
     } else {
       // Is a symbolic link.
       int_fast8_t abs_preferred = (buf[1] & 0x4) != 0 ? 1 : 0;
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  Absolute path is %s\n",
                 (abs_preferred ? "preferred" : "NOT preferred"));
       }
@@ -9675,7 +9727,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       }
       simple_archiver_helper_16_bit_be(&u16);
       if (u16 == 0) {
-        if (arg_allowed && lists_allowed) {
+        if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
           fprintf(stderr, "  Link does not have absolute path.\n");
         }
       } else if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
@@ -9688,7 +9740,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
           fprintf(stderr, "ERROR: Invalid link absolute path: \"%s\"!\n", buf);
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
-        if (arg_allowed && lists_allowed) {
+        if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
           fprintf(stderr, "  Link absolute path: %s\n", buf);
         }
         abs_path = malloc((size_t)u16 + 1);
@@ -9706,7 +9758,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                   (const char*)abs_path);
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
-        if (arg_allowed && lists_allowed) {
+        if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
           fprintf(stderr, "  Link absolute path: %s\n", (char *)abs_path);
         }
       }
@@ -9716,7 +9768,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       }
       simple_archiver_helper_16_bit_be(&u16);
       if (u16 == 0) {
-        if (arg_allowed && lists_allowed) {
+        if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
           fprintf(stderr, "  Link does not have relative path.\n");
         }
       } else if (u16 < SIMPLE_ARCHIVER_BUFFER_SIZE) {
@@ -9729,7 +9781,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
           fprintf(stderr, "ERROR: Invalid link relative path: \"%s\"!\n", buf);
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
-        if (arg_allowed && lists_allowed) {
+        if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
           fprintf(stderr, "  Link relative path: %s\n", buf);
         }
         rel_path = malloc((size_t)u16 + 1);
@@ -9747,7 +9799,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                   (const char*)rel_path);
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
-        if (arg_allowed && lists_allowed) {
+        if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
           fprintf(stderr, "  Link relative path: %s\n", (char *)rel_path);
         }
       }
@@ -10232,6 +10284,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     }
     link_name[link_name_length] = 0;
 
+    const uint_fast8_t max_depth_allowed =
+      simple_archiver_helper_str_slash_count(link_name)
+        <= state->parsed->test_max_depth
+      ? 1 : 0;
+
     if (simple_archiver_helper_has_null_before_size(
           (const char*)link_name, link_name_length - 1) != 0) {
       fprintf(stderr,
@@ -10266,19 +10323,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
 
     if (arg_allowed && lists_allowed) {
       not_tested_once = 0;
-      fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, u32);
-      if (is_invalid) {
-        fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
+      if (max_depth_allowed) {
+        fprintf(stderr,
+                "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n",
+                idx + 1,
+                u32);
+        if (is_invalid) {
+          fprintf(stderr,
+                  "  WARNING: This symlink entry was marked invalid!\n");
+        }
+        fprintf(stderr, "  Link name: %s\n", link_name);
+        if (absolute_preferred) {
+          fprintf(stderr, "  Absolute path preferred.\n");
+        } else {
+          fprintf(stderr, "  Relative path preferred.\n");
+        }
+        fprintf(stderr, "  Link Permissions: ");
+        print_permissions(permissions);
+        fprintf(stderr, "\n");
       }
-      fprintf(stderr, "  Link name: %s\n", link_name);
-      if (absolute_preferred) {
-        fprintf(stderr, "  Absolute path preferred.\n");
-      } else {
-        fprintf(stderr, "  Relative path preferred.\n");
-      }
-      fprintf(stderr, "  Link Permissions: ");
-      print_permissions(permissions);
-      fprintf(stderr, "\n");
       did_print_skipped_link = 0;
     } else if (!did_print_skipped_link) {
       fprintf(stderr, "\nSkipping not allowed link...\n\n");
@@ -10297,11 +10360,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     }
 
     if (simple_archiver_validate_file_path(link_name)) {
-      fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
+      if (max_depth_allowed) {
+        fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
+      }
       skip_due_to_invalid = 1;
     }
 
-    if (do_extract && !arg_allowed) {
+    if (do_extract && !arg_allowed && max_depth_allowed) {
       fprintf(stderr, "  Skipping not specified in args...\n");
     }
 
@@ -10417,10 +10482,16 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                 abs_path_prefixed ? abs_path_prefixed : path);
       V1_SYMLINK_CREATE_AFTER_0:
         link_create_retry = 1;
-      } else if (!do_extract && arg_allowed && lists_allowed) {
+      } else if (!do_extract
+                 && arg_allowed
+                 && lists_allowed
+                 && max_depth_allowed) {
         fprintf(stderr, "  Abs path: %s\n", path);
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "  No Absolute path.\n");
     }
 
@@ -10545,10 +10616,16 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                 rel_path_prefixed ? rel_path_prefixed : path);
       V1_SYMLINK_CREATE_AFTER_1:
         link_create_retry = 1;
-      } else if (!do_extract && arg_allowed && lists_allowed) {
+      } else if (!do_extract
+                 && arg_allowed
+                 && lists_allowed
+                 && max_depth_allowed) {
         fprintf(stderr, "  Rel path: %s\n", path);
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "  No Relative path.\n");
     }
 
@@ -10624,6 +10701,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      file_info->other_flags |=
+        simple_archiver_helper_str_slash_count(file_info->filename)
+          <= state->parsed->test_max_depth
+        ? 8 : 0;
 
       if (simple_archiver_helper_has_null_before_size(
             file_info->filename, u16 - 1) != 0) {
@@ -11020,7 +11102,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
 
         decomp_info.file_size = file_info->file_size;
 
-        if ((file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 0xE) == 0xE) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   ++file_idx,
@@ -11033,9 +11115,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             fprintf(stderr, "\n    Skipping not specified in args...\n\n");
             did_print_skipped_a = 1;
           }
-        } else if ((file_info->other_flags & 1) != 0) {
+        } else if ((file_info->other_flags & 1) != 0
+            && (file_info->other_flags & 8) == 8) {
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
-        } else if ((file_info->other_flags & 2) == 0) {
+        } else if ((file_info->other_flags & 2) == 0
+            && (file_info->other_flags & 8) == 8) {
           if (!did_print_skipped_wb) {
             fprintf(stderr,
                     "\n    Skipping not allowed by white/black lists...\n\n");
@@ -11130,20 +11214,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         } else if ((file_info->other_flags & 4) != 0
                    && (file_info->other_flags & 1) == 0
                    && (file_info->other_flags & 2) != 0) {
-          fprintf(stderr, "    Permissions: ");
-          permissions_from_bits_version_1(file_info->bit_flags, 1);
-          fprintf(stderr,
-                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
-                  file_info->uid,
-                  file_info->gid);
-          if (is_compressed) {
+          if ((file_info->other_flags & 8) == 8) {
+            fprintf(stderr, "    Permissions: ");
+          }
+          permissions_from_bits_version_1(file_info->bit_flags,
+                                          file_info->other_flags & 8);
+          if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr,
-                    "    File size (uncompressed): %" PRIu64 "\n",
-                    file_info->file_size);
-          } else {
-            fprintf(stderr,
-                    "    File size: %" PRIu64 "\n",
-                    file_info->file_size);
+                    "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                    file_info->uid,
+                    file_info->gid);
+            if (is_compressed) {
+              fprintf(stderr,
+                      "    File size (uncompressed): %" PRIu64 "\n",
+                      file_info->file_size);
+            } else {
+              fprintf(stderr,
+                      "    File size: %" PRIu64 "\n",
+                      file_info->file_size);
+            }
           }
           SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
           if (ret != SDAS_SUCCESS) {
@@ -11170,7 +11259,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         }
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
-        if ((file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 0xE) == 0xE) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   ++file_idx,
@@ -11201,9 +11290,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             fprintf(stderr, "    Skipping not specified in args...\n");
             did_print_skipped_a = 1;
           }
-        } else if (file_info->other_flags & 1) {
+        } else if ((file_info->other_flags & 9) == 9) {
           fprintf(stderr, "    Skipping invalid filename...\n");
-        } else if ((file_info->other_flags & 2) == 0) {
+        } else if ((file_info->other_flags & 0xA) == 8) {
           if (!did_print_skipped_wb) {
             fprintf(stderr,
                     "    Skipping not allowed by white/black lists...\n");
@@ -11310,20 +11399,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         } else if ((file_info->other_flags & 4) != 0
                    && (file_info->other_flags & 1) == 0
                    && (file_info->other_flags & 2) != 0) {
-          fprintf(stderr, "    Permissions:");
-          permissions_from_bits_version_1(file_info->bit_flags, 1);
-          fprintf(stderr,
-                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
-                  file_info->uid,
-                  file_info->gid);
-          if (is_compressed) {
+          if ((file_info->other_flags & 8) == 8) {
+            fprintf(stderr, "    Permissions:");
+          }
+          permissions_from_bits_version_1(file_info->bit_flags,
+                                          file_info->other_flags & 8);
+          if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr,
-                    "    File size (uncompressed): %" PRIu64 "\n",
-                    file_info->file_size);
-          } else {
-            fprintf(stderr,
-                    "    File size: %" PRIu64 "\n",
-                    file_info->file_size);
+                    "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                    file_info->uid,
+                    file_info->gid);
+            if (is_compressed) {
+              fprintf(stderr,
+                      "    File size (uncompressed): %" PRIu64 "\n",
+                      file_info->file_size);
+            } else {
+              fprintf(stderr,
+                      "    File size: %" PRIu64 "\n",
+                      file_info->file_size);
+            }
           }
           SDArchiverStateReturns ret = read_buf_full_from_fd(
             in_f,
@@ -11437,6 +11531,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
 
     buf[u16] = 0;
 
+    const uint_fast8_t max_depth_allowed =
+      simple_archiver_helper_str_slash_count(buf)
+        <= state->parsed->test_max_depth
+      ? 1 : 0;
+
     if (simple_archiver_helper_has_null_before_size(buf, u16 - 1) != 0) {
       fprintf(stderr, "ERROR: Invalid directory string: \"%s\"!\n", buf);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -11500,7 +11599,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_2(
 
     if (do_extract && arg_allowed && lists_allowed) {
       fprintf(stderr, "Creating dir \"%s\"\n", buf);
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "Dir entry \"%s\"\n", buf);
       fprintf(stderr, "  Permissions: ");
       fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
@@ -11839,6 +11941,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     }
     link_name[link_name_length] = 0;
 
+    const uint_fast8_t max_depth_allowed =
+      simple_archiver_helper_str_slash_count(link_name)
+        <= state->parsed->test_max_depth
+      ? 1 : 0;
+
     if (simple_archiver_helper_has_null_before_size(
           link_name, link_name_length - 1) != 0) {
       fprintf(stderr, "ERROR: Invalid link string: \"%s\"!\n", link_name);
@@ -11872,19 +11979,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
 
     if (arg_allowed && lists_allowed) {
       not_tested_once = 0;
-      fprintf(stderr, "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n", idx + 1, count);
-      if (is_invalid) {
-        fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
+      if (max_depth_allowed) {
+        fprintf(stderr,
+                "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n",
+                idx + 1,
+                count);
+        if (is_invalid) {
+          fprintf(stderr,
+                  "  WARNING: This symlink entry was marked invalid!\n");
+        }
+        fprintf(stderr, "  Link name: %s\n", link_name);
+        if (absolute_preferred) {
+          fprintf(stderr, "  Absolute path preferred.\n");
+        } else {
+          fprintf(stderr, "  Relative path preferred.\n");
+        }
+        fprintf(stderr, "  Link Permissions: ");
+        print_permissions(permissions);
+        fprintf(stderr, "\n");
       }
-      fprintf(stderr, "  Link name: %s\n", link_name);
-      if (absolute_preferred) {
-        fprintf(stderr, "  Absolute path preferred.\n");
-      } else {
-        fprintf(stderr, "  Relative path preferred.\n");
-      }
-      fprintf(stderr, "  Link Permissions: ");
-      print_permissions(permissions);
-      fprintf(stderr, "\n");
       did_print_skipped_link = 0;
     } else if (!did_print_skipped_link) {
       fprintf(stderr, "\nSkipping not allowed link...\n\n");
@@ -11903,7 +12016,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     }
 
     if (simple_archiver_validate_file_path(link_name)) {
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed
+          && lists_allowed
+          && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
       }
       skip_due_to_invalid = 1;
@@ -11945,7 +12060,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
         fprintf(stderr, "  Abs path: %s\n", parsed_abs_path);
       }
 
@@ -11963,7 +12078,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "  No Absolute path.\n");
     }
 
@@ -11999,7 +12117,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
         fprintf(stderr, "  Rel path: %s\n", parsed_rel_path);
       }
 
@@ -12013,7 +12131,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "  No Relative path.\n");
     }
 
@@ -12024,7 +12145,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     simple_archiver_helper_32_bit_be(&u32);
 
     uint32_t uid = u32;
-    if (arg_allowed && lists_allowed) {
+    if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
       fprintf(stderr, "  UID: %" PRIu32 "\n", uid);
     }
 
@@ -12035,7 +12156,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     simple_archiver_helper_32_bit_be(&u32);
 
     uint32_t gid = u32;
-    if (arg_allowed && lists_allowed) {
+    if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
       fprintf(stderr, "  GID: %" PRIu32 "\n", gid);
     }
 
@@ -12060,13 +12181,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  Username: %s\n", username);
       }
     } else {
       free(username);
       username = NULL;
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  Username does not exist for this link\n");
       }
     }
@@ -12148,13 +12269,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  Groupname: %s\n", groupname);
       }
     } else {
       free(groupname);
       groupname = NULL;
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  Groupname does not exist for this link\n");
       }
     }
@@ -12508,6 +12629,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      file_info->other_flags |=
+        simple_archiver_helper_str_slash_count(file_info->filename)
+          <= state->parsed->test_max_depth
+        ? 8 : 0;
 
       if (simple_archiver_helper_has_null_before_size(
             file_info->filename, u16 - 1) != 0) {
@@ -12992,7 +13118,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
 
         decomp_info.file_size = file_info->file_size;
 
-        if ((file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 0xE) == 0xE) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   file_idx,
@@ -13005,9 +13131,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
             fprintf(stderr, "\n    Skipping not specified in args...\n\n");
             did_print_skipped_a = 1;
           }
-        } else if ((file_info->other_flags & 1) != 0) {
+        } else if ((file_info->other_flags & 9) == 9) {
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
-        } else if ((file_info->other_flags & 2) == 0) {
+        } else if ((file_info->other_flags & 0xA) == 8) {
           if (!did_print_skipped_wb) {
             fprintf(stderr,
                     "\n    Skipping not allowed by white/black lists...\n\n");
@@ -13102,30 +13228,35 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
-          fprintf(stderr, "    Permissions:");
-          permissions_from_bits_version_1(file_info->bit_flags, 1);
-          fprintf(stderr,
-                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
-                  file_info->uid,
-                  file_info->gid);
-          if (file_info->username) {
-            fprintf(stderr, "    Username: %s\n", file_info->username);
-          } else {
-            fprintf(stderr, "    Username not in archive\n");
+          if ((file_info->other_flags & 8) == 8) {
+            fprintf(stderr, "    Permissions:");
           }
-          if (file_info->groupname) {
-            fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
-          } else {
-            fprintf(stderr, "    Groupname not in archive\n");
-          }
-          if (is_compressed) {
+          permissions_from_bits_version_1(file_info->bit_flags,
+                                          file_info->other_flags & 8);
+          if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr,
-                    "    File size (uncompressed): %" PRIu64 "\n",
-                    file_info->file_size);
-          } else {
-            fprintf(stderr,
-                    "    File size: %" PRIu64 "\n",
-                    file_info->file_size);
+                    "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                    file_info->uid,
+                    file_info->gid);
+            if (file_info->username) {
+              fprintf(stderr, "    Username: %s\n", file_info->username);
+            } else {
+              fprintf(stderr, "    Username not in archive\n");
+            }
+            if (file_info->groupname) {
+              fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
+            } else {
+              fprintf(stderr, "    Groupname not in archive\n");
+            }
+            if (is_compressed) {
+              fprintf(stderr,
+                      "    File size (uncompressed): %" PRIu64 "\n",
+                      file_info->file_size);
+            } else {
+              fprintf(stderr,
+                      "    File size: %" PRIu64 "\n",
+                      file_info->file_size);
+            }
           }
           SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
           if (ret != SDAS_SUCCESS) {
@@ -13153,7 +13284,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
-        if (do_extract || (file_info->other_flags & 6) == 6) {
+        if (do_extract || (file_info->other_flags & 0xE) == 0xE) {
           fprintf(stderr,
                   "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
                   file_idx,
@@ -13167,14 +13298,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         }
 
         if (do_extract && (file_info->other_flags & 4) == 0) {
-          if (!did_print_skipped_a) {
+          if (!did_print_skipped_a && (file_info->other_flags & 8) == 8) {
             fprintf(stderr, "\n    Skipping not specified in args...\n\n");
             did_print_skipped_a = 1;
           }
-        } else if ((file_info->other_flags & 1) != 0) {
+        } else if ((file_info->other_flags & 9) == 9) {
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
         } else if ((file_info->other_flags & 2) == 0) {
-          if (!did_print_skipped_wb) {
+          if (!did_print_skipped_wb && (file_info->other_flags & 8) == 8) {
             fprintf(stderr,
                     "\n    Skipping not allowed by white/black lists...\n\n");
             did_print_skipped_wb = 1;
@@ -13287,30 +13418,35 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
-          fprintf(stderr, "    Permissions:");
-          permissions_from_bits_version_1(file_info->bit_flags, 1);
-          fprintf(stderr,
-                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
-                  file_info->uid,
-                  file_info->gid);
-          if (file_info->username) {
-            fprintf(stderr, "    Username: %s\n", file_info->username);
-          } else {
-            fprintf(stderr, "    Username not in archive\n");
+          if ((file_info->other_flags & 8) == 8) {
+            fprintf(stderr, "    Permissions:");
           }
-          if (file_info->groupname) {
-            fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
-          } else {
-            fprintf(stderr, "    Groupname not in archive\n");
-          }
-          if (is_compressed) {
+          permissions_from_bits_version_1(file_info->bit_flags,
+                                          file_info->other_flags & 8);
+          if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr,
-                    "    File size (uncompressed): %" PRIu64 "\n",
-                    file_info->file_size);
-          } else {
-            fprintf(stderr,
-                    "    File size: %" PRIu64 "\n",
-                    file_info->file_size);
+                    "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                    file_info->uid,
+                    file_info->gid);
+            if (file_info->username) {
+              fprintf(stderr, "    Username: %s\n", file_info->username);
+            } else {
+              fprintf(stderr, "    Username not in archive\n");
+            }
+            if (file_info->groupname) {
+              fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
+            } else {
+              fprintf(stderr, "    Groupname not in archive\n");
+            }
+            if (is_compressed) {
+              fprintf(stderr,
+                      "    File size (uncompressed): %" PRIu64 "\n",
+                      file_info->file_size);
+            } else {
+              fprintf(stderr,
+                      "    File size: %" PRIu64 "\n",
+                      file_info->file_size);
+            }
           }
           SDArchiverStateReturns ret =
             read_buf_full_from_fd(in_f,
@@ -13367,6 +13503,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     }
 
     archive_dir_name[u16] = 0;
+
+    const uint_fast8_t max_depth_allowed =
+      simple_archiver_helper_str_slash_count(archive_dir_name)
+        <= state->parsed->test_max_depth
+      ? 1 : 0;
 
     if (simple_archiver_helper_has_null_before_size(
           archive_dir_name, u16 - 1) != 0) {
@@ -13586,7 +13727,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           gid = *remapped_gid;
         }
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "Dir entry \"%s\"\n", archive_dir_name);
       fprintf(stderr, "  Permissions: ");
       fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");
@@ -13858,17 +14002,24 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
       }
       dir_path[dir_path_size] = 0;
 
+      const uint_fast8_t max_depth_allowed =
+        simple_archiver_helper_str_slash_count(dir_path)
+          <= state->parsed->test_max_depth
+        ? 1 : 0;
+
       if (simple_archiver_helper_has_null_before_size(
             dir_path, dir_path_size - 1) != 0) {
         fprintf(stderr, "ERROR: Invalid directory string: \"%s\"!\n", dir_path);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
-      fprintf(stderr,
-              "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
-              dir_idx + 1,
-              dir_count,
-              dir_path);
+      if (do_extract || max_depth_allowed) {
+        fprintf(stderr,
+                "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
+                dir_idx + 1,
+                dir_count,
+                dir_path);
+      }
 
       if (simple_archiver_helper_contains_double_dot_path(dir_path) != 0) {
         fprintf(stderr, "ERROR: Invalid directory name (has \"..\")!\n");
@@ -13882,7 +14033,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
       if (fread(pbits, 1, 2, in_f) != 2) {
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
-      if (!do_extract) {
+      if (!do_extract && max_depth_allowed) {
         fprintf(stderr, "    Permissions: ");
         fprintf(stderr, "%s", (pbits[0] & 1)    ? "r" : "-");
         fprintf(stderr, "%s", (pbits[0] & 2)    ? "w" : "-");
@@ -13950,7 +14101,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       simple_archiver_helper_32_bit_be(&gid);
-      if (!do_extract) {
+      if (!do_extract && max_depth_allowed) {
         fprintf(stderr,
                 "    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
                 uid,
@@ -14000,7 +14151,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
           return SDA_RET_STRUCT(SDAS_INVALID_FILE);
         }
       }
-      if (!do_extract) {
+      if (!do_extract && max_depth_allowed) {
         fprintf(stderr,
                 "    Username: %s\n    Groupname: %s\n",
                 username,
@@ -14208,6 +14359,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     }
     link_name[link_name_length] = 0;
 
+    const uint_fast8_t max_depth_allowed =
+      simple_archiver_helper_str_slash_count(link_name)
+        <= state->parsed->test_max_depth
+      ? 1 : 0;
+
     if (simple_archiver_helper_has_null_before_size(
           link_name, link_name_length - 1) != 0) {
       fprintf(stderr, "ERROR: Invalid link name: \"%s\"!\n", link_name);
@@ -14242,19 +14398,25 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
 
     if (arg_allowed && lists_allowed) {
       not_tested_once = 0;
-      fprintf(stderr, "SYMLINK %3" PRIu64 " of %3" PRIu64 "\n", idx + 1, count);
-      if (is_invalid) {
-        fprintf(stderr, "  WARNING: This symlink entry was marked invalid!\n");
+      if (max_depth_allowed) {
+        fprintf(stderr,
+                "SYMLINK %3" PRIu64 " of %3" PRIu64 "\n",
+                idx + 1,
+                count);
+        if (is_invalid) {
+          fprintf(stderr,
+                  "  WARNING: This symlink entry was marked invalid!\n");
+        }
+        fprintf(stderr, "  Link name: %s\n", link_name);
+        if (absolute_preferred) {
+          fprintf(stderr, "  Absolute path preferred.\n");
+        } else {
+          fprintf(stderr, "  Relative path preferred.\n");
+        }
+        fprintf(stderr, "  Link Permissions: ");
+        print_permissions(permissions);
+        fprintf(stderr, "\n");
       }
-      fprintf(stderr, "  Link name: %s\n", link_name);
-      if (absolute_preferred) {
-        fprintf(stderr, "  Absolute path preferred.\n");
-      } else {
-        fprintf(stderr, "  Relative path preferred.\n");
-      }
-      fprintf(stderr, "  Link Permissions: ");
-      print_permissions(permissions);
-      fprintf(stderr, "\n");
       did_print_skipped_link = 0;
     } else if (!did_print_skipped_link) {
       fprintf(stderr, "\nSkipping not allowed link...\n\n");
@@ -14273,7 +14435,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     }
 
     if (simple_archiver_validate_file_path(link_name)) {
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  WARNING: Invalid link name \"%s\"!\n", link_name);
       }
       skip_due_to_invalid = 1;
@@ -14320,7 +14482,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
         fprintf(stderr, "  Abs path: %s\n", parsed_abs_path);
       }
 
@@ -14338,7 +14500,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
           return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "  No Absolute path.\n");
     }
 
@@ -14374,7 +14539,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
-      if (!do_extract && arg_allowed && lists_allowed) {
+      if (!do_extract && arg_allowed && lists_allowed && max_depth_allowed) {
         fprintf(stderr, "  Rel path: %s\n", parsed_rel_path);
       }
 
@@ -14388,7 +14553,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
           return SDA_RET_STRUCT(SDAS_INTERNAL_ERROR);
         }
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "  No Relative path.\n");
     }
 
@@ -14399,7 +14567,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     simple_archiver_helper_32_bit_be(&u32);
 
     uint32_t uid = u32;
-    if (arg_allowed && lists_allowed) {
+    if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
       fprintf(stderr, "  UID: %" PRIu32 "\n", uid);
     }
 
@@ -14410,7 +14578,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     simple_archiver_helper_32_bit_be(&u32);
 
     uint32_t gid = u32;
-    if (arg_allowed && lists_allowed) {
+    if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
       fprintf(stderr, "  GID: %" PRIu32 "\n", gid);
     }
 
@@ -14435,13 +14603,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  Username: %s\n", username);
       }
     } else {
       free(username);
       username = NULL;
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  Username does not exist for this link\n");
       }
     }
@@ -14523,13 +14691,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
 
-      if (arg_allowed && lists_allowed) {
+      if (arg_allowed && lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  Groupname: %s\n", groupname);
       }
     } else {
       free(groupname);
       groupname = NULL;
-      if (lists_allowed) {
+      if (lists_allowed && (do_extract || max_depth_allowed)) {
         fprintf(stderr, "  Groupname does not exist for this link\n");
       }
     }
@@ -14890,6 +15058,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         return SDA_RET_STRUCT(ret);
       }
       file_info->filename[u16] = 0;
+
+      if(simple_archiver_helper_str_slash_count(file_info->filename)
+          <= state->parsed->test_max_depth) {
+        file_info->other_flags |= 8;
+      }
 
       if (simple_archiver_helper_has_null_before_size(
             file_info->filename, u16 - 1) != 0) {
@@ -15435,7 +15608,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
 
         decomp_info.file_size = file_info->file_size;
 
-        if ((file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6
+            && (do_extract || (file_info->other_flags & 8) == 8)) {
           fprintf(stderr,
                   "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
                   file_idx,
@@ -15452,9 +15626,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
             fprintf(stderr, "\n    Skipping not specified in args...\n\n");
             did_print_skipped_a = 1;
           }
-        } else if ((file_info->other_flags & 1) != 0) {
+        } else if ((file_info->other_flags & 9) == 9) {
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
-        } else if ((file_info->other_flags & 2) == 0) {
+        } else if ((file_info->other_flags & 0xA) == 8) {
           if (!did_print_skipped_wb) {
             fprintf(stderr,
                     "\n    Skipping not allowed by white/black lists...\n\n");
@@ -15549,30 +15723,35 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
-          fprintf(stderr, "    Permissions:");
-          permissions_from_bits_version_1(file_info->bit_flags, 1);
-          fprintf(stderr,
-                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
-                  file_info->uid,
-                  file_info->gid);
-          if (file_info->username) {
-            fprintf(stderr, "    Username: %s\n", file_info->username);
-          } else {
-            fprintf(stderr, "    Username not in archive\n");
+          if ((file_info->other_flags & 8) == 8) {
+            fprintf(stderr, "    Permissions:");
           }
-          if (file_info->groupname) {
-            fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
-          } else {
-            fprintf(stderr, "    Groupname not in archive\n");
-          }
-          if (is_compressed && compressed_bit_set) {
+          permissions_from_bits_version_1(file_info->bit_flags,
+                                          file_info->other_flags & 8);
+          if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr,
-                    "    File size (uncompressed): %" PRIu64 "\n",
-                    file_info->file_size);
-          } else {
-            fprintf(stderr,
-                    "    File size: %" PRIu64 "\n",
-                    file_info->file_size);
+                    "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                    file_info->uid,
+                    file_info->gid);
+            if (file_info->username) {
+              fprintf(stderr, "    Username: %s\n", file_info->username);
+            } else {
+              fprintf(stderr, "    Username not in archive\n");
+            }
+            if (file_info->groupname) {
+              fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
+            } else {
+              fprintf(stderr, "    Groupname not in archive\n");
+            }
+            if (is_compressed && compressed_bit_set) {
+              fprintf(stderr,
+                      "    File size (uncompressed): %" PRIu64 "\n",
+                      file_info->file_size);
+            } else {
+              fprintf(stderr,
+                      "    File size: %" PRIu64 "\n",
+                      file_info->file_size);
+            }
           }
           SDArchiverStateReturns ret = read_decomp_to_out_file(&decomp_info);
           if (ret != SDAS_SUCCESS) {
@@ -15658,7 +15837,8 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         node = node->next;
         const SDArchiverInternalFileInfo *file_info = node->data;
         ++file_idx;
-        if ((file_info->other_flags & 6) == 6) {
+        if ((file_info->other_flags & 6) == 6
+            && (do_extract || (file_info->other_flags & 8) == 8)) {
           fprintf(stderr,
                   "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
                   file_idx,
@@ -15676,9 +15856,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
             fprintf(stderr, "\n    Skipping not specified in args...\n\n");
             did_print_skipped_a = 1;
           }
-        } else if ((file_info->other_flags & 1) != 0) {
+        } else if ((file_info->other_flags & 9) == 9) {
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
-        } else if ((file_info->other_flags & 2) == 0) {
+        } else if ((file_info->other_flags & 0xA) == 8) {
           if (!did_print_skipped_wb) {
             fprintf(stderr,
                     "\n    Skipping not allowed by white/black lists...\n\n");
@@ -15794,30 +15974,35 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         } else if ((file_info->other_flags & 4) != 0
             && (file_info->other_flags & 1) == 0
             && (file_info->other_flags & 2) != 0) {
-          fprintf(stderr, "    Permissions:");
-          permissions_from_bits_version_1(file_info->bit_flags, 1);
-          fprintf(stderr,
-                  "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
-                  file_info->uid,
-                  file_info->gid);
-          if (file_info->username) {
-            fprintf(stderr, "    Username: %s\n", file_info->username);
-          } else {
-            fprintf(stderr, "    Username not in archive\n");
+          if ((file_info->other_flags & 8) == 8) {
+            fprintf(stderr, "    Permissions:");
           }
-          if (file_info->groupname) {
-            fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
-          } else {
-            fprintf(stderr, "    Groupname not in archive\n");
-          }
-          if (is_compressed && compressed_bit_set) {
+          permissions_from_bits_version_1(file_info->bit_flags,
+                                          file_info->other_flags & 8);
+          if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr,
-                    "    File size (uncompressed): %" PRIu64 "\n",
-                    file_info->file_size);
-          } else {
-            fprintf(stderr,
-                    "    File size: %" PRIu64 "\n",
-                    file_info->file_size);
+                    "\n    UID: %" PRIu32 "\n    GID: %" PRIu32 "\n",
+                    file_info->uid,
+                    file_info->gid);
+            if (file_info->username) {
+              fprintf(stderr, "    Username: %s\n", file_info->username);
+            } else {
+              fprintf(stderr, "    Username not in archive\n");
+            }
+            if (file_info->groupname) {
+              fprintf(stderr, "    Groupname: %s\n", file_info->groupname);
+            } else {
+              fprintf(stderr, "    Groupname not in archive\n");
+            }
+            if (is_compressed && compressed_bit_set) {
+              fprintf(stderr,
+                      "    File size (uncompressed): %" PRIu64 "\n",
+                      file_info->file_size);
+            } else {
+              fprintf(stderr,
+                      "    File size: %" PRIu64 "\n",
+                      file_info->file_size);
+            }
           }
           SDArchiverStateReturns ret =
             read_buf_full_from_fd(in_f,
@@ -15978,6 +16163,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     }
 
     archive_dir_name[u16] = 0;
+
+    const uint_fast8_t max_depth_allowed =
+      simple_archiver_helper_str_slash_count(archive_dir_name)
+        <= state->parsed->test_max_depth
+      ? 1 : 0;
 
     if (simple_archiver_helper_has_null_before_size(
           archive_dir_name, u16 - 1) != 0) {
@@ -16192,7 +16382,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
           gid = *remapped_gid;
         }
       }
-    } else if (!do_extract && arg_allowed && lists_allowed) {
+    } else if (!do_extract
+               && arg_allowed
+               && lists_allowed
+               && max_depth_allowed) {
       fprintf(stderr, "Dir entry \"%s\"\n", archive_dir_name);
       fprintf(stderr, "  Permissions: ");
       fprintf(stderr, "%s", (perms_flags[0] & 1)    ? "r" : "-");

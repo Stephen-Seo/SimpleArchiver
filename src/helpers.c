@@ -378,8 +378,8 @@ SAHelperPrefixValResult simple_archiver_helper_validate_prefix(
   return SAHPrefixVal_OK;
 }
 
-uint16_t simple_archiver_helper_str_slash_count(const char *str) {
-  uint16_t count = 0;
+uint32_t simple_archiver_helper_str_slash_count(const char *str) {
+  uint32_t count = 0;
 
   const unsigned long length = strlen(str);
   for (unsigned long idx = 0; idx < length; ++idx) {
@@ -397,7 +397,7 @@ char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
   if (!prefix) {
     return NULL;
   }
-  uint16_t prefix_slash_count = simple_archiver_helper_str_slash_count(prefix);
+  uint32_t prefix_slash_count = simple_archiver_helper_str_slash_count(prefix);
   __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
   char *cwd = getcwd(NULL, 0);
   unsigned long cwd_length = strlen(cwd);
@@ -457,7 +457,7 @@ char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,
            && diff_idx < filename_full_length
            && diff_idx < cwd_length;
          ++diff_idx);
-    int32_t level = simple_archiver_helper_str_slash_count(
+    int32_t level = (int32_t)simple_archiver_helper_str_slash_count(
       filename_full + diff_idx);
     const int32_t level_copy = level;
 
