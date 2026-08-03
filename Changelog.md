@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.6.0
+
 Update the default "write-version" to use file format version 7 (from 6).
 
 Use a different data-structure internally for more efficiency.
