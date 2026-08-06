@@ -10763,8 +10763,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           && state
           && state->parsed
           && (state->parsed->flags & 8) != 0
-          && (file_info->other_flags & 4) != 0
-          && (file_info->other_flags & 2) != 0) {
+          && (file_info->other_flags & 6) == 6) {
         int fd = open((const char *)buf, O_RDONLY | O_NOFOLLOW);
         if (fd == -1) {
           if (errno == ELOOP) {
@@ -11115,11 +11114,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
             fprintf(stderr, "\n    Skipping not specified in args...\n\n");
             did_print_skipped_a = 1;
           }
-        } else if ((file_info->other_flags & 1) != 0
-            && (file_info->other_flags & 8) == 8) {
+        } else if ((file_info->other_flags & 9) == 9) {
           fprintf(stderr, "\n    Skipping invalid filename...\n\n");
-        } else if ((file_info->other_flags & 2) == 0
-            && (file_info->other_flags & 8) == 8) {
+        } else if ((file_info->other_flags & 0xA) == 8) {
           if (!did_print_skipped_wb) {
             fprintf(stderr,
                     "\n    Skipping not allowed by white/black lists...\n\n");
@@ -11134,10 +11131,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           did_print_skipped_wb = 0;
         }
 
-        if (do_extract
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 2) != 0) {
+        if (do_extract && (file_info->other_flags & 7) == 6) {
           mode_t permissions;
           if (state->parsed->flags & 0x1000) {
             permissions =
@@ -11211,9 +11205,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
-        } else if ((file_info->other_flags & 4) != 0
-                   && (file_info->other_flags & 1) == 0
-                   && (file_info->other_flags & 2) != 0) {
+        } else if ((file_info->other_flags & 7) == 6) {
           if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr, "    Permissions: ");
           }
@@ -11307,10 +11299,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
           did_print_skipped_wb = 0;
         }
 
-        if (do_extract
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 2) != 0) {
+        if (do_extract && (file_info->other_flags & 7) == 6) {
           mode_t permissions;
 
           if (state->parsed->flags & 0x1000) {
@@ -11396,9 +11385,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
                       : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
-        } else if ((file_info->other_flags & 4) != 0
-                   && (file_info->other_flags & 1) == 0
-                   && (file_info->other_flags & 2) != 0) {
+        } else if ((file_info->other_flags & 7) == 6) {
           if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr, "    Permissions:");
           }
@@ -12695,8 +12682,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           && state
           && state->parsed
           && (state->parsed->flags & 8) != 0
-          && (file_info->other_flags & 4) != 0
-          && (file_info->other_flags & 2) != 0) {
+          && (file_info->other_flags & 6) == 6) {
         int fd = open((const char *)buf, O_RDONLY | O_NOFOLLOW);
         if (fd == -1) {
           if (errno == ELOOP) {
@@ -13148,10 +13134,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           did_print_skipped_wb = 0;
         }
 
-        if (do_extract
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 2) != 0) {
+        if (do_extract && (file_info->other_flags & 7) == 6) {
           mode_t permissions;
           if (state->parsed->flags & 0x1000) {
             permissions =
@@ -13225,9 +13208,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
-        } else if ((file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 2) != 0) {
+        } else if ((file_info->other_flags & 7) == 6) {
           if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr, "    Permissions:");
           }
@@ -13319,10 +13300,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
           did_print_skipped_wb = 0;
         }
 
-        if (do_extract
-            && (file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 2) != 0) {
+        if (do_extract && (file_info->other_flags & 7) == 6) {
           mode_t permissions;
 
           if (state->parsed->flags & 0x1000) {
@@ -13415,9 +13393,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
-        } else if ((file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 2) != 0) {
+        } else if ((file_info->other_flags & 7) == 6) {
           if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr, "    Permissions:");
           }
@@ -15126,8 +15102,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
           && state
           && state->parsed
           && (state->parsed->flags & 8) != 0
-          && (file_info->other_flags & 4) != 0
-          && (file_info->other_flags & 2) != 0) {
+          && (file_info->other_flags & 6) == 6) {
         int fd = open((const char *)buf, O_RDONLY | O_NOFOLLOW);
         if (fd == -1) {
           if (errno == ELOOP) {
@@ -15643,10 +15618,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
           did_print_skipped_wb = 0;
         }
 
-        if (do_extract
-            && (file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 2) != 0) {
+        if (do_extract && (file_info->other_flags & 7) == 6) {
           mode_t permissions;
           if (state->parsed->flags & 0x1000) {
             permissions =
@@ -15720,9 +15692,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
                 == -1) {
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
-        } else if ((file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 2) != 0) {
+        } else if ((file_info->other_flags & 7) == 6) {
           if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr, "    Permissions:");
           }
@@ -15873,10 +15843,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
           did_print_skipped_wb = 0;
         }
 
-        if (do_extract
-            && (file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 2) != 0) {
+        if (do_extract && (file_info->other_flags & 7) == 6) {
           mode_t permissions;
 
           if (state->parsed->flags & 0x1000) {
@@ -15971,9 +15938,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
               : file_info->filename);
             return SDA_RET_STRUCT(SDAS_PERMISSION_SET_FAIL);
           }
-        } else if ((file_info->other_flags & 4) != 0
-            && (file_info->other_flags & 1) == 0
-            && (file_info->other_flags & 2) != 0) {
+        } else if ((file_info->other_flags & 7) == 6) {
           if ((file_info->other_flags & 8) == 8) {
             fprintf(stderr, "    Permissions:");
           }
