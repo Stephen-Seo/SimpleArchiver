@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.7.0
+
 Update `cosmopolitan/Makefile` to build with the recently added data-structure.
 
 Implement `--test-max-depth` and update man page about it.
