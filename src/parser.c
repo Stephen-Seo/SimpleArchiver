@@ -388,6 +388,10 @@ void simple_archiver_print_usage(void) {
   fprintf(stderr,
           "--v6-remove-leaf-dirs : Also remove leaf dirs even if they normally "
           "would be kept\n");
+  fprintf(stderr,
+          "--test-max-depth <depth> | --test-max-depth=<depth> : When testing "
+          "(-t) an archive, do not print files/symlinks that have more forward-"
+          "slashes than this specified amount\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -424,6 +428,7 @@ SDArchiverParsed simple_archiver_create_parsed(void) {
   parsed.dir_permissions = 0;
   parsed.empty_dir_permissions = 0;
   parsed.prefix_dir_permissions = 0;
+  parsed.test_max_depth = 0xFFFFFFFF;
   parsed.users_infos = simple_archiver_users_get_system_info();
   parsed.mappings.UidToUname = simple_archiver_hash_map_init();
   parsed.mappings.UnameToUid = simple_archiver_hash_map_init();
@@ -2002,6 +2007,36 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x200000;
       } else if (strcmp(argv[0], "--v6-remove-leaf-dirs") == 0) {
         out->flags |= 0x400000;
+      } else if (strncmp(argv[0], "--test-max-depth=", 17) == 0
+                 || strcmp(argv[0], "--test-max-depth") == 0) {
+        uint_fast8_t is_separate = strcmp(argv[0], "--test-max-depth") == 0
+                                   ? 1 : 0;
+        const char *str;
+        if (is_separate && argc < 2) {
+          fprintf(stderr, "ERROR: --test-max-depth expects an argument!\n");
+          return 1;
+        } else if (is_separate) {
+          str = argv[1];
+        } else {
+          str = argv[0] + 17;
+        }
+
+        unsigned long arg_parsed = strtoul(str, NULL, 10);
+        if (arg_parsed == 0
+            && (strlen(str) != 1
+                || str[0] != '0' || str[1] != 0)) {
+          fprintf(stderr, "ERROR: Invalid arg passed to --test-max-depth!\n");
+          return 1;
+        } else if (arg_parsed > 0xFFFFFFFF) {
+          arg_parsed = 0xFFFFFFFF;
+        }
+
+        out->test_max_depth = (uint32_t)arg_parsed;
+
+        if (is_separate) {
+          --argc;
+          ++argv;
+        }
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);
@@ -2613,7 +2648,8 @@ void simple_archiver_free_parsed(SDArchiverParsed *parsed) {
     simple_archiver_list_free(&parsed->blacklist_ends);
   }
   if (parsed->not_to_compress_file_extensions) {
-    simple_archiver_skey_hash_map_free(&parsed->not_to_compress_file_extensions);
+    simple_archiver_skey_hash_map_free(
+      &parsed->not_to_compress_file_extensions);
   }
   if (parsed->exclude_dirs) {
     simple_archiver_skey_hash_map_free(&parsed->exclude_dirs);

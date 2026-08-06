@@ -4,6 +4,10 @@
 
 Update `cosmopolitan/Makefile` to build with the recently added data-structure.
 
+Implement `--test-max-depth` and update man page about it.
+
+Internal refactorings.
+
 ## Version 3.6.0
 
 Update the default "write-version" to use file format version 7 (from 6).

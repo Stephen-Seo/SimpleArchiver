@@ -85,7 +85,7 @@ const char * simple_archiver_helper_prefix_result_str(
 SAHelperPrefixValResult simple_archiver_helper_validate_prefix(
   const char *prefix);
 
-uint16_t simple_archiver_helper_str_slash_count(const char *str);
+uint32_t simple_archiver_helper_str_slash_count(const char *str);
 
 // Returned c-string must be free'd.
 char *simple_archiver_helper_insert_prefix_in_link_path(const char *prefix,

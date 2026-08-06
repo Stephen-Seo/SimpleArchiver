@@ -118,6 +118,7 @@ typedef struct SDArchiverParsed {
   uint_fast16_t dir_permissions;
   uint_fast16_t empty_dir_permissions;
   uint_fast16_t prefix_dir_permissions;
+  uint32_t test_max_depth;
   UsersInfos users_infos;
   SDA_UGMapping mappings;
   /// Prefix for archived/extracted paths.
