@@ -459,6 +459,15 @@ all empty dirs are removed regardless of whether or not they were empty
 leaf dirs during archival. Thus, if there exists a tree of directories
 with no files after file extraction, then they will be removed.</p>
 </dd>
+<dt><strong>--test-max-depth</strong> <strong><em>depth</em></strong> |
+<strong>--test-max-depth=<em>depth</em></strong></dt>
+<dd>
+<p>When testing (-t) an archive, restrict output of files/symlinks/dirs
+to those with <em>depth</em> slashes in its name (or less). A
+<em>depth</em> of 0 will restrict output to only names with no slashes,
+and a <em>depth</em> of 1 will restrict output to names with 1 slash or
+none.</p>
+</dd>
 <dt><strong>--version</strong></dt>
 <dd>
 <p>Prints the current version of <strong>simplearchiver</strong>.</p>
