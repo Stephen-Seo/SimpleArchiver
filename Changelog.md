@@ -2,6 +2,9 @@
 
 ## Upcoming Changes
 
+Fix `--help` text displaying `6` instead of `7` as the default
+`--write-version`.
+
 ## Version 3.7.0
 
 Update `cosmopolitan/Makefile` to build with the recently added data-structure.
