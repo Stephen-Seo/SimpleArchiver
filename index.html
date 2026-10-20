@@ -468,6 +468,16 @@ to those with <em>depth</em> slashes in its name (or less). A
 and a <em>depth</em> of 1 will restrict output to names with 1 slash or
 none.</p>
 </dd>
+<dt><strong>--non-interactive</strong></dt>
+<dd>
+<p>When testing/extracting an archive, the decompressor command is run
+(if set) to test/extract files. <strong>simplearchiver</strong> will
+refuse to run the decompressor command unless if
+<strong>--non-interactive</strong> is specified. Note that when this
+option is not specified, and test/extract is run on an archive that has
+a decompressor set, an error message will be emitted with the name of
+the decompressor command.</p>
+</dd>
 <dt><strong>--version</strong></dt>
 <dd>
 <p>Prints the current version of <strong>simplearchiver</strong>.</p>
