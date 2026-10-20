@@ -2,13 +2,19 @@
 
 ## NOTICE
 
-[Writeup about the issue here.](https://seodisparate.com/blog/simplearchiver_issue_disclosure/)  
-[Backup gist about the issue here.](https://gist.github.com/Stephen-Seo/f804dd6d65f409b93243dd00d4f67452)
+Note that there will be another writeup coming soon for versions of
+`simplearchiver` lower than version `4.0.0`.
+
+Please refer to the [Changelog.md](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/Changelog.md)
+for recent important changes.
+
+[Writeup about the 2026-03-18 issue here.](https://seodisparate.com/blog/simplearchiver_issue_disclosure/)  
+[Backup gist about the 2026-03-18 issue here.](https://gist.github.com/Stephen-Seo/f804dd6d65f409b93243dd00d4f67452)
 
 Please use the latest version of `simplearchiver`
-(at least tag `2.7` or at least the [latest Github
+(at least tag `4.0.0` or at least the [latest Github
 release](https://github.com/Stephen-Seo/SimpleArchiver/releases)) as
-previous versions contain an issue that was fixed as of `2.7`.
+previous versions may be vulnerable with fixes added as of `4.0.0`.
 
 ## About SimpleArchiver
 
