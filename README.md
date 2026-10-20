@@ -98,6 +98,7 @@ API calls.
     --v6-remove-empty-dirs : Remove dirs that are empty after extraction (but were not empty when archived)
     --v6-remove-leaf-dirs : Also remove leaf dirs even if they normally would be kept
     --test-max-depth <depth> | --test-max-depth=<depth> : When testing (-t) an archive, do not print files/symlinks that have more forward-slashes than this specified amount
+    --non-interactive : Run in non-interactive mode (note possibly dangerous!)
     --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.

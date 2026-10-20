@@ -392,6 +392,9 @@ void simple_archiver_print_usage(void) {
           "--test-max-depth <depth> | --test-max-depth=<depth> : When testing "
           "(-t) an archive, do not print files/symlinks that have more forward-"
           "slashes than this specified amount\n");
+  fprintf(stderr,
+          "--non-interactive : Run in non-interactive mode "
+          "(note possibly dangerous!)\n");
   fprintf(stderr, "--version : prints version and exits\n");
   fprintf(stderr,
           "-- : specifies remaining arguments are files to archive/extract\n");
@@ -2037,6 +2040,9 @@ int simple_archiver_parse_args(int argc, const char **argv,
           --argc;
           ++argv;
         }
+      } else if (strcmp(argv[0], "--non-interactive") == 0) {
+        fprintf(stderr, "Running in non-interactive mode...");
+        out->flags |= 0x10000000;
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
         exit(0);

@@ -75,6 +75,7 @@ typedef struct SDArchiverParsed {
   /// 0b xx1x xxxx xxxx xxxx xxxx xxxx xxxx - prefix user username set
   /// 0b x1xx xxxx xxxx xxxx xxxx xxxx xxxx - prefix user gid set
   /// 0b 1xxx xxxx xxxx xxxx xxxx xxxx xxxx - prefix user groupname set
+  /// 0b xxx1 xxxx xxxx xxxx xxxx xxxx xxxx xxxx - non-interactive
   uint32_t flags;
   /// Null-terminated string.
   char *filename;

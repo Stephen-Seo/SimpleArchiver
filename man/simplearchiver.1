@@ -334,6 +334,14 @@ with \fIdepth\fR slashes in its name (or less). A \fIdepth\fR of 0 will restrict
 output to only names with no slashes, and a \fIdepth\fR of 1 will restrict
 output to names with 1 slash or none.
 .TP
+.BR --non-interactive
+When testing/extracting an archive, the decompressor command is run (if set) to
+test/extract files. \fBsimplearchiver\fR will refuse to run the decompressor
+command unless if \fB\-\-non\-interactive\fR is specified. Note that when this
+option is not specified, and test/extract is run on an archive that has a
+decompressor set, an error message will be emitted with the name of the
+decompressor command.
+.TP
 .BR --version
 Prints the current version of \fBsimplearchiver\fR.
 .TP

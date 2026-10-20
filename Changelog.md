@@ -2,6 +2,12 @@
 
 ## Upcoming Changes
 
+Add option `--non-interactive`. An archive with a decompressor set will not be
+extracted/tested unless `--non-interactive` is set. Note that the use-case is
+expected to be to run `simplearchiver` as usual, and to examine the
+decompressor command if an error is emitted, at which point `--non-interactive`
+should be used after confimration that the decompressor command is as expected.
+
 ## Version 3.7.1
 
 Fix `--help` text displaying `6` instead of `7` as the default
