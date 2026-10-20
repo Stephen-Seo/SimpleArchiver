@@ -2,6 +2,12 @@
 
 ## Upcoming Changes
 
+Fix case where `--non-interactive` related checking wasn't properly done for
+file format v0.
+
+Note `--decompressor <command>` override if `--non-interactive` related error
+was emitted.
+
 ## Version 4.0.0
 
 Add option `--non-interactive`. An archive with a decompressor set will not be
