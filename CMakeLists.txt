@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SimpleArchiver C)
 
-set(SimpleArchiver_VERSION 4.1.0)
+set(SimpleArchiver_VERSION 4.2.0)
 
 set(SimpleArchiver_SOURCES
     src/parser.c
