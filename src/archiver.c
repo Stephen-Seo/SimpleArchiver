@@ -3048,6 +3048,8 @@ char *simple_archiver_error_to_string(enum SDArchiverStateReturns error) {
       return "Failed to set permissions";
     case SDAS_UID_GID_SET_FAIL:
       return "Failed to set ownership";
+    case SDAS_NEED_BATCH_FLAG:
+      return "Needs --non-interactive flag to continue";
     default:
       return "Unknown error";
   }
@@ -8857,6 +8859,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       decompressor_cmd = malloc(u16 + 1);
       memcpy((char *)decompressor_cmd, buf, u16 + 1);
       ((char *)decompressor_cmd)[u16] = 0;
+      if ((state->parsed->flags & 0x10000000) == 0) {
+        fprintf(stderr,
+                "ERROR: Needs --non-interactive flag to continue: note that the "
+                "decompressor command is: %s\n",
+                (char *)decompressor_cmd);
+        return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
+      }
     } else {
       __attribute__((
           cleanup(simple_archiver_helper_cleanup_malloced))) void *heap_buf =
@@ -10215,6 +10224,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       return SDA_RET_STRUCT(ret);
     }
     decompressor_cmd[u16] = 0;
+
+    if ((state->parsed->flags & 0x10000000) == 0) {
+      fprintf(stderr,
+              "ERROR: Needs --non-interactive flag to continue: note that the "
+              "decompressor command is: %s\n",
+              decompressor_cmd);
+      return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
+    }
 
     if (simple_archiver_helper_has_null_before_size(
           (const char*)decompressor_cmd, u16 - 1) != 0) {
@@ -11857,6 +11874,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       return SDA_RET_STRUCT(ret);
     }
     decompressor_cmd[u16] = 0;
+
+    if ((state->parsed->flags & 0x10000000) == 0) {
+      fprintf(stderr,
+              "ERROR: Needs --non-interactive flag to continue: note that the "
+              "decompressor command is: %s\n",
+              decompressor_cmd);
+      return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
+    }
 
     if (simple_archiver_helper_has_null_before_size(
           (const char*)decompressor_cmd, u16 - 1) != 0) {
@@ -13925,6 +13950,14 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
       return SDA_RET_STRUCT(ret);
     }
     decompressor_cmd[u16] = 0;
+
+    if ((state->parsed->flags & 0x10000000) == 0) {
+      fprintf(stderr,
+              "ERROR: Needs --non-interactive flag to continue: note that the "
+              "decompressor command is: %s\n",
+              decompressor_cmd);
+      return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
+    }
 
     if (simple_archiver_helper_has_null_before_size(
           decompressor_cmd, u16 - 1) != 0) {
