@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 4.1.0
+
 Fix case where `--non-interactive` related checking wasn't properly done for
 file format v0.
 
