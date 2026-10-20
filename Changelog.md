@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 3.7.1
+
 Fix `--help` text displaying `6` instead of `7` as the default
 `--write-version`.
 
