@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 4.0.0
+
 Add option `--non-interactive`. An archive with a decompressor set will not be
 extracted/tested unless `--non-interactive` is set. Note that the use-case is
 expected to be to run `simplearchiver` as usual, and to examine the
