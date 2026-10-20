@@ -8864,6 +8864,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                 "ERROR: Needs --non-interactive flag to continue: note that the "
                 "decompressor command is: %s\n",
                 (char *)decompressor_cmd);
+        if (state->parsed->decompressor) {
+          fprintf(stderr,
+                  "Note that a decompressor override has been set: %s\n",
+                  state->parsed->decompressor);
+        }
         return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
       }
     } else {
@@ -8889,6 +8894,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                 "ERROR: Needs --non-interactive flag to continue: note that "
                 "the decompressor command is: %s\n",
                 (char *)decompressor_cmd);
+        if (state->parsed->decompressor) {
+          fprintf(stderr,
+                  "Note that a decompressor override has been set: %s\n",
+                  state->parsed->decompressor);
+        }
         return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
       }
       heap_buf = NULL;
@@ -10237,6 +10247,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
               "ERROR: Needs --non-interactive flag to continue: note that the "
               "decompressor command is: %s\n",
               decompressor_cmd);
+      if (state->parsed->decompressor) {
+        fprintf(stderr,
+                "Note that a decompressor override has been set: %s\n",
+                state->parsed->decompressor);
+      }
       return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
     }
 
@@ -11887,6 +11902,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               "ERROR: Needs --non-interactive flag to continue: note that the "
               "decompressor command is: %s\n",
               decompressor_cmd);
+      if (state->parsed->decompressor) {
+        fprintf(stderr,
+                "Note that a decompressor override has been set: %s\n",
+                state->parsed->decompressor);
+      }
       return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
     }
 
@@ -13963,6 +13983,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
               "ERROR: Needs --non-interactive flag to continue: note that the "
               "decompressor command is: %s\n",
               decompressor_cmd);
+      if (state->parsed->decompressor) {
+        fprintf(stderr,
+                "Note that a decompressor override has been set: %s\n",
+                state->parsed->decompressor);
+      }
       return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
     }
 
