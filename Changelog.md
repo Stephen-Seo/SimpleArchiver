@@ -2,6 +2,14 @@
 
 ## Upcoming Changes
 
+Fix `--help` text displaying `6` instead of `7` as the default
+`--write-version`.
+
+Fix `--help` text not showing that up to 4-octal-values can be used when
+force-setting permissions.
+
+Update README.md related to help text.
+
 ## Version 3.7.0
 
 Update `cosmopolitan/Makefile` to build with the recently added data-structure.
