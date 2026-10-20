@@ -8859,11 +8859,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       decompressor_cmd = malloc(u16 + 1);
       memcpy((char *)decompressor_cmd, buf, u16 + 1);
       ((char *)decompressor_cmd)[u16] = 0;
-      if ((state->parsed->flags & 0x10000000) == 0) {
+      if (strlen(decompressor_cmd) != u16) {
+        fprintf(stderr,
+                "ERROR: decompressor command contains a NULL-byte before its "
+                "end! This may potentially be a malicious decompressor "
+                "command!\n");
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      } else if ((state->parsed->flags & 0x10000000) == 0) {
         fprintf(stderr,
                 "ERROR: Needs --non-interactive flag to continue: note that the "
-                "decompressor command (%" PRIu16 " characters long) is: %s\n",
+                "decompressor command (%" PRIu16 " characters long) is: %.*s\n",
                 u16,
+                (int)u16,
                 (char *)decompressor_cmd);
         if (state->parsed->decompressor) {
           fprintf(stderr,
@@ -8890,12 +8897,19 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       }
       fprintf(stderr, "Decompressor cmd: %s\n", uc_heap_buf);
       decompressor_cmd = heap_buf;
-      if ((state->parsed->flags & 0x10000000) == 0) {
+      if (strlen(decompressor_cmd) != u16) {
+        fprintf(stderr,
+                "ERROR: decompressor command contains a NULL-byte before its "
+                "end! This may potentially be a malicious decompressor "
+                "command!\n");
+        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+      } else if ((state->parsed->flags & 0x10000000) == 0) {
         fprintf(stderr,
                 "ERROR: Needs --non-interactive flag to continue: note that "
                 "the decompressor command (%" PRIu16 " characters long) is: "
-                "%s\n",
+                "%.*s\n",
                 u16 - 1,
+                (int)(u16 - 1),
                 (char *)decompressor_cmd);
         if (state->parsed->decompressor) {
           fprintf(stderr,
@@ -10245,11 +10259,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
     }
     decompressor_cmd[u16] = 0;
 
-    if ((state->parsed->flags & 0x10000000) == 0) {
+    if (strlen(decompressor_cmd) != u16) {
+      fprintf(stderr,
+              "ERROR: decompressor command contains a NULL-byte before its "
+              "end! This may potentially be a malicious decompressor "
+              "command!\n");
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    } else if ((state->parsed->flags & 0x10000000) == 0) {
       fprintf(stderr,
               "ERROR: Needs --non-interactive flag to continue: note that the "
-              "decompressor command (%" PRIu16 " characters long) is: %s\n",
+              "decompressor command (%" PRIu16 " characters long) is: %.*s\n",
               u16,
+              (int)u16,
               decompressor_cmd);
       if (state->parsed->decompressor) {
         fprintf(stderr,
@@ -11901,11 +11922,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
     }
     decompressor_cmd[u16] = 0;
 
-    if ((state->parsed->flags & 0x10000000) == 0) {
+    if (strlen(decompressor_cmd) != u16) {
+      fprintf(stderr,
+              "ERROR: decompressor command contains a NULL-byte before its "
+              "end! This may potentially be a malicious decompressor "
+              "command!\n");
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    } else if ((state->parsed->flags & 0x10000000) == 0) {
       fprintf(stderr,
               "ERROR: Needs --non-interactive flag to continue: note that the "
-              "decompressor command (%" PRIu16 " characters long) is: %s\n",
+              "decompressor command (%" PRIu16 " characters long) is: %.*s\n",
               u16,
+              (int)u16,
               decompressor_cmd);
       if (state->parsed->decompressor) {
         fprintf(stderr,
@@ -13983,11 +14011,18 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     }
     decompressor_cmd[u16] = 0;
 
-    if ((state->parsed->flags & 0x10000000) == 0) {
+    if (strlen(decompressor_cmd) != u16) {
+      fprintf(stderr,
+              "ERROR: decompressor command contains a NULL-byte before its "
+              "end! This may potentially be a malicious decompressor "
+              "command!\n");
+      return SDA_RET_STRUCT(SDAS_INVALID_FILE);
+    } else if ((state->parsed->flags & 0x10000000) == 0) {
       fprintf(stderr,
               "ERROR: Needs --non-interactive flag to continue: note that the "
-              "decompressor command (%" PRIu16 " characters long) is: %s\n",
+              "decompressor command (%" PRIu16 " characters long) is: %.*s\n",
               u16,
+              (int)u16,
               decompressor_cmd);
       if (state->parsed->decompressor) {
         fprintf(stderr,
