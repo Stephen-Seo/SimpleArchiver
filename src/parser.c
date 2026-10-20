@@ -293,24 +293,24 @@ void simple_archiver_print_usage(void) {
           "--map-group=<GID/Gname>:<GID/Gname> : Maps a GID/Group to "
           "GID/Group\n");
   fprintf(stderr,
-          "--force-file-permissions <3-octal-values> | "
-          "--force-file-permissions=<perms> : Force set permissions for files "
-          "on archive creation/extraction\n  Must be three octal characters "
-          "like \"755\" or \"440\"\n");
+          "--force-file-permissions <3/4-octal-values> | "
+          "--force-file-permissions=<3/4-octal-values> : Force set permissions "
+          "for files on archive creation/extraction\n  Must be three/four "
+          "octal characters like \"755\" or \"440\" or \"4755\"\n");
   fprintf(stderr,
-          "--force-dir-permissions <3-octal-values> | "
-          "--force-dir-permissions=<perms> : Force set permissions for "
-          "directories on archive creation/extraction\n  Must be three octal "
-          "characters like \"755\" or \"440\"\n");
+          "--force-dir-permissions <3/4-octal-values> | "
+          "--force-dir-permissions=<3/4-octal-values> : Force set permissions "
+          "for directories on archive creation/extraction\n  Must be "
+          "three/four octal characters like \"755\" or \"440\" or \"4755\"\n");
   fprintf(stderr,
-          "--force-empty-dir-permissions <3-octal-values> | "
-          "--force-empty-dir-permissions=<perms> : Force set EMPTY dir "
-          "permissions. Like \"--force-dir-permissions\", but for empty "
+          "--force-empty-dir-permissions <3/4-octal-values> | "
+          "--force-empty-dir-permissions=<3/4-octal-vlaues> : Force set EMPTY "
+          "dir permissions. Like \"--force-dir-permissions\", but for empty "
           "directories.\n");
   fprintf(stderr,
-          "--force-prefix-dir-permissions <3-octal-values> | "
-          "--force-prefix-dir-permissions=<perms> : Force set permissions for "
-          "\"--prefix=<dir>\" dir(s) after extraction\n");
+          "--force-prefix-dir-permissions <3/4-octal-values> | "
+          "--force-prefix-dir-permissions=<3/4-octal-values> : Force set "
+          "permissions for \"--prefix=<dir>\" dir(s) after extraction\n");
   fprintf(stderr,
           "--set-prefix-dir-uid <uid> | --set-prefix-dir-uid=<uid> : Set uid on"
           "prefix dir(s) if current user is root\n");

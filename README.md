@@ -49,7 +49,7 @@ API calls.
     --no-safe-links : keep symlinks that link to outside archive contents
     --temp-files-dir <dir> | --temp-files-dir=<dir> : where to store temporary files created when compressing (defaults to same directory as output file) (this is mutually exclusive with "--force-tmpfile")
     --force-tmpfile : Force the use of "tmpfile()" during compression (this is mutually exclusive with "--temp-files-dir")
-    --write-version <version> | --write-version=<version> : Force write version file format (default 5)
+    --write-version <version> | --write-version=<version> : Force write version file format (default 7)
     --chunk-min-size <bytes> | --chunk-min-size=<bytes> : minimum chunk size (default 268435456 or 256MiB) when using chunks (file formats v. 1 and up)
       Note suffixes "KB, KiB, MB, MiB, GB, and GiB" are supported
       Use like "32MiB" without spaces.
@@ -70,30 +70,34 @@ API calls.
       Note that by default Group is preferred over GID
     --map-user <UID/Uname>:<UID/Uname> | --map-user=<UID/Uname>:<UID/Uname> : Maps a UID/Username to UID/Username
     --map-group <GID/Gname>:<GID/Gname> | --map-group=<GID/Gname>:<GID/Gname> : Maps a GID/Group to GID/Group
-    --force-file-permissions <3-octal-values> | --force-file-permissions=<perms> : Force set permissions for files on archive creation/extraction
-      Must be three octal characters like "755" or "440"
-    --force-dir-permissions <3-octal-values> | --force-dir-permissions=<perms> : Force set permissions for directories on archive creation/extraction
-      Must be three octal characters like "755" or "440"
-    --force-empty-dir-permissions <3-octal-values> | --force-empty-dir-permissions=<perms> : Force set EMPTY dir permissions. Like "--force-dir-permissions", but for empty directories.
-    --force-prefix-dir-permissions <3-octal-values> | --force-prefix-dir-permissions=<perms> : Force set permissions for "--prefix=<dir>" dir(s) after extraction
+    --force-file-permissions <3/4-octal-values> | --force-file-permissions=<3/4-octal-values> : Force set permissions for files on archive creation/extraction
+      Must be three/four octal characters like "755" or "440" or "4755"
+    --force-dir-permissions <3/4-octal-values> | --force-dir-permissions=<3/4-octal-values> : Force set permissions for directories on archive creation/extraction
+      Must be three/four octal characters like "755" or "440" or "4755"
+    --force-empty-dir-permissions <3/4-octal-values> | --force-empty-dir-permissions=<3/4-octal-vlaues> : Force set EMPTY dir permissions. Like "--force-dir-permissions", but for empty directories.
+    --force-prefix-dir-permissions <3/4-octal-values> | --force-prefix-dir-permissions=<3/4-octal-values> : Force set permissions for "--prefix=<dir>" dir(s) after extraction
     --set-prefix-dir-uid <uid> | --set-prefix-dir-uid=<uid> : Set uid onprefix dir(s) if current user is root
     --set-prefix-dir-user <user> | --set-prefix-dir-user=<user> : Set user uid on prefix dir(s) if current user is root
     --set-prefix-dir-gid <gid> | --set-prefix-dir-gid=<gid> : Set gid onprefix dir(s) if current user is root
     --set-prefix-dir-group <group> | --set-prefix-dir-group=<group> : Set group gid on prefix dir(s) if current user is root
+    --whitelist-exact <text> | --whitelist-exact=<text> : Whitelist entries that match "<text>", specify multiple times to allow entries that match any of the specified "<text>"s.
     --whitelist-contains-any <text> | --whitelist-contains-any=<text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain any of the specified "<text>"s.
     --whitelist-contains-all <text> | --whitelist-contains-all=<text> : Whitelist entries to contain "<text>", specify multiple times to allow entries that contain all of the specified "<text>"s.
     --whitelist-begins-with <text> | --whitelist-begins-with=<text> : Whitelist entries to start with "<text>", specify multiple times to allow different entries to start with different "<text>" entries.
     --whitelist-ends-with <text> | --whitelist-ends-with=<text> : Whitelist entries to end with "<text>", specify multiple times to allow different entries to end with different "<text>" entries.
+    --blacklist-exact <text> | --blacklist-exact=<text> : Blacklist entries that match "<text>", specify multiple times to deny entries that match any of the specified "<text>"s.
     --blacklist-contains-any <text> | --blacklist-contains-any=<text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain any of the specified "<text>"s.
     --blacklist-contains-all <text> | --blacklist-contains-all=<text> : blacklist entries that contains "<text>", specify multiple times to deny entries that contain all of the specified "<text>"s.
     --blacklist-begins-with <text> | --blacklist-begins-with=<text> : blacklist entries that starts with "<text>", specify multiple times to deny multiple entries starting with different "<text>" entries.
     --blacklist-ends-with <text> | --blacklist-ends-with=<text> : blacklist entries that ends with "<text>", specify multiple times to deny multiple entries ending with different "<text>" entries.
     --wb-case-insensitive : Makes white/black-list checking case insensitive.
+    --archive-exclude-dir <dir> | --archive-exclude-dir=<dir> : exclude listed dir when archiving, can be used multiple times.
     --print-file-exts-preset : Prints the preset extensions to stderr and stops simplearchiver.
     --use-file-exts-preset : Adds preset extensions to collection of file extensions to choose to not compress
     --add-file-ext <ext> | --add-file-ext=<ext> : Add a extension to choose to not compress (must be like ".thing")
     --v6-remove-empty-dirs : Remove dirs that are empty after extraction (but were not empty when archived)
     --v6-remove-leaf-dirs : Also remove leaf dirs even if they normally would be kept
+    --test-max-depth <depth> | --test-max-depth=<depth> : When testing (-t) an archive, do not print files/symlinks that have more forward-slashes than this specified amount
     --version : prints version and exits
     -- : specifies remaining arguments are files to archive/extract
     If creating archive file, remaining args specify files to archive.
