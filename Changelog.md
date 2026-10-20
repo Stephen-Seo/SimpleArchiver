@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Add some validation related to `--non-interactive`.
+
 ## Version 4.2.0
 
 Improve the emitted error related to `--non-interactive`.
