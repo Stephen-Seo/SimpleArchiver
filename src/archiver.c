@@ -8884,6 +8884,13 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
       }
       fprintf(stderr, "Decompressor cmd: %s\n", uc_heap_buf);
       decompressor_cmd = heap_buf;
+      if ((state->parsed->flags & 0x10000000) == 0) {
+        fprintf(stderr,
+                "ERROR: Needs --non-interactive flag to continue: note that "
+                "the decompressor command is: %s\n",
+                (char *)decompressor_cmd);
+        return SDA_RET_STRUCT(SDAS_NEED_BATCH_FLAG);
+      }
       heap_buf = NULL;
     }
   } else {
