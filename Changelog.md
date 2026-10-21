@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 4.3.1
+
 More verbose output when validation of decompressor command fails.
 
 ## Version 4.3.0
