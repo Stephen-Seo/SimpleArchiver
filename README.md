@@ -2,14 +2,14 @@
 
 ## NOTICE
 
-[The 2026-10-20 issue write-up in this repo.](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/SECURITY.md)  
+[The 2026-10-20 issue write-up in this repo.](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/SECURITY.md#2016-10-20-the-decompressor-command)  
 [Writeup about the 2026-10-20 issue here.](https://seodisparate.com/blog/2026-10_SA_security_issue)  
 [Backup gist about the 2026-10-20 issue here.](https://gist.github.com/Stephen-Seo/606a2876112e5d37979da2f856910d07)
 
 Please refer to the [Changelog.md](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/Changelog.md)
 for recent important changes.
 
-[The 2026-03-18 issue write-up in this repo.](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/SECURITY.md)
+[The 2026-03-18 issue write-up in this repo.](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/SECURITY.md#2016-03-18-path-validation)  
 [Writeup about the 2026-03-18 issue here.](https://seodisparate.com/blog/simplearchiver_issue_disclosure/)  
 [Backup gist about the 2026-03-18 issue here.](https://gist.github.com/Stephen-Seo/f804dd6d65f409b93243dd00d4f67452)
 
