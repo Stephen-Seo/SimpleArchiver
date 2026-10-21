@@ -220,6 +220,16 @@ With compression:
 simplearchiver -c -f /tmp/my_archive.sa --compressor gzip --decompressor 'gzip -d' .
 ```
 
+### Expected use case (with decompression)
+
+The expected use-case behavior should be to run `simplearchiver` as usual
+without the `--non-interactive` flag, and should the error message (noting
+`--non-interactive`) be emitted, the user should check the decompressor command
+to ensure it is valid/safe, and then the user should run the command again with
+the `--non-interactive` flag set. If the command is deemed to be unsafe, the
+user has the option to force the decompressor command used with
+`--decompressor`.
+
 ## Additional Info
 
 Check the man page (or
