@@ -470,13 +470,21 @@ none.</p>
 </dd>
 <dt><strong>--non-interactive</strong></dt>
 <dd>
-<p>When testing/extracting an archive, the decompressor command is run
-(if set) to test/extract files. <strong>simplearchiver</strong> will
-refuse to run the decompressor command unless if
-<strong>--non-interactive</strong> is specified. Note that when this
-option is not specified, and test/extract is run on an archive that has
-a decompressor set, an error message will be emitted with the name of
-the decompressor command.</p>
+<p>When testing/extracting an archive, the decompressor command will be
+used (if files in the archive were compressed) to test/extract files.
+<strong>simplearchiver</strong> will refuse to run the decompressor
+command unless if <strong>--non-interactive</strong> is specified. Note
+that when this option is not specified, and test/extract is run on an
+archive that has a decompressor set, an error message will be emitted
+with the name of the decompressor command. The expected use-case
+behavior should be to run <strong>simplearchiver</strong> as usual
+without the <strong>--non-interactive</strong> flag, and should the
+error message (noting <strong>--non-interactive</strong>) be emitted,
+the user should check the decompressor command to ensure it is
+valid/safe, and then the user should run the command again with the
+<strong>--non-interactive</strong> flag set. If the command is deemed to
+be unsafe, the user has the option to force the decompressor command
+used with <strong>--decompressor</strong>.</p>
 </dd>
 <dt><strong>--version</strong></dt>
 <dd>
