@@ -335,12 +335,19 @@ output to only names with no slashes, and a \fIdepth\fR of 1 will restrict
 output to names with 1 slash or none.
 .TP
 .BR --non-interactive
-When testing/extracting an archive, the decompressor command is run (if set) to
-test/extract files. \fBsimplearchiver\fR will refuse to run the decompressor
-command unless if \fB\-\-non\-interactive\fR is specified. Note that when this
-option is not specified, and test/extract is run on an archive that has a
-decompressor set, an error message will be emitted with the name of the
-decompressor command.
+When testing/extracting an archive, the decompressor command will be used (if
+files in the archive were compressed) to test/extract files.
+\fBsimplearchiver\fR will refuse to run the decompressor command unless if
+\fB\-\-non\-interactive\fR is specified. Note that when this option is not
+specified, and test/extract is run on an archive that has a decompressor set,
+an error message will be emitted with the name of the decompressor command. The
+expected use-case behavior should be to run \fBsimplearchiver\fR as usual
+without the \fB\-\-non\-interactive\fR flag, and should the error message
+(noting \fB\-\-non\-interactive\fR) be emitted, the user should check the
+decompressor command to ensure it is valid/safe, and then the user should run
+the command again with the \fB\-\-non\-interactive\fR flag set. If the command
+is deemed to be unsafe, the user has the option to force the decompressor
+command used with \fB\-\-decompressor\fR.
 .TP
 .BR --version
 Prints the current version of \fBsimplearchiver\fR.
