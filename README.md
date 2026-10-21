@@ -2,8 +2,8 @@
 
 ## NOTICE
 
-[The 2026-10-20 issue write-up in this repo.](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/SECURITY.md)
-[Writeup about the 2026-10-20 issue here.](https://seodisparate.com/blog/2026-10_SA_security_issue)
+[The 2026-10-20 issue write-up in this repo.](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/SECURITY.md)  
+[Writeup about the 2026-10-20 issue here.](https://seodisparate.com/blog/2026-10_SA_security_issue)  
 [Backup gist about the 2026-10-20 issue here.](https://gist.github.com/Stephen-Seo/606a2876112e5d37979da2f856910d07)
 
 Please refer to the [Changelog.md](https://github.com/Stephen-Seo/SimpleArchiver/blob/main/Changelog.md)
