@@ -6,7 +6,7 @@ The latest updates for `simplearchiver` adds option `--non-interactive`. This op
 
 ### Vulnerable versions
 
-Note that all versions prior to 4.0.0 of `simplearchiver` is potentially vulnerable to a malicious decompressor command as these prior versions will automatically use the decompressor command without pause (should one exist in the archive). In other words, all version of `simplearchiver` prior to 4.0.0 will run the "decompressor command" without checking during extraction/testing (with `-x` option or `-t` option).
+Note that all versions prior to 4.0.0 of `simplearchiver` is potentially vulnerable to a malicious decompressor command as these prior versions will automatically use the decompressor command without pause (should one exist in the archive). In other words, all versions of `simplearchiver` prior to 4.0.0 will run the "decompressor command" without checking during extraction/testing (with `-x` option or `-t` option).
 
 ### Compressor/Decompressor usage process
 
@@ -15,6 +15,10 @@ Whenever an archive is created with `simplearchiver`, if compression is desired,
 ### How the problem is addressed
 
 The fix is as mentioned a `--non-interactive` flag to set, and MUST ONLY BE SET AFTER CHECKING THE DECOMPRESSOR COMMAND. The error message emitted when `--non-interactive` is required should note the decompressor command to check. Again, if necessary, the decompressor command can be overridden with `--decompressor <command>` when extracting/testing.
+
+### Expected use case
+
+The expected use-case behavior should be to run `simplearchiver` as usual without the `--non-interactive` flag, and should the error message (noting `--non-interactive`) be emitted, the user should check the decompressor command to ensure it is valid/safe, and then the user should run the command again with the `--non-interactive` flag set. If the command is deemed to be unsafe, the user has the option to force the decompressor command used with `--decompressor`.
 
 ### Closing notes
 
