@@ -8864,6 +8864,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                 "ERROR: decompressor command contains a NULL-byte before its "
                 "end! This may potentially be a malicious decompressor "
                 "command!\n");
+        fprintf(stderr,
+                "NOTICE: The decompressor command (that is possibly malicious; "
+                "%zu characters long) is: %s\n",
+                strlen((char *)decompressor_cmd),
+                (char *)decompressor_cmd);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       } else if ((state->parsed->flags & 0x10000000) == 0) {
         fprintf(stderr,
@@ -8902,6 +8907,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                 "ERROR: decompressor command contains a NULL-byte before its "
                 "end! This may potentially be a malicious decompressor "
                 "command!\n");
+        fprintf(stderr,
+                "NOTICE: The decompressor command (that is possibly malicious; "
+                "%zu characters long) is: %s\n",
+                strlen((char *)decompressor_cmd),
+                (char *)decompressor_cmd);
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       } else if ((state->parsed->flags & 0x10000000) == 0) {
         fprintf(stderr,
@@ -10264,6 +10274,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
               "ERROR: decompressor command contains a NULL-byte before its "
               "end! This may potentially be a malicious decompressor "
               "command!\n");
+      fprintf(stderr,
+              "NOTICE: The decompressor command (that is possibly malicious; "
+              "%zu characters long) is: %s\n",
+              strlen((char *)decompressor_cmd),
+              (char *)decompressor_cmd);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     } else if ((state->parsed->flags & 0x10000000) == 0) {
       fprintf(stderr,
@@ -11927,6 +11942,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               "ERROR: decompressor command contains a NULL-byte before its "
               "end! This may potentially be a malicious decompressor "
               "command!\n");
+      fprintf(stderr,
+              "NOTICE: The decompressor command (that is possibly malicious; "
+              "%zu characters long) is: %s\n",
+              strlen((char *)decompressor_cmd),
+              (char *)decompressor_cmd);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     } else if ((state->parsed->flags & 0x10000000) == 0) {
       fprintf(stderr,
@@ -14016,6 +14036,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
               "ERROR: decompressor command contains a NULL-byte before its "
               "end! This may potentially be a malicious decompressor "
               "command!\n");
+      fprintf(stderr,
+              "NOTICE: The decompressor command (that is possibly malicious; "
+              "%zu characters long) is: %s\n",
+              strlen((char *)decompressor_cmd),
+              (char *)decompressor_cmd);
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     } else if ((state->parsed->flags & 0x10000000) == 0) {
       fprintf(stderr,
