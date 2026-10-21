@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+More verbose output when validation of decompressor command fails.
+
 ## Version 4.3.0
 
 Add some validation related to `--non-interactive`.
