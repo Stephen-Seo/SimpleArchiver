@@ -8869,6 +8869,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                 "%zu characters long) is: %s\n",
                 strlen((char *)decompressor_cmd),
                 (char *)decompressor_cmd);
+        if (state->parsed->decompressor) {
+          fprintf(stderr,
+                  "\nNote that a decompressor override has been set: %s\n",
+                  state->parsed->decompressor);
+        }
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       } else if ((state->parsed->flags & 0x10000000) == 0) {
         fprintf(stderr,
@@ -8912,6 +8917,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                 "%zu characters long) is: %s\n",
                 strlen((char *)decompressor_cmd),
                 (char *)decompressor_cmd);
+        if (state->parsed->decompressor) {
+          fprintf(stderr,
+                  "\nNote that a decompressor override has been set: %s\n",
+                  state->parsed->decompressor);
+        }
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       } else if ((state->parsed->flags & 0x10000000) == 0) {
         fprintf(stderr,
@@ -10279,6 +10289,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
               "%zu characters long) is: %s\n",
               strlen((char *)decompressor_cmd),
               (char *)decompressor_cmd);
+      if (state->parsed->decompressor) {
+        fprintf(stderr,
+                "\nNote that a decompressor override has been set: %s\n",
+                state->parsed->decompressor);
+      }
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     } else if ((state->parsed->flags & 0x10000000) == 0) {
       fprintf(stderr,
@@ -11947,6 +11962,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
               "%zu characters long) is: %s\n",
               strlen((char *)decompressor_cmd),
               (char *)decompressor_cmd);
+      if (state->parsed->decompressor) {
+        fprintf(stderr,
+                "\nNote that a decompressor override has been set: %s\n",
+                state->parsed->decompressor);
+      }
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     } else if ((state->parsed->flags & 0x10000000) == 0) {
       fprintf(stderr,
@@ -14041,6 +14061,11 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
               "%zu characters long) is: %s\n",
               strlen((char *)decompressor_cmd),
               (char *)decompressor_cmd);
+      if (state->parsed->decompressor) {
+        fprintf(stderr,
+                "\nNote that a decompressor override has been set: %s\n",
+                state->parsed->decompressor);
+      }
       return SDA_RET_STRUCT(SDAS_INVALID_FILE);
     } else if ((state->parsed->flags & 0x10000000) == 0) {
       fprintf(stderr,
