@@ -8850,11 +8850,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       buf[SIMPLE_ARCHIVER_BUFFER_SIZE - 1] = 0;
-      if (simple_archiver_helper_has_null_before_size(
-            (const char*)buf, u16) != 0) {
-        fprintf(stderr, "ERROR: Invalid decompressor string: \"%s\"!\n", buf);
-        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
-      }
       fprintf(stderr, "Decompressor cmd: %s\n", buf);
       decompressor_cmd = malloc(u16 + 1);
       memcpy((char *)decompressor_cmd, buf, u16 + 1);
@@ -8898,13 +8893,6 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       }
       uc_heap_buf[u16 - 1] = 0;
-      if (simple_archiver_helper_has_null_before_size(
-            (const char*)uc_heap_buf, u16 - 2) != 0) {
-        fprintf(stderr,
-                "ERROR: Invalid decompressor string: \"%s\"!\n",
-                uc_heap_buf);
-        return SDA_RET_STRUCT(SDAS_INVALID_FILE);
-      }
       fprintf(stderr, "Decompressor cmd: %s\n", uc_heap_buf);
       decompressor_cmd = heap_buf;
       if (strlen(decompressor_cmd) != u16) {
