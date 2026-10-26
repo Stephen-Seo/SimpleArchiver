@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 4.3.2
+
 Note the decompressor command override even if the stored decompressor command
 contains an invalid NULL-byte.
 
