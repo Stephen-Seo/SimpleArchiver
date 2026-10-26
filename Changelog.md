@@ -2,6 +2,12 @@
 
 ## Upcoming Changes
 
+Note the decompressor command override even if the stored decompressor command
+contains an invalid NULL-byte.
+
+Remove a redundant check of the decompressor command when parsing file format
+version 0.
+
 ## Version 4.3.1
 
 More verbose output when validation of decompressor command fails.
