@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 4.3.4
+
 Fix `--version` output for both git-version and extra-version strings.
 
 ## Version 4.3.3
