@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Change how version strings are generated for display with `--version`.
+
 ## Version 4.3.2
 
 Note the decompressor command override even if the stored decompressor command
