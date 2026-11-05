@@ -161,6 +161,7 @@ find_program(SED_BINARY NAMES sed)
 
 if(GIT_BINARY AND SH_BINARY AND ECHO_BINARY AND ENV_BINARY AND SED_BINARY)
     message("git_version.h enabled")
+    set(GIT_VERSION_INCLUDE_ENABLED TRUE)
     add_custom_target(GitVersion
         COMMAND sh -c "echo -n \"#define COM_SEODISPARATE_SIMPLE_ARCHIVER_GIT_VERSION_STRING \\\"\" > ${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
         COMMAND sh -c "env GIT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/.git\" git describe --tags --long >> ${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
@@ -170,11 +171,12 @@ if(GIT_BINARY AND SH_BINARY AND ECHO_BINARY AND ENV_BINARY AND SED_BINARY)
     )
     set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
         PROPERTIES
-            COMPILE_FLAGS "--include=${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
+            COMPILE_OPTIONS "--include=${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
             OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
     )
 else()
-message("git_version.h disabled")
+    message("git_version.h disabled")
+    set(GIT_VERSION_INCLUDE_ENABLED FALSE)
 endif()
 
 if(DEFINED SDSA_EXTRA_VERSION_STRING)
@@ -183,8 +185,13 @@ if(DEFINED SDSA_EXTRA_VERSION_STRING)
     file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/extra-version-string.h"
         CONTENT "#define COM_SEODISPARATE_SIMPLE_ARCHIVER_EXTRA_VERSION_STR \"${SDSA_EXTRA_VERSION_STRING}\""
         NEWLINE_STYLE UNIX)
-    set_source_files_properties(src/parser.c
-        PROPERTIES COMPILE_FLAGS "--include=${CMAKE_CURRENT_BINARY_DIR}/extra-version-string.h")
+    if(GIT_VERSION_INCLUDE_ENABLED)
+        set_source_files_properties(src/parser.c
+            PROPERTIES COMPILE_OPTIONS "--include=${CMAKE_CURRENT_BINARY_DIR}/git_version.h;--include=${CMAKE_CURRENT_BINARY_DIR}/extra-version-string.h")
+    else()
+        set_source_files_properties(src/parser.c
+            PROPERTIES COMPILE_OPTIONS "--include=${CMAKE_CURRENT_BINARY_DIR}/extra-version-string.h")
+    endif()
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
