@@ -2045,6 +2045,16 @@ int simple_archiver_parse_args(int argc, const char **argv,
         out->flags |= 0x10000000;
       } else if (strcmp(argv[0], "--version") == 0) {
         fprintf(stderr, "Version: %s\n", SIMPLE_ARCHIVER_VERSION_STR);
+#ifdef COM_SEODISPARATE_SIMPLE_ARCHIVER_GIT_VERSION_STRING
+        fprintf(stderr,
+                "git-version: %s\n",
+                COM_SEODISPARATE_SIMPLE_ARCHIVER_GIT_VERSION_STRING);
+#endif
+#ifdef COM_SEODISPARATE_SIMPLE_ARCHIVER_EXTRA_VERSION_STR
+        fprintf(stderr,
+                "extra version: %s\n",
+                COM_SEODISPARATE_SIMPLE_ARCHIVER_EXTRA_VERSION_STR);
+#endif
         exit(0);
       } else if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] == 0) {
         is_remaining_args = 1;

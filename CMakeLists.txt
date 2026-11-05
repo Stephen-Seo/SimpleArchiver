@@ -153,32 +153,38 @@ if(ENABLE_LIBCAP_LIB_LINK)
     target_link_libraries(test_simplearchiver PRIVATE cap)
 endif()
 
-if(DEFINED SDSA_OVERRIDE_VERSION_STRING)
-    message("Setting version \"${SDSA_OVERRIDE_VERSION_STRING}\"...")
+find_program(GIT_BINARY NAMES git)
+find_program(SH_BINARY NAMES sh)
+find_program(ECHO_BINARY NAMES echo)
+find_program(ENV_BINARY NAMES env)
+find_program(SED_BINARY NAMES sed)
 
-    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/VersionString.h"
-        CONTENT "#define SIMPLE_ARCHIVER_VERSION_STR \"${SDSA_OVERRIDE_VERSION_STRING}\""
-        NEWLINE_STYLE UNIX)
-    set_source_files_properties(src/parser.c
-        PROPERTIES COMPILE_FLAGS "-include ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h")
-elseif(EXISTS /usr/bin/git AND EXISTS /usr/bin/sh AND EXISTS /usr/bin/tr)
-    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/VersionStringTemplate.h"
-        CONTENT "#define SIMPLE_ARCHIVER_VERSION_STR \""
-        NEWLINE_STYLE UNIX)
-
-    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/VersionString.h"
-        BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/VersionStringTemplate.h"
-        COMMAND /usr/bin/sh ARGS -c "cd ${CMAKE_CURRENT_SOURCE_DIR} && git describe --long --tags | cat ${CMAKE_CURRENT_BINARY_DIR}/VersionStringTemplate.h - | tr -d '\\n' > ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h"
-        COMMAND /usr/bin/sh ARGS -c "echo \\\" >> ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h"
-        VERBATIM)
-    set_source_files_properties(src/parser.c
-        PROPERTIES COMPILE_FLAGS "-include ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h")
-
-    add_custom_target(VersionStringCMD
-        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/VersionString.h")
-    add_dependencies(simplearchiver_LIB VersionStringCMD)
+if(GIT_BINARY AND SH_BINARY AND ECHO_BINARY AND ENV_BINARY AND SED_BINARY)
+    message("git_version.h enabled")
+    add_custom_target(GitVersion
+        COMMAND sh -c "echo -n \"#define COM_SEODISPARATE_SIMPLE_ARCHIVER_GIT_VERSION_STRING \\\"\" > ${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
+        COMMAND sh -c "env GIT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/.git\" git describe --tags --long >> ${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
+        COMMAND sed -i -e "1s/$/\\\"/" "${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
+        BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
+        VERBATIM
+    )
+    set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/parser.c"
+        PROPERTIES
+            COMPILE_FLAGS "--include=${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/git_version.h"
+    )
 else()
-    message(WARNING "Unable to generate ${CMAKE_CURRENT_BINARY_DIR}/VersionString.h, which is generated to include the current commit short-hash as part of the programs \"--version\" output")
+message("git_version.h disabled")
+endif()
+
+if(DEFINED SDSA_EXTRA_VERSION_STRING)
+    message("Setting version \"${SDSA_EXTRA_VERSION_STRING}\"...")
+
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/extra-version-string.h"
+        CONTENT "#define COM_SEODISPARATE_SIMPLE_ARCHIVER_EXTRA_VERSION_STR \"${SDSA_EXTRA_VERSION_STRING}\""
+        NEWLINE_STYLE UNIX)
+    set_source_files_properties(src/parser.c
+        PROPERTIES COMPILE_FLAGS "--include=${CMAKE_CURRENT_BINARY_DIR}/extra-version-string.h")
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")

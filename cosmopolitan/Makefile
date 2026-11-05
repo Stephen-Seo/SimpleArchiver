@@ -1,8 +1,8 @@
 COSMOCC ?= ${HOME}/Downloads/cosmocc/bin/cosmocc
 
-VERSION_STR := $(shell /usr/bin/git describe --long --tags || /usr/bin/echo 4.3.2)
+GIT_VERSION_STR := $(shell /usr/bin/git describe --long --tags || /usr/bin/echo 4.3.2)
 
-OTHER_FLAGS := -DSIMPLE_ARCHIVER_VERSION_STR=\"${VERSION_STR}\"
+OTHER_FLAGS := -DCOM_SEODISPARATE_SIMPLE_ARCHIVER_GIT_VERSION_STRING=\"${GIT_VERSION_STR}\"
 
 OBJDIR = objdir
 OUTDIR = out
