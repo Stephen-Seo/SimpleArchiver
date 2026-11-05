@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 4.3.3
+
 Change how version strings are generated for display with `--version`.
 
 ## Version 4.3.2
