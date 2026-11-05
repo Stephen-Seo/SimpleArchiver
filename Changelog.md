@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+Fix `--version` output for both git-version and extra-version strings.
+
 ## Version 4.3.3
 
 Change how version strings are generated for display with `--version`.
