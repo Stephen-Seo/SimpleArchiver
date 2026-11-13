@@ -38,7 +38,7 @@ typedef struct SDArchiverState {
   SDArchiverSKeyHashMap *map;
   size_t count;
   uint64_t max;
-  uint64_t digits;
+  int digits;
 } SDArchiverState;
 
 typedef enum SDArchiverStateReturns {

@@ -18,6 +18,7 @@
 
 #include "helpers.h"
 
+#include <limits.h>
 #include <ctype.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -323,12 +324,19 @@ char *simple_archiver_helper_cut_substr(const char *s, size_t start_idx,
   }
 }
 
-uint64_t simple_archiver_helper_num_digits(uint64_t value) {
-  uint64_t digits = 0;
+int simple_archiver_helper_num_digits(uint64_t value) {
+  int digits = 0;
   do {
+    if (digits == INT_MAX) {
+      return INT_MAX;
+    }
     ++digits;
     value /= 10;
   } while (value != 0);
+
+  if (digits == 0) {
+    digits = 1;
+  }
 
   return digits;
 }
