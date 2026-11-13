@@ -127,12 +127,6 @@ if(BUILD_WITH_DEBUGGING_INFO)
     target_link_options(simplearchiver PUBLIC -g)
 endif()
 
-# Inhibit format-string-related warning in src/archiver.c .
-set_source_files_properties(src/archiver.c
-    PROPERTIES
-        COMPILE_FLAGS -Wno-format-nonliteral
-)
-
 add_executable(test_datastructures
     src/data_structures/test.c
 )
