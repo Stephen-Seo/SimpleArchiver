@@ -2,6 +2,9 @@
 
 ## Upcoming Changes
 
+Refactor output of counts of files/dirs/symlinks/chunks so that each size-int
+printed is always be the width of the maximum value's digit-count.
+
 ## Version 4.3.4
 
 Fix `--version` output for both git-version and extra-version strings.
