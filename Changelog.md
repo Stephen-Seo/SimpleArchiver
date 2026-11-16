@@ -5,6 +5,8 @@
 Refactor output of counts of files/dirs/symlinks/chunks so that each size-int
 printed is always be the width of the maximum value's digit-count.
 
+Minor fixes/changes to CMakeLists.txt .
+
 ## Version 4.3.4
 
 Fix `--version` output for both git-version and extra-version strings.
