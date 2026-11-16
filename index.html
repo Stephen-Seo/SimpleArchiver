@@ -511,8 +511,6 @@ default, the temporary file is stored in the same directory as the
 created archive file. If the output is standard-output or cannot be
 accessed, then tmpfile(3) is used. Options that are related to this
 behavior are:</p>
-</dd>
-</dl>
 <p><strong>--temp-files-dir</strong></p>
 <p><strong>--force-tmpfile</strong></p>
 <p>Note that file format 7 never uses temporary files, even when
@@ -523,6 +521,8 @@ then it stores the "mini-chunk" data immediately after. By doing this,
 the size is stored with the data, causing two things: removing the need
 for a temporary file to store size, and needing to parse every
 "mini-chunk" to get the full size of the "chunk".</p>
+</dd>
+</dl>
 <dl>
 <dt><strong>Chunks</strong></dt>
 <dd>
@@ -541,6 +541,8 @@ put in a chunk before this limit is reached, then the chunk will simply
 stop accumulating files and will be stored/compressed as the last
 chunk.</p>
 </dd>
+</dl>
+<dl>
 <dt><strong>Symbolic Link Handling</strong></dt>
 <dd>
 <p>By default, <strong>simplearchiver</strong> archives both relative
@@ -554,6 +556,8 @@ can be prevented from being stored on archive creation with
 <strong>--preserve-symlinks</strong> will store all symbolic links as is
 when creating an archive.</p>
 </dd>
+</dl>
+<dl>
 <dt><strong>Conditional Chunk Compression Introduced in File Format
 Version 6</strong></dt>
 <dd>
@@ -571,7 +575,9 @@ not used or if no file matches any of the set file extensions, then the
 default behavior is used, which is to compress every chunk if a
 compressor is specified.</p>
 </dd>
-<dt><strong>Checking if <em>chown</em><strong> is
+</dl>
+<dl>
+<dt><strong>Checking if <em>chown</em> <strong>is
 Available</strong></strong></dt>
 <dd>
 <p>If <em>libcap</em> support is compiled/available, then the
@@ -580,10 +586,10 @@ check if the user is root to change file/directory permissions. Note
 that file/directory ownership are always stored when archiving, but when
 extracting ownership is not set on extracted files/dirs unless if the
 user is root or has <em>CAP_CHOWN</em>.</p>
-</dd>
-</dl>
 <p>The check for whether or not <em>chown</em> can be used works as
 follows:</p>
+</dd>
+</dl>
 <ul>
 <li><p>Check if current user is root. If is root, then can
 <em>chown</em>.</p></li>
