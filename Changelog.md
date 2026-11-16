@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 4.3.5
+
 Refactor output of counts of files/dirs/symlinks/chunks so that each size-int
 printed is always be the width of the maximum value's digit-count.
 
