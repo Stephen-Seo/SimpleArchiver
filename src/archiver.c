@@ -46,11 +46,6 @@
 #include "parser.h"
 #include "users.h"
 
-#define FILE_COUNTS_OUTPUT_FORMAT_STR_0 \
-  "\nFile %%%" PRIu64 PRIu32 " of %%%" PRIu64 PRIu32 ".\n"
-#define FILE_COUNTS_OUTPUT_FORMAT_STR_1 \
-  "[%%%" PRIu64 "zu/%%%" PRIu64 PRIu64 "]\n"
-
 #define SD_SA_32KiB (32 * 1024)
 #define SD_SA_V7_HOLD_SIZE (SD_SA_32KiB * 4)
 #define SD_SA_V7_2ND_OFFSET (SD_SA_32KiB * 2)
@@ -971,10 +966,12 @@ int write_files_fn_file_v0(void *data, void *ud) {
       // Skipped symlink.
       simple_archiver_list_get(to_write, write_list_datas_fn, state->out_f);
       simple_archiver_list_free(&to_write);
-      char format_str[64];
-      snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
-               state->digits);
-      fprintf(stderr, format_str, ++(state->count), state->max);
+      fprintf(stderr,
+              "[%*zu/%*" PRIu64 "]\n",
+              state->digits,
+              ++(state->count),
+              state->digits,
+              state->max);
       return 0;
     }
 
@@ -1083,10 +1080,12 @@ int write_files_fn_file_v0(void *data, void *ud) {
     simple_archiver_list_free(&to_write);
   }
 
-  char format_str[64];
-  snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
-           state->digits);
-  fprintf(stderr, format_str, ++(state->count), state->max);
+  fprintf(stderr,
+          "[%*zu/%*" PRIu64 "]\n",
+          state->digits,
+          ++(state->count),
+          state->digits,
+          state->max);
 
   if (is_sig_int_occurred) {
     return 1;
@@ -3339,10 +3338,12 @@ SDArchiverStateRetStruct simple_archiver_write_v0(
       return SDA_RET_STRUCT(1);
     }
   }
-  char format_str[64];
-  snprintf(format_str, 64, FILE_COUNTS_OUTPUT_FORMAT_STR_1, state->digits,
-           state->digits);
-  fprintf(stderr, format_str, state->count, state->max);
+  //fprintf(stderr,
+  //        "[%.*zu/%.*" PRIu64 "]\n",
+  //        state->digits,
+  //        state->count,
+  //        state->digits,
+  //        state->max);
 
   __attribute__((cleanup(cleanup_ptr_array_just_array)))
   void **ptr_array = malloc(sizeof(void*) * 3);
@@ -3576,6 +3577,7 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   {
     fprintf(stderr, "Archiving Symlinks\n");
     const SDArchiverSLNode *node = symlinks_list->head;
+    const int digits = simple_archiver_helper_num_digits(symlinks_list->count);
     for (u32 = 0;
          u32 < (uint32_t)symlinks_list->count && node != symlinks_list->tail;) {
       node = node->next;
@@ -3853,8 +3855,10 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
 
       if (!is_invalid) {
         fprintf(stderr,
-                "  SYMLINK: %7" PRIu32 " of %7" PRIu64 ": %s\n",
+                "  SYMLINK: %*" PRIu32 " of %*" PRIu64 ": %s\n",
+                digits,
                 u32,
+                digits,
                 symlinks_list->count,
                 node_str);
       }
@@ -3942,14 +3946,17 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
   uint64_t *files_compressed_size = malloc(sizeof(uint64_t));
   *files_compressed_size = 0;
 
+  const int digits = simple_archiver_helper_num_digits(chunk_counts->count);
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail; chunk_c_node = chunk_c_node->next) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
-            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
+            "CHUNK %*" PRIu64 " of %*" PRIu64 "\n",
+            digits,
             ++chunk_count,
+            digits,
             chunk_counts->count);
     // Write file count before iterating through files.
     if (non_c_chunk_size) {
@@ -4152,6 +4159,8 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
           simple_archiver_internal_cleanup_int_fd))) int pipe_into_write =
           pipe_into_cmd[1];
 
+      const int digits =
+        simple_archiver_helper_num_digits(*((uint64_t *)chunk_c_node->data));
       int_fast8_t to_temp_finished = 0;
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
@@ -4164,8 +4173,10 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                digits,
                 file_idx + 1,
+                digits,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
@@ -4354,6 +4365,8 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
       }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
+      const int digits =
+        simple_archiver_helper_num_digits(*((uint64_t *)chunk_c_node->data));
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
@@ -4365,8 +4378,10 @@ SDArchiverStateRetStruct simple_archiver_write_v1(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                digits,
                 file_idx + 1,
+                digits,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
@@ -4604,6 +4619,7 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
   {
     fprintf(stderr, "Archiving Symlinks\n");
     const SDArchiverSLNode *node = symlinks_list->head;
+    const int digits = simple_archiver_helper_num_digits(symlinks_list->count);
     for (u32 = 0;
          u32 < (uint32_t)symlinks_list->count && node != symlinks_list->tail;) {
       node = node->next;
@@ -4881,8 +4897,10 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
 
       if (!is_invalid) {
         fprintf(stderr,
-                "  SYMLINK: %7" PRIu32 " of %7" PRIu64 ": %s\n",
+                "  SYMLINK: %*" PRIu32 " of %*" PRIu64 ": %s\n",
+                digits,
                 u32,
+                digits,
                 symlinks_list->count,
                 node_str);
       }
@@ -4974,14 +4992,17 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
 
   SDArchiverLLNode *file_node = files_list->head;
   uint64_t chunk_count = 0;
+  const int digits = simple_archiver_helper_num_digits(chunk_counts->count);
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail; chunk_c_node = chunk_c_node->next) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
-            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
+            "CHUNK %*" PRIu64 " of %*" PRIu64 "\n",
+            digits,
             ++chunk_count,
+            digits,
             chunk_counts->count);
     // Write file count before iterating through files.
     if (non_c_chunk_size) {
@@ -5180,6 +5201,8 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
           simple_archiver_internal_cleanup_int_fd))) int pipe_into_write =
           pipe_into_cmd[1];
 
+      const int digits =
+        simple_archiver_helper_num_digits(*((uint64_t *)chunk_c_node->data));
       int_fast8_t to_temp_finished = 0;
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
@@ -5192,8 +5215,10 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                digits,
                 file_idx + 1,
+                digits,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
@@ -5382,6 +5407,8 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
       }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
+      const int digits =
+        simple_archiver_helper_num_digits(*((uint64_t *)chunk_c_node->data));
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
@@ -5393,8 +5420,10 @@ SDArchiverStateRetStruct simple_archiver_write_v2(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                digits,
                 file_idx + 1,
+                digits,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
@@ -5659,6 +5688,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   {
     fprintf(stderr, "Archiving Symlinks\n");
     const SDArchiverSLNode *node = symlinks_list->head;
+    const int digits = simple_archiver_helper_num_digits(symlinks_list->count);
     uint32_t idx;
     for (idx = 0;
          idx < (uint32_t)symlinks_list->count && node != symlinks_list->tail;) {
@@ -6081,8 +6111,10 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
 
       if (!is_invalid) {
         fprintf(stderr,
-                "  SYMLINK: %7" PRIu32 " of %7" PRIu64 ": %s\n",
+                "  SYMLINK: %*" PRIu32 " of %*" PRIu64 ": %s\n",
+                digits,
                 idx,
+                digits,
                 symlinks_list->count,
                 node_str);
       }
@@ -6173,6 +6205,7 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
   *files_compressed_size = 0;
 
   SDArchiverLLNode *file_node = files_list->head;
+  const int digits = simple_archiver_helper_num_digits(chunk_counts->count);
   uint64_t chunk_count = 0;
   for (SDArchiverLLNode *chunk_c_node = chunk_counts->head->next;
        chunk_c_node != chunk_counts->tail; chunk_c_node = chunk_c_node->next) {
@@ -6180,8 +6213,10 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
-            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
+            "CHUNK %*" PRIu64 " of %*" PRIu64 "\n",
+            digits,
             ++chunk_count,
+            digits,
             chunk_counts->count);
     // Write file count before iterating through files.
     if (non_c_chunk_size) {
@@ -6467,6 +6502,8 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
           simple_archiver_internal_cleanup_int_fd))) int pipe_into_write =
           pipe_into_cmd[1];
 
+      const int digits =
+        simple_archiver_helper_num_digits(*((uint64_t *)chunk_c_node->data));
       int_fast8_t to_temp_finished = 0;
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
@@ -6479,8 +6516,10 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                digits,
                 file_idx + 1,
+                digits,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
@@ -6669,6 +6708,8 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
       }
       simple_archiver_helper_64_bit_be(non_c_chunk_size);
       fwrite(non_c_chunk_size, 8, 1, out_f);
+      const int digits =
+        simple_archiver_helper_num_digits(*((uint64_t *)chunk_c_node->data));
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
@@ -6680,8 +6721,10 @@ SDArchiverStateRetStruct simple_archiver_write_v3(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                digits,
                 file_idx + 1,
+                digits,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
@@ -7113,14 +7156,18 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
       }
     }
 
+    const int digits =
+      simple_archiver_helper_num_digits(state->parsed->working_dirs->count);
     uint64_t dir_count = 0;
     for (SDArchiverLLNode *next = state->parsed->working_dirs->head->next;
          next != state->parsed->working_dirs->tail;
          next = next->next) {
       const char *dir_path = next->data;
       fprintf(stderr,
-              "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
+              "  DIR: %*" PRIu64 " of %*" PRIu64 ": %s\n",
+              digits,
               ++dir_count,
+              digits,
               state->parsed->working_dirs->count,
               dir_path);
       u32 = (uint32_t)strlen(dir_path);
@@ -7377,6 +7424,7 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   {
     fprintf(stderr, "Archiving Symlinks\n");
     const SDArchiverSLNode *node = symlinks_list->head;
+    const int digits = simple_archiver_helper_num_digits(symlinks_list->count);
     uint64_t idx;
     for (idx = 0;
          idx < symlinks_list->count && node != symlinks_list->tail;) {
@@ -7779,8 +7827,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
 
       if (!is_invalid) {
         fprintf(stderr,
-                "  SYMLINK: %7" PRIu64 " of %7" PRIu64 ": %s\n",
+                "  SYMLINK: %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                digits,
                 idx,
+                digits,
                 symlinks_list->count,
                 node_str);
       }
@@ -7885,6 +7935,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
   uint64_t *files_compressed_size = malloc(sizeof(uint64_t));
   *files_compressed_size = 0;
 
+  const int chunk_digits =
+    simple_archiver_helper_num_digits(chunk_counts->count);
   SDArchiverLLNode *file_node = files_list->head;
   uint64_t chunk_count = 0;
   int_fast8_t v5_to_write_header;
@@ -7897,8 +7949,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
     }
     v5_to_write_header = state->parsed->write_version >= 5 ? 1 : 0;
     fprintf(stderr,
-            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
+            "CHUNK %*" PRIu64 " of %*" PRIu64 "\n",
+            chunk_digits,
             ++chunk_count,
+            chunk_digits,
             chunk_counts->count);
     // Write file count before iterating through files.
     if (non_c_chunk_size) {
@@ -8229,8 +8283,9 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
       char v7_hold_buf[SD_SA_V7_HOLD_SIZE];
       size_t v7_hold_buf_idx = 0;
       uint_fast8_t is_first_half = 1;
-
       int_fast8_t to_temp_finished = 0;
+      const int digits =
+        simple_archiver_helper_num_digits(*((uint64_t *)chunk_c_node->data));
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
@@ -8242,8 +8297,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %7" PRIu64 " of %7" PRIu64 ": %s\n",
+                "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                digits,
                 file_idx + 1,
+                digits,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
@@ -8588,6 +8645,8 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
         }
         v5_to_write_header = 0;
       }
+      const int digits =
+        simple_archiver_helper_num_digits(*((uint64_t *)chunk_c_node->data));
       for (uint64_t file_idx = 0; file_idx < *((uint64_t *)chunk_c_node->data);
            ++file_idx) {
         if (is_sig_int_occurred) {
@@ -8599,8 +8658,10 @@ SDArchiverStateRetStruct simple_archiver_write_v4v5v6v7(
         }
         const SDArchiverInternalFileInfo *file_info_struct = file_node->data;
         fprintf(stderr,
-                "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                digits,
                 file_idx + 1,
+                digits,
                 *(uint64_t *)chunk_c_node->data,
                 file_info_struct->filename);
         __attribute__((cleanup(simple_archiver_helper_cleanup_FILE))) FILE *fd =
@@ -8945,9 +9006,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
   }
 
   const uint32_t size = u32;
-  const uint64_t digits = simple_archiver_helper_num_digits(size);
-  char format_str[128];
-  snprintf(format_str, 128, FILE_COUNTS_OUTPUT_FORMAT_STR_0, digits, digits);
+  const int digits = simple_archiver_helper_num_digits(size);
   int_fast8_t skip;
 
   __attribute__((cleanup(simple_archiver_list_free)))
@@ -9033,7 +9092,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
               || simple_archiver_helper_str_slash_count((const char*)buf)
                  <= state->parsed->test_max_depth)) {
         max_depth_allowed = 1;
-        fprintf(stderr, format_str, idx + 1, size);
+        fprintf(stderr,
+                "\nFILE %*" PRIu32 " of %*" PRIu32 ".\n",
+                digits,
+                idx + 1,
+                digits,
+                size);
         fprintf(stderr, "  Filename: %s\n", buf);
       }
       if (simple_archiver_validate_file_path((char *)buf)) {
@@ -9143,7 +9207,12 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
                    (const char *)uc_heap_buf)
                  <= state->parsed->test_max_depth)) {
         max_depth_allowed = 1;
-        fprintf(stderr, format_str, idx + 1, size);
+        fprintf(stderr,
+                "\nFILE %*" PRIu32 " of %*" PRIu32 ".\n",
+                digits,
+                idx + 1,
+                digits,
+                size);
         fprintf(stderr, "  Filename: %s\n", uc_heap_buf);
       }
 
@@ -10329,6 +10398,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
 
   int_fast8_t did_print_skipped_link = 0;
 
+  const int digits = simple_archiver_helper_num_digits(u32);
   for (uint32_t idx = 0; idx < u32; ++idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -10407,8 +10477,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
       not_tested_once = 0;
       if (max_depth_allowed) {
         fprintf(stderr,
-                "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n",
+                "SYMLINK %*" PRIu32 " of %*" PRIu32 "\n",
+                digits,
                 idx + 1,
+                digits,
                 u32);
         if (is_invalid) {
           fprintf(stderr,
@@ -10741,14 +10813,17 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t chunk_count = u32;
+  const int chunk_digits = simple_archiver_helper_num_digits(chunk_count);
   int_fast8_t skip_chunk;
   for (uint32_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
-            "CHUNK %3" PRIu32 " of %3" PRIu32 "\n",
+            "CHUNK %*" PRIu32 " of %*" PRIu32 "\n",
+            chunk_digits,
             chunk_idx + 1,
+            chunk_digits,
             chunk_count);
 
     skip_chunk = 1;
@@ -11174,6 +11249,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         0
       };
 
+      const int digits = simple_archiver_helper_num_digits(file_count);
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -11185,8 +11261,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
 
         if ((file_info->other_flags & 0xE) == 0xE) {
           fprintf(stderr,
-                  "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
+                  "  FILE %*" PRIu32 " of %*" PRIu32 ": %s\n",
+                  digits,
                   ++file_idx,
+                  digits,
                   file_count,
                   file_info->filename);
         }
@@ -11327,6 +11405,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         fprintf(stderr, "WARNING decompressor didn't reach EOF!\n");
       }
     } else {
+      const int digits = simple_archiver_helper_num_digits(file_count);
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -11335,8 +11414,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_1(
         const SDArchiverInternalFileInfo *file_info = node->data;
         if ((file_info->other_flags & 0xE) == 0xE) {
           fprintf(stderr,
-                  "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
+                  "  FILE %*" PRIu32 " of %*" PRIu32 ": %s\n",
+                  digits,
                   ++file_idx,
+                  digits,
                   file_count,
                   file_info->filename);
         }
@@ -12003,6 +12084,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   int_fast8_t did_print_skipped_link = 0;
 
   const uint32_t count = u32;
+  const int link_digits = simple_archiver_helper_num_digits(count);
   for (uint32_t idx = 0; idx < count; ++idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -12081,8 +12163,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
       not_tested_once = 0;
       if (max_depth_allowed) {
         fprintf(stderr,
-                "SYMLINK %3" PRIu32 " of %3" PRIu32 "\n",
+                "SYMLINK %*" PRIu32 " of %*" PRIu32 "\n",
+                link_digits,
                 idx + 1,
+                link_digits,
                 count);
         if (is_invalid) {
           fprintf(stderr,
@@ -12687,14 +12771,17 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
   simple_archiver_helper_32_bit_be(&u32);
 
   const uint32_t chunk_count = u32;
+  const int chunk_digits = simple_archiver_helper_num_digits(chunk_count);
   int_fast8_t skip_chunk;
   for (uint32_t chunk_idx = 0; chunk_idx < chunk_count; ++chunk_idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
     }
     fprintf(stderr,
-            "CHUNK %3" PRIu32 " of %3" PRIu32 "\n",
+            "CHUNK %*" PRIu32 " of %*" PRIu32 "\n",
+            chunk_digits,
             chunk_idx + 1,
+            chunk_digits,
             chunk_count);
 
     skip_chunk = 1;
@@ -13207,6 +13294,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         0
       };
 
+      const int digits = simple_archiver_helper_num_digits(file_count);
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -13219,8 +13307,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
 
         if ((file_info->other_flags & 0xE) == 0xE) {
           fprintf(stderr,
-                  "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
+                  "  FILE %*" PRIu32 " of %*" PRIu32 ": %s\n",
+                  digits,
                   file_idx,
+                  digits,
                   file_count,
                   file_info->filename);
         }
@@ -13371,6 +13461,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         fprintf(stderr, "WARNING decompressor didn't reach EOF!\n");
       }
     } else {
+      const int digits = simple_archiver_helper_num_digits(file_count);
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -13380,8 +13471,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_3(
         ++file_idx;
         if (do_extract || (file_info->other_flags & 0xE) == 0xE) {
           fprintf(stderr,
-                  "  FILE %3" PRIu32 " of %3" PRIu32 ": %s\n",
+                  "  FILE %*" PRIu32 " of %*" PRIu32 ": %s\n",
+                  digits,
                   file_idx,
+                  digits,
                   file_count,
                   file_info->filename);
         }
@@ -14109,6 +14202,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     __attribute__((cleanup(simple_archiver_helper_cleanup_c_string)))
     char *abs_path_dir = realpath(".", NULL);
 
+    const int dir_digits = simple_archiver_helper_num_digits(dir_count);
     for (uint64_t dir_idx = 0; dir_idx < dir_count; ++dir_idx) {
       if (fread(&u32, 4, 1, in_f) != 1) {
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
@@ -14135,8 +14229,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
 
       if (do_extract || max_depth_allowed) {
         fprintf(stderr,
-                "  DIR: %7" PRIu64 " of %7" PRIu64 ": %s\n",
+                "  DIR: %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                dir_digits,
                 dir_idx + 1,
+                dir_digits,
                 dir_count,
                 dir_path);
       }
@@ -14440,6 +14536,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
   int_fast8_t did_print_skipped_link = 0;
 
   const uint64_t count = u64;
+  const int link_digits = simple_archiver_helper_num_digits(count);
   for (uint64_t idx = 0; idx < count; ++idx) {
     if (is_sig_int_occurred) {
       return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -14520,8 +14617,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
       not_tested_once = 0;
       if (max_depth_allowed) {
         fprintf(stderr,
-                "SYMLINK %3" PRIu64 " of %3" PRIu64 "\n",
+                "SYMLINK %*" PRIu64 " of %*" PRIu64 "\n",
+                link_digits,
                 idx + 1,
+                link_digits,
                 count);
         if (is_invalid) {
           fprintf(stderr,
@@ -15133,6 +15232,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
   simple_archiver_helper_64_bit_be(&u64);
 
   const uint64_t chunk_count = u64;
+  const int chunk_digits = simple_archiver_helper_num_digits(chunk_count);
   int_fast8_t skip_chunk;
   int_fast8_t v5_to_skip;
   uint64_t not_compressed_size = 0;
@@ -15142,8 +15242,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
     }
     v5_to_skip = state->parsed->write_version >= 5 ? 1 : 0;
     fprintf(stderr,
-            "CHUNK %3" PRIu64 " of %3" PRIu64 "\n",
+            "CHUNK %*" PRIu64 " of %*" PRIu64 "\n",
+            chunk_digits,
             chunk_idx + 1,
+            chunk_digits,
             chunk_count);
 
     skip_chunk = 1;
@@ -15717,6 +15819,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         0
       };
 
+      const int digits = simple_archiver_helper_num_digits(file_count);
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -15730,8 +15833,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         if ((file_info->other_flags & 6) == 6
             && (do_extract || (file_info->other_flags & 8) == 8)) {
           fprintf(stderr,
-                  "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                  "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                  digits,
                   file_idx,
+                  digits,
                   file_count,
                   file_info->filename);
         }
@@ -15944,6 +16049,7 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         fprintf(stderr, "WARNING decompressor didn't reach EOF!\n");
       }
     } else {
+      const int digits = simple_archiver_helper_num_digits(file_count);
       while (node->next != file_info_list->tail) {
         if (is_sig_int_occurred) {
           return SDA_RET_STRUCT(SDAS_SIGINT);
@@ -15954,8 +16060,10 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_4_5_6_7(
         if ((file_info->other_flags & 6) == 6
             && (do_extract || (file_info->other_flags & 8) == 8)) {
           fprintf(stderr,
-                  "  FILE %3" PRIu64 " of %3" PRIu64 ": %s\n",
+                  "  FILE %*" PRIu64 " of %*" PRIu64 ": %s\n",
+                  digits,
                   file_idx,
+                  digits,
                   file_count,
                   file_info->filename);
         }
