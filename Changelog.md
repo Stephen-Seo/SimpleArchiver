@@ -2,6 +2,18 @@
 
 ## Upcoming Changes
 
+Refactor how white/black-lists are handled
+
+Check against blacklists first if they exist. Then check against whitelists if
+they exist.
+
+ - If both white/black-lists exists, check against blacklists first, then
+   against whitelists, and don't allow if not in whitelists.
+ - If only white-lists exists, check against whitelists, don't allow if not in
+   whitelists.
+ - If only black-lists exists, check against blacklists, and allow if not in
+   blacklists.
+
 ## Version 4.3.5
 
 Refactor output of counts of files/dirs/symlinks/chunks so that each size-int
