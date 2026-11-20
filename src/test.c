@@ -1097,7 +1097,7 @@ TEST_HELPERS_PREFIX_END:
                                                     1,
                                                     &parsed) == 0);
 
-    // whitelist that has more precedence over blacklist
+    // blacklist has more precedence than whitelist
     parsed.whitelist_exact = simple_archiver_skey_hash_map_init();
     simple_archiver_skey_hash_map_insert(
         parsed.whitelist_exact,
@@ -1113,11 +1113,11 @@ TEST_HELPERS_PREFIX_END:
         simple_archiver_helper_datastructure_cleanup_nop);
     free((void *)lower);
 
-    CHECK_TRUE(
+    CHECK_FALSE(
         simple_archiver_helper_string_allowed_lists("the_TEST_string",
                                                     0,
                                                     &parsed) != 0);
-    CHECK_TRUE(
+    CHECK_FALSE(
         simple_archiver_helper_string_allowed_lists("the_TEST_string",
                                                     1,
                                                     &parsed) != 0);
@@ -1125,7 +1125,7 @@ TEST_HELPERS_PREFIX_END:
         simple_archiver_helper_string_allowed_lists("the_test_string",
                                                     0,
                                                     &parsed) == 0);
-    CHECK_TRUE(
+    CHECK_FALSE(
         simple_archiver_helper_string_allowed_lists("the_test_string",
                                                     1,
                                                     &parsed) != 0);

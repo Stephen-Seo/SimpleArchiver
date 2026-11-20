@@ -8933,8 +8933,9 @@ SDArchiverStateRetStruct simple_archiver_parse_archive_version_0(
         return SDA_RET_STRUCT(SDAS_INVALID_FILE);
       } else if ((state->parsed->flags & 0x10000000) == 0) {
         fprintf(stderr,
-                "ERROR: Needs --non-interactive flag to continue: note that the "
-                "decompressor command (%" PRIu16 " characters long) is: %.*s\n",
+                "ERROR: Needs --non-interactive flag to continue: note that "
+                "the decompressor command (%" PRIu16 " characters long) is: "
+                "%.*s\n",
                 u16,
                 (int)u16,
                 (char *)decompressor_cmd);
