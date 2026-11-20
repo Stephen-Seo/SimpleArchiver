@@ -13,6 +13,10 @@ they exist.
    whitelists.
  - If only black-lists exists, check against blacklists, and allow if not in
    blacklists.
+ - If no white/black-lists exists, then allow by default.
+
+Note that the previous behavior was to only use whitelists if both white/black
+lists were specified.
 
 ## Version 4.3.5
 
