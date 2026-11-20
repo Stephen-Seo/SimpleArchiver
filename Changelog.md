@@ -2,6 +2,8 @@
 
 ## Upcoming Changes
 
+## Version 4.3.6
+
 Refactor how white/black-lists are handled
 
 Check against blacklists first if they exist. Then check against whitelists if
